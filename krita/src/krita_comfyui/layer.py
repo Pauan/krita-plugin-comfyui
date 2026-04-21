@@ -16,6 +16,23 @@ class Bounds(NamedTuple):
     def from_qrect(qrect: QRect):
         return Bounds(qrect.x(), qrect.y(), qrect.width(), qrect.height())
 
+
+    def clamp_to_parent(self, parent):
+        x = max(parent.x, self.x)
+        y = max(parent.y, self.y)
+        width = max(0, min(parent.x + parent.width, self.x + self.width) - x)
+        height = max(0, min(parent.y + parent.height, self.y + self.height) - y)
+
+        assert x >= parent.x
+        assert y >= parent.y
+        assert width >= 0
+        assert height >= 0
+        assert (x + width) <= (parent.x + parent.width)
+        assert (y + height) <= (parent.y + parent.height)
+
+        return Bounds(x, y, width, height)
+
+
     def area(self):
         return self.width * self.height
 

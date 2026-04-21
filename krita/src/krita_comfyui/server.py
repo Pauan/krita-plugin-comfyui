@@ -3,7 +3,7 @@ from aiohttp import web
 import threading
 import asyncio
 import json
-from .layer import (Bounds, Layer)
+from .layer import (Bounds, Layer, Image)
 
 
 # Starts the web server in a separate thread
@@ -68,8 +68,6 @@ class Server:
 
         @routes.get("/krita-layers")
         async def krita_layers(request):
-            print("KRITA-LAYERS")
-
             name = request.query["name"]
             mode = request.query["mode"]
             format = request.query["format"]
@@ -119,6 +117,56 @@ class Server:
 
             return success({
                 "images": images,
+            })
+
+
+        @routes.get("/krita-canvas")
+        async def krita_canvas(request):
+            format = request.query["format"]
+
+            if format != "png":
+                return error("format must be png")
+
+
+            document = Krita.instance().activeDocument()
+
+            if document is None:
+                return error("Krita does not have an opened image")
+
+
+            bounds = Bounds.from_qrect(document.bounds())
+
+            image = Image(document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+
+            return success({
+                "png": image.to_base64("png", 9),
+                "width": bounds.width,
+                "height": bounds.height,
+            })
+
+
+        @routes.get("/krita-selection")
+        async def krita_selection(request):
+            document = Krita.instance().activeDocument()
+
+            if document is None:
+                return error("Krita does not have an opened image")
+
+            bounds = Bounds.from_qrect(document.bounds())
+
+            selection = document.selection()
+
+            if selection is not None:
+                selection = Bounds(selection.x(), selection.y(), selection.width(), selection.height()).clamp_to_parent(bounds)
+            else:
+                selection = bounds
+
+            return success({
+                "active": selection != bounds,
+                "x": selection.x,
+                "y": selection.y,
+                "width": selection.width,
+                "height": selection.height,
             })
 
 
