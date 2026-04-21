@@ -1,7 +1,9 @@
+from krita import Krita
 from aiohttp import web
 import threading
 import asyncio
 import json
+from .layer import (Layer)
 
 
 # Starts the web server in a separate thread
@@ -18,16 +20,12 @@ def start_server(loop, routes, event, host, port):
             site = web.TCPSite(runner, host, port)
             await site.start()
 
-            print("SERVER STARTED")
-
             # Wait for the shutdown event
             await event.wait()
 
         # When the shutdown event happens, gracefully cleanup the server
         finally:
-            print("CLEANUP")
             await runner.cleanup()
-            print("CLEANUP DONE")
 
     # Runs the run_async future in the event loop
     # This blocks the thread until it finishes
@@ -40,6 +38,16 @@ def start_server(loop, routes, event, host, port):
     thread.start()
 
     return thread
+
+
+def success(message):
+    return web.Response(text=json.dumps(message))
+
+
+def error(message):
+    return web.Response(text=json.dumps({
+        "error": message,
+    }))
 
 
 class Server:
@@ -57,6 +65,7 @@ class Server:
     def setup_routes(self):
         routes = web.RouteTableDef()
 
+
         @routes.get("/krita-layers")
         async def krita_layers(request):
             print("KRITA-LAYERS")
@@ -64,14 +73,51 @@ class Server:
             name = request.query["name"]
             mode = request.query["mode"]
 
-            print(name)
-            print(mode)
+            document = Krita.instance().activeDocument()
 
-            return web.Response(text=json.dumps({
-                "foo": "HI",
-                "name": name,
-                "mode": mode,
-            }))
+            if document is None:
+                return error("Krita does not have an opened image")
+
+
+            layer = Layer(document.rootNode()).find_layer(name)
+
+            if layer is None:
+                return error("Could not find layer {}".format(name))
+
+
+            images = []
+            masks = []
+            names = []
+
+
+            def add_image(layer):
+                images.append("<IMAGE>")
+                masks.append("<MASK>")
+                names.append(layer.name)
+
+
+            if mode == "individual":
+                if layer.type.is_image():
+                    add_image(layer)
+
+                for child in layer.all_children():
+                    if child.type.is_image():
+                        add_image(child)
+
+            elif mode == "flatten":
+                if layer.type.is_image() or layer.type.is_group():
+                    add_image(layer)
+
+            else:
+                return error("mode must be individual or flatten")
+
+
+            return success({
+                "images": images,
+                "masks": masks,
+                "names": names,
+            })
+
 
         return routes
 

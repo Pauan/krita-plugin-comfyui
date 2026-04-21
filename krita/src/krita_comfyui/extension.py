@@ -7,11 +7,7 @@ class ComfyUIExtension(Extension):
     def __init__(self, parent):
         super().__init__(parent)
 
-        print("INIT")
-
         self.server = Server()
-
-        print(parent is Krita.instance())
 
         notifier = parent.notifier()
         notifier.setActive(True)
@@ -23,16 +19,8 @@ class ComfyUIExtension(Extension):
 
 
     def setup(self):
-        print("SETUP")
-
         self.server.start()
-
-        print("SETUP DONE")
 
 
     def shutdown(self):
-        print("SHUTDOWN")
-
         self.server.stop()
-
-        print("SHUTDOWN DONE")
