@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=Krita/PythonPlugin
+X-KDE-Library=krita_comfyui
+X-Python-2-Compatible=false
+X-Krita-Manual=manual.html
+Name=Krita ComfyUI
+Comment=Integrates Krita with ComfyUI
