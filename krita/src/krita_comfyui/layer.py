@@ -1,5 +1,65 @@
 from enum import Enum
 from PyQt6 import sip
+from typing import NamedTuple
+
+from PyQt6.QtCore import QByteArray, QRect, QBuffer
+from PyQt6.QtGui import QImage, QImageWriter
+
+
+class Bounds(NamedTuple):
+    x: int
+    y: int
+    width: int
+    height: int
+
+    @staticmethod
+    def from_qrect(qrect: QRect):
+        return Bounds(qrect.x(), qrect.y(), qrect.width(), qrect.height())
+
+    def area(self):
+        return self.width * self.height
+
+
+class Image:
+    def __init__(self, qimage: QImage):
+        self._qimage = qimage
+
+
+    @staticmethod
+    def from_packed_bytes(data: QByteArray, width, height, channels=4):
+        assert channels in {4, 1}
+        stride = width * channels
+        format = QImage.Format.Format_ARGB32 if channels == 4 else QImage.Format.Format_Grayscale8
+        qimg = QImage(data, width, height, stride, format)
+        return Image(qimg)
+
+
+    def write(self, buffer, format, quality):
+        writer = QImageWriter(buffer, QByteArray(format.encode("utf-8")))
+        writer.setQuality(quality)
+
+        if not writer.write(self._qimage):
+            raise RuntimeError(writer.errorString())
+
+
+    def to_bytes(self, format, quality):
+        byte_array = QByteArray()
+        buffer = QBuffer(byte_array)
+
+        buffer.open(QBuffer.OpenModeFlag.WriteOnly)
+
+        try:
+            self.write(buffer, format, quality)
+
+        finally:
+            buffer.close()
+
+        return byte_array
+
+
+    def to_base64(self, format, quality):
+        byte_array = self.to_bytes(format, quality)
+        return byte_array.toBase64().data().decode("utf-8")
 
 
 class LayerType(Enum):
@@ -82,12 +142,27 @@ class Layer:
         return None
 
 
+    def bounds(self):
+        return Bounds.from_qrect(self._node.bounds())
+
+
+    def image(self, bounds):
+        assert self._node.colorDepth() == "U8", "Can only get the pixels of 8-bit images"
+
+        data = self._node.projectionPixelData(bounds.x, bounds.y, bounds.width, bounds.height)
+
+        assert data is not None and data.size() >= bounds.area() * 4
+
+        return Image.from_packed_bytes(data, bounds.width, bounds.height)
+
+
 # Many Pykrita functions return a `QList<QObject*>` where the objects are
 # allocated for the caller. SIP does not handle this case and just leaks
 # the objects outright. Fix this by taking explicit ownership of the objects.
 # Note: ONLY call this if you are confident that the Pykrita function
 # allocates the list members!
 def acquire_elements(list):
+    return list
     for obj in list:
         if obj is not None:
             sip.transferback(obj)

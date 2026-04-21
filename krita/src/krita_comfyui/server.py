@@ -3,7 +3,7 @@ from aiohttp import web
 import threading
 import asyncio
 import json
-from .layer import (Layer)
+from .layer import (Bounds, Layer)
 
 
 # Starts the web server in a separate thread
@@ -72,12 +72,19 @@ class Server:
 
             name = request.query["name"]
             mode = request.query["mode"]
+            format = request.query["format"]
+
+            if format != "png":
+                return error("format must be png")
+
 
             document = Krita.instance().activeDocument()
 
             if document is None:
                 return error("Krita does not have an opened image")
 
+
+            bounds = Bounds.from_qrect(document.bounds())
 
             layer = Layer(document.rootNode()).find_layer(name)
 
@@ -86,14 +93,12 @@ class Server:
 
 
             images = []
-            masks = []
-            names = []
-
 
             def add_image(layer):
-                images.append("<IMAGE>")
-                masks.append("<MASK>")
-                names.append(layer.name)
+                images.append({
+                    "name": layer.name,
+                    "png": layer.image(bounds).to_base64("png", 9),
+                })
 
 
             if mode == "individual":
@@ -114,8 +119,6 @@ class Server:
 
             return success({
                 "images": images,
-                "masks": masks,
-                "names": names,
             })
 
 
