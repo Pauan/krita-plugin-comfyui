@@ -3,7 +3,7 @@ from aiohttp import web
 import threading
 import asyncio
 import json
-from .layer import (Bounds, Layer, Image)
+from .layer import (Document, Bounds, Layer, Image)
 
 
 # Starts the web server in a separate thread
@@ -76,15 +76,15 @@ class Server:
                 return error("format must be png")
 
 
-            document = Krita.instance().activeDocument()
+            document = Document.current()
 
             if document is None:
                 return error("Krita does not have an opened image")
 
 
-            bounds = Bounds.from_qrect(document.bounds())
+            bounds = document.bounds()
 
-            layer = Layer(document.rootNode()).find_layer(name)
+            layer = document.find_layer_by_name(name)
 
             if layer is None:
                 return error("Could not find layer {}".format(name))
@@ -127,16 +127,14 @@ class Server:
             if format != "png":
                 return error("format must be png")
 
-
-            document = Krita.instance().activeDocument()
+            document = Document.current()
 
             if document is None:
                 return error("Krita does not have an opened image")
 
+            bounds = document.bounds()
 
-            bounds = Bounds.from_qrect(document.bounds())
-
-            image = Image(document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+            image = document.canvas(bounds)
 
             return success({
                 "png": image.to_base64("png", 9),
@@ -147,17 +145,17 @@ class Server:
 
         @routes.get("/krita-selection")
         async def krita_selection(request):
-            document = Krita.instance().activeDocument()
+            document = Document.current()
 
             if document is None:
                 return error("Krita does not have an opened image")
 
-            bounds = Bounds.from_qrect(document.bounds())
+            bounds = document.bounds()
 
             selection = document.selection()
 
             if selection is not None:
-                selection = Bounds(selection.x(), selection.y(), selection.width(), selection.height()).clamp_to_parent(bounds)
+                selection = selection.clamp_to_parent(bounds)
             else:
                 selection = bounds
 

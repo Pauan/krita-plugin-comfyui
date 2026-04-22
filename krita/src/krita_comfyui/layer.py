@@ -1,8 +1,9 @@
 from enum import Enum
 from PyQt6 import sip
 from typing import NamedTuple
+from json import (dumps, loads)
 
-from PyQt6.QtCore import QByteArray, QRect, QBuffer, Qt
+from PyQt6.QtCore import QByteArray, QRect, QBuffer, QUuid, Qt
 from PyQt6.QtGui import QIcon, QPixmap, QImage, QImageWriter
 
 
@@ -35,6 +36,137 @@ class Bounds(NamedTuple):
 
     def area(self):
         return self.width * self.height
+
+
+class Document:
+    def __init__(self, document):
+        self._document = document
+
+
+    @staticmethod
+    def current():
+        document = Krita.instance().activeDocument()
+        if document is not None:
+            return Document(document)
+
+
+    def remove_key(self, key):
+        self._document.removeAnnotation(key)
+
+
+    def get_key_bytes(self, key):
+        value = self._document.annotation(key)
+        if value.size() > 0:
+            return value
+
+    def set_key_bytes(self, key, description, value: bytes):
+        self._document.setAnnotation(key, description, QByteArray(value))
+
+
+    def get_key_str(self, key):
+        value = self.get_key_bytes(key)
+        if value is not None:
+            return value.data().decode("utf-8")
+
+    def set_key_str(self, key, description, value: str):
+        self.set_key_bytes(key, description, value.encode("utf-8"))
+
+
+    def get_key_json(self, key):
+        value = self.get_key_str(key)
+        if value is not None:
+            return loads(value)
+
+    def set_key_json(self, key, description, json):
+        self.set_key_str(key, description, dumps(json))
+
+
+    def bounds(self):
+        return Bounds.from_qrect(self._document.bounds())
+
+    def selection(self):
+        selection = self._document.selection()
+
+        if selection is not None:
+            return Bounds(selection.x(), selection.y(), selection.width(), selection.height())
+
+
+    def canvas(self, bounds):
+        preview = self.find_preview_layer()
+
+        if preview is not None:
+            visible = preview.is_visible
+
+            try:
+                preview.is_visible = False
+                self._document.refreshProjection()
+
+                #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
+                return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+
+            finally:
+                preview.is_visible = visible
+                self._document.refreshProjection()
+
+        else:
+            self._document.refreshProjection()
+            #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
+            return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+
+
+    def root_layer(self):
+        return Layer(self._document.rootNode())
+
+    def active_layer(self):
+        return Layer(self._document.activeNode())
+
+
+    def new_paint_layer(self, name):
+        return Layer(self._document.createNode(name, "paintLayer"))
+
+
+    def find_layer_by_name(self, name):
+        layer = self._document.nodeByName(name)
+        if layer is not None:
+            return Layer(layer)
+
+    def find_layer_by_id(self, id: str):
+        layer = self._document.nodeByUniqueID(QUuid(id))
+        if layer is not None:
+            return Layer(layer)
+
+
+    def find_preview_layer(self):
+        id = self.get_key_str("krita_comfyui/preview_layer")
+
+        if id is not None:
+            layer = self.find_layer_by_id(id)
+
+            if layer is None:
+                self.remove_key("krita_comfyui/preview_layer")
+            else:
+                return layer
+
+
+    def make_preview_layer(self, name):
+        layer = self.find_preview_layer()
+
+        if layer is None:
+            layer = self.new_paint_layer(name)
+
+            self.set_key_str("krita_comfyui/preview_layer", "krita_comfyui: Preview Layer ID", layer.id)
+
+        return layer
+
+
+    def remove_preview_layer(self):
+        layer = self.find_preview_layer()
+
+        if layer is not None:
+            layer.remove()
+
+        self.remove_key("krita_comfyui/preview_layer")
+
 
 
 class Image:
@@ -75,8 +207,8 @@ class Image:
         scale = min(width / self.width, height / self.height)
 
         # Scale the width / height while keeping the same aspect ratio
-        width = int(round(width * scale))
-        height = int(round(height * scale))
+        width = int(round(self.width * scale))
+        height = int(round(self.height * scale))
 
         if self.width == width and self.height == height:
             return self
@@ -168,15 +300,24 @@ class Layer:
         self._node = node
 
 
+    @staticmethod
     def fromImage(document, name, image, x, y):
         layer = Layer(document.createNode(name, "paintLayer"))
         layer.write_image(image, x, y)
         return layer
 
 
-    def write_image(self, image, x, y):
-        if not self._node.setPixelData(image.bytes(), x, y, image.width, image.height):
-            raise RuntimeError("Writing image failed")
+    @property
+    def id(self):
+        return self._node.uniqueId().toString()
+
+    @property
+    def parent(self):
+        return Layer(self._node.parentNode())
+
+    @property
+    def type(self):
+        return LayerType(self._node.type())
 
 
     @property
@@ -206,6 +347,16 @@ class Layer:
         self._node.setLocked(value)
 
 
+    def write_image(self, image, x, y):
+        if not self._node.setPixelData(image.bytes(), x, y, image.width, image.height):
+            raise RuntimeError("Writing image failed")
+
+
+    def replace_image(self, image, x, y):
+        self.write_image(image, x, y)
+        self.crop(x, y, image.width, image.height)
+
+
     def move_to_top(self, parent):
         old_parent = self._node.parentNode()
 
@@ -215,14 +366,8 @@ class Layer:
         parent._node.addChildNode(self._node, None)
 
 
-    @property
-    def parent(self):
-        return Layer(self._node.parentNode())
-
-
-    @property
-    def type(self):
-        return LayerType(self._node.type())
+    def crop(self, x, y, width, height):
+        self._node.cropNode(x, y, width, height)
 
 
     def insert_child(self, child, above=None):
@@ -244,14 +389,6 @@ class Layer:
             yield child
 
             yield from child.all_children()
-
-
-    def find_layer(self, name):
-        for child in self.all_children():
-            if child.name == name:
-                return child
-
-        return None
 
 
     def bounds(self):

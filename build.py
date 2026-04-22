@@ -15,7 +15,6 @@ def bundle_package(wheel, out_dir, name, zip_name, include):
 
     with zipfile.ZipFile(wheel, "r") as zip:
         files = [path for path in zip.namelist() if path.startswith(name + "/")]
-        print(files)
         zip.extractall(members=files, path=out_dir)
 
     # Build dependencies

@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from .layer import (Layer, Image)
+from .layer import (Document, Layer, Image)
 
 
 class OutputsWidget(QListWidget):
@@ -38,8 +38,6 @@ class OutputsWidget(QListWidget):
 
     def __init__(self, parent: QWidget | None):
         super().__init__(parent)
-
-        self.preview_layer = None
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setResizeMode(QListView.ResizeMode.Adjust)
@@ -59,7 +57,7 @@ class OutputsWidget(QListWidget):
 
 
     def apply_image(self, document, image):
-        activeLayer = Layer(document.activeNode())
+        activeLayer = document.active_layer()
         parent = activeLayer.parent
 
         layer = Layer.fromImage(document, image["name"], image["image"], image["x"], image["y"])
@@ -68,31 +66,36 @@ class OutputsWidget(QListWidget):
 
 
     def show_preview(self, image):
-        document = Krita.instance().activeDocument()
+        document = Document.current()
 
         if document is not None:
             name = "[Preview] ComfyUI"
 
-            if self.preview_layer is None:
-                self.preview_layer = Layer(document.createNode(name, "paintLayer"))
+            preview_layer = document.make_preview_layer(name)
 
-            self.preview_layer.write_image(image["image"], image["x"], image["y"])
+            preview_layer.replace_image(image["image"], image["x"], image["y"])
 
-            self.preview_layer.name = name
-            self.preview_layer.is_visible = True
-            self.preview_layer.is_locked = True
-            self.preview_layer.move_to_top(Layer(document.rootNode()))
+            preview_layer.name = name
+            preview_layer.is_visible = True
+            preview_layer.is_locked = True
+            preview_layer.move_to_top(document.root_layer())
 
 
     def hide_preview(self):
-        if self.preview_layer is not None:
-            self.preview_layer.is_visible = False
+        document = Document.current()
+
+        if document is not None:
+            preview_layer = document.find_preview_layer()
+
+            if preview_layer is not None:
+                preview_layer.is_visible = False
 
 
     def delete_preview(self):
-        if self.preview_layer is not None:
-            self.preview_layer.remove()
-            self.preview_layer = None
+        document = Document.current()
+
+        if document is not None:
+            document.remove_preview_layer()
 
 
     def selected_images(self):
@@ -119,7 +122,7 @@ class OutputsWidget(QListWidget):
     def apply_selected(self):
         self.delete_preview()
 
-        document = Krita.instance().activeDocument()
+        document = Document.current()
 
         if document is not None:
             for image in self.selected_images():
@@ -189,5 +192,4 @@ class ComfyUIOutputWidget(DockWidget):
             pass
 
     def add_images(self, images):
-        print("ADD_IMAGES")
         self._outputs.add_outputs(images)
