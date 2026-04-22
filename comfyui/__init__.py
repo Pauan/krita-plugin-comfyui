@@ -8,10 +8,10 @@ class KritaComfyui(ComfyExtension):
         return [
             # krita
             nodes.KritaConnect,
+            nodes.KritaCanvas,
             nodes.KritaLayers,
-            #krita.KritaSelection,
-            #krita.KritaCanvas,
-            #krita.KritaOutput,
+            nodes.KritaSelection,
+            nodes.KritaOutput,
         ]
 
 async def comfy_entrypoint() -> KritaComfyui:

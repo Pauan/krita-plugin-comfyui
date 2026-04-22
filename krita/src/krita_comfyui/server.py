@@ -170,6 +170,28 @@ class Server:
             })
 
 
+        @routes.post("/krita-output")
+        async def krita_output(request):
+            json = await request.json()
+
+            document = Krita.instance().activeDocument()
+
+            if document is None:
+                return error("Krita does not have an opened image")
+
+            activeLayer = Layer(document.activeNode())
+            parent = activeLayer.parent
+
+            for info in json["images"]:
+                image = Image.from_base64(info["png"], "png")
+
+                layer = Layer.fromImage(document, info["name"], image, info["x"], info["y"])
+
+                parent.insert_child(layer, activeLayer)
+
+            return success({})
+
+
         return routes
 
 

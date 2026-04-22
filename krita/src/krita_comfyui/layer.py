@@ -43,12 +43,32 @@ class Image:
 
 
     @staticmethod
+    def from_base64(data: str, format: str):
+        bytes = QByteArray.fromBase64(data.encode("utf-8"))
+        image = QImage.fromData(bytes, format)
+        return Image(image)
+
+
+    @staticmethod
     def from_packed_bytes(data: QByteArray, width, height, channels=4):
         assert channels in {4, 1}
         stride = width * channels
         format = QImage.Format.Format_ARGB32 if channels == 4 else QImage.Format.Format_Grayscale8
         qimg = QImage(data, width, height, stride, format)
         return Image(qimg)
+
+
+    @property
+    def width(self):
+        return self._qimage.width()
+
+    @property
+    def height(self):
+        return self._qimage.height()
+
+    def bytes(self):
+        ptr = self._qimage.constBits()
+        return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
 
 
     def write(self, buffer, format, quality):
@@ -127,14 +147,32 @@ class Layer:
         self._node = node
 
 
+    def fromImage(document, name, image, x, y):
+        layer = document.createNode(name, "paintLayer")
+        layer.setPixelData(image.bytes(), x, y, image.width, image.height)
+        return Layer(layer)
+
+
     @property
     def name(self):
         return self._node.name()
 
 
     @property
+    def parent(self):
+        return Layer(self._node.parentNode())
+
+
+    @property
     def type(self):
         return LayerType(self._node.type())
+
+
+    def insert_child(self, child, above=None):
+        if above is None:
+            self._node.addChildNode(child._node, None)
+        else:
+            self._node.addChildNode(child._node, above._node)
 
 
     # Iterates over the immediate children
