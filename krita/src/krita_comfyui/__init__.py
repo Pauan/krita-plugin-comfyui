@@ -9,11 +9,12 @@ sys.path.append(str(Path(__file__).parent / "site-packages"))
 
 import krita
 from .extension import (ComfyUIExtension)
+from .dock import (ComfyUIOutputWidget)
 
-instance = Krita.instance()
+instance = krita.Krita.instance()
 
 instance.addExtension(ComfyUIExtension(instance))
 
-#Krita.instance().addDockWidgetFactory(
-#    DockWidgetFactory("comfyui", DockWidgetFactoryBase.DockPosition.DockRight, DockWidget)
-#)
+instance.addDockWidgetFactory(
+    krita.DockWidgetFactory("krita_comfyui_outputs", krita.DockWidgetFactoryBase.DockPosition.DockLeft, ComfyUIOutputWidget)
+)

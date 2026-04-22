@@ -2,8 +2,8 @@ from enum import Enum
 from PyQt6 import sip
 from typing import NamedTuple
 
-from PyQt6.QtCore import QByteArray, QRect, QBuffer
-from PyQt6.QtGui import QImage, QImageWriter
+from PyQt6.QtCore import QByteArray, QRect, QBuffer, Qt
+from PyQt6.QtGui import QIcon, QPixmap, QImage, QImageWriter
 
 
 class Bounds(NamedTuple):
@@ -69,6 +69,27 @@ class Image:
     def bytes(self):
         ptr = self._qimage.constBits()
         return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
+
+
+    def scale_to_fit(self, width, height):
+        scale = min(width / self.width, height / self.height)
+
+        # Scale the width / height while keeping the same aspect ratio
+        width = int(round(width * scale))
+        height = int(round(height * scale))
+
+        if self.width == width and self.height == height:
+            return self
+
+        mode = Qt.AspectRatioMode.IgnoreAspectRatio
+        quality = Qt.TransformationMode.SmoothTransformation
+        scaled = self._qimage.scaled(width, height, mode, quality)
+        return Image(scaled)
+
+
+    def to_icon(self):
+        pixmap = QPixmap.fromImage(self._qimage)
+        return QIcon(pixmap)
 
 
     def write(self, buffer, format, quality):
@@ -148,14 +169,50 @@ class Layer:
 
 
     def fromImage(document, name, image, x, y):
-        layer = document.createNode(name, "paintLayer")
-        layer.setPixelData(image.bytes(), x, y, image.width, image.height)
-        return Layer(layer)
+        layer = Layer(document.createNode(name, "paintLayer"))
+        layer.write_image(image, x, y)
+        return layer
+
+
+    def write_image(self, image, x, y):
+        if not self._node.setPixelData(image.bytes(), x, y, image.width, image.height):
+            raise RuntimeError("Writing image failed")
 
 
     @property
     def name(self):
         return self._node.name()
+
+    @name.setter
+    def name(self, value):
+        self._node.setName(value)
+
+
+    @property
+    def is_visible(self):
+        return self._node.visible()
+
+    @is_visible.setter
+    def is_visible(self, value):
+        self._node.setVisible(value)
+
+
+    @property
+    def is_locked(self):
+        return self._node.locked()
+
+    @is_locked.setter
+    def is_locked(self, value):
+        self._node.setLocked(value)
+
+
+    def move_to_top(self, parent):
+        old_parent = self._node.parentNode()
+
+        if old_parent is not None:
+            old_parent.removeChildNode(self._node)
+
+        parent._node.addChildNode(self._node, None)
 
 
     @property
