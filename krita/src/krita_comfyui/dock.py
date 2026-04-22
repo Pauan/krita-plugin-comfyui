@@ -35,9 +35,13 @@ class OutputsWidget(QListWidget):
     image_selected = pyqtSignal(QListWidgetItem)
 
     image_size = 96
+    image_padding = 1
+    spacer_height = 2
 
     def __init__(self, parent: QWidget | None):
         super().__init__(parent)
+
+        self.old_selected = None
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setResizeMode(QListView.ResizeMode.Adjust)
@@ -46,14 +50,11 @@ class OutputsWidget(QListWidget):
         self.setViewMode(QListView.ViewMode.IconMode)
         self.setIconSize(QSize(self.image_size, self.image_size))
         self.setFrameStyle(QFrame.Shape.NoFrame)
-        #self.setStyleSheet(self._list_css)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setDragEnabled(False)
 
-        #self.itemClicked.connect(self.image_clicked)
-        #self.itemDoubleClicked.connect(self.item_activated)
-
-        self.itemSelectionChanged.connect(self.item_selected)
+        self.itemActivated.connect(self.item_activated)
+        self.itemSelectionChanged.connect(self.selection_changed)
 
 
     def apply_image(self, document, image):
@@ -110,7 +111,18 @@ class OutputsWidget(QListWidget):
         return selected
 
 
-    def item_selected(self):
+    def item_activated(self, item):
+        assert item.isSelected()
+
+        if self.old_selected is item:
+            self.old_selected = None
+            item.setSelected(False)
+
+        else:
+            self.old_selected = item
+
+
+    def selection_changed(self):
         selected = self.selected_images()
 
         if len(selected) > 0:
@@ -131,12 +143,13 @@ class OutputsWidget(QListWidget):
 
     def add_outputs(self, outputs: list):
         if len(outputs) > 0:
-            if len(outputs) > 1:
+            # When there are existing items, and it is a batch of multiple images,
+            # add a spacer, which causes the new items to be put onto a new row.
+            if len(outputs) > 1 and self.count() > 0:
                 header = QListWidgetItem("")
                 header.setFlags(Qt.ItemFlag.NoItemFlags)
                 header.setData(Qt.ItemDataRole.UserRole, None)
-                #header.setData(Qt.ItemDataRole.ToolTipRole, job.params.prompt)
-                header.setSizeHint(QSize(9999, 10))
+                header.setSizeHint(QSize(9999, self.spacer_height))
                 header.setTextAlignment(Qt.AlignmentFlag.AlignLeft)
                 self.addItem(header)
 
@@ -148,7 +161,9 @@ class OutputsWidget(QListWidget):
 
                 tooltip = output["name"]
 
-                item = QListWidgetItem(thumbnail.to_icon(), "")
+                item = QListWidgetItem(thumbnail.to_icon(), None)
+
+                item.setSizeHint(QSize(self.image_size + (self.image_padding * 2), self.image_size + (self.image_padding * 2)))
 
                 item.setData(Qt.ItemDataRole.UserRole, {
                     "image": image,
