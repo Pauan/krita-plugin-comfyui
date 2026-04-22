@@ -91,6 +91,10 @@ class Document:
             return Bounds(selection.x(), selection.y(), selection.width(), selection.height())
 
 
+    def refresh(self):
+        self._document.refreshProjection()
+
+
     def canvas(self, bounds):
         preview = self.find_preview_layer()
 
@@ -99,19 +103,19 @@ class Document:
 
             try:
                 preview.is_visible = False
-                self._document.refreshProjection()
 
-                #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
-                return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+                self.refresh()
+                return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
+                #return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
             finally:
                 preview.is_visible = visible
-                self._document.refreshProjection()
+                self.refresh()
 
         else:
-            self._document.refreshProjection()
-            #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
-            return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+            self.refresh()
+            return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
+            #return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
 
     def root_layer(self):
@@ -302,7 +306,7 @@ class Layer:
 
     @staticmethod
     def fromImage(document, name, image, x, y):
-        layer = Layer(document.createNode(name, "paintLayer"))
+        layer = document.new_paint_layer(name)
         layer.write_image(image, x, y)
         return layer
 
@@ -364,6 +368,10 @@ class Layer:
             old_parent.removeChildNode(self._node)
 
         parent._node.addChildNode(self._node, None)
+
+
+    def remove(self):
+        self._node.remove()
 
 
     def crop(self, x, y, width, height):

@@ -1,6 +1,6 @@
 import krita
 from krita import DockWidget
-from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -43,6 +43,17 @@ class OutputsWidget(QListWidget):
 
         self.old_selected = None
 
+        self.image_menus = []
+
+        self.menu = QMenu(self)
+        #self.image_menus.append(self.menu.addSection("Apply images to..."))
+        self.image_menus.append(self.menu.addAction("New layer", self.apply_new_layer))
+        #self.image_menus.append(self.menu.addAction("New document", self.apply_new_document))
+        #self.image_menus.append(self.menu.addAction("Existing layer", self.apply_existing_layer))
+        self.menu.addSeparator()
+        #self.image_menus.append(self.menu.addAction("Delete selected", self.delete_selected))
+        self.menu.addAction("Delete all", self.delete_all)
+
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setResizeMode(QListView.ResizeMode.Adjust)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -53,7 +64,11 @@ class OutputsWidget(QListWidget):
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setDragEnabled(False)
 
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+
         self.itemActivated.connect(self.item_activated)
+        self.itemDoubleClicked.connect(self.item_double_clicked)
         self.itemSelectionChanged.connect(self.selection_changed)
 
 
@@ -90,6 +105,7 @@ class OutputsWidget(QListWidget):
 
             if preview_layer is not None:
                 preview_layer.is_visible = False
+                document.refresh()
 
 
     def delete_preview(self):
@@ -122,16 +138,27 @@ class OutputsWidget(QListWidget):
             self.old_selected = item
 
 
+    def item_double_clicked(self, item):
+        if item.isSelected():
+            self.old_selected = None
+            item.setSelected(False)
+
+        else:
+            self.old_selected = item
+            item.setSelected(True)
+
+
     def selection_changed(self):
         selected = self.selected_images()
 
         if len(selected) > 0:
             self.show_preview(selected[-1])
         else:
+            self.old_selected = None
             self.hide_preview()
 
 
-    def apply_selected(self):
+    def apply_new_layer(self):
         self.delete_preview()
 
         document = Document.current()
@@ -139,6 +166,18 @@ class OutputsWidget(QListWidget):
         if document is not None:
             for image in self.selected_images():
                 self.apply_image(document, image)
+
+
+    def delete_all(self):
+        reply = QMessageBox.question(
+            self,
+            "Delete all",
+            "Are you sure you want to delete all ComfyUI output images?",
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.delete_preview()
+            self.clear()
 
 
     def add_outputs(self, outputs: list):
@@ -177,6 +216,15 @@ class OutputsWidget(QListWidget):
                 self.addItem(item)
 
             self.scrollToBottom()
+
+
+    def show_context_menu(self, pos: QPoint):
+        images_selected = len(self.selected_images()) > 0
+
+        for menu in self.image_menus:
+            menu.setEnabled(images_selected)
+
+        self.menu.exec(self.mapToGlobal(pos))
 
 
 class ComfyUIOutputWidget(DockWidget):
