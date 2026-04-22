@@ -41,13 +41,13 @@ def start_server(loop, routes, event, host, port):
 
 
 def success(message):
-    return web.Response(text=json.dumps(message))
+    return web.json_response(message)
 
 
 def error(message):
-    return web.Response(text=json.dumps({
+    return web.json_response({
         "error": message,
-    }))
+    })
 
 
 class Server:

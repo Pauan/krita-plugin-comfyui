@@ -1,5 +1,5 @@
 [project]
-name = "krita_comfyui"
+name = "krita_plugin"
 version = "1.0.0"
 description = "Add your description here"
 readme = "README.md"
@@ -15,9 +15,6 @@ dependencies = [
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
 
-#[tool.uv.build-backend]
-#module-name = "FOO"
-#module-root = ""
-
 [tool.uv.build-backend]
-source-include = ["src/krita_comfyui.desktop"]
+module-name = "krita_comfyui"
+#module-root = "krita"

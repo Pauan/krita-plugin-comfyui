@@ -4,8 +4,8 @@ requires-python = ">=3.13"
 
 [manifest]
 members = [
-    "comfyui",
     "krita-comfyui",
+    "krita-plugin",
 ]
 
 [[package]]
@@ -107,11 +107,6 @@ wheels = [
 ]
 
 [[package]]
-name = "comfyui"
-version = "0.1.0"
-source = { editable = "comfyui" }
-
-[[package]]
 name = "frozenlist"
 version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -195,6 +190,17 @@ wheels = [
 
 [[package]]
 name = "krita-comfyui"
+version = "1.0.0"
+source = { editable = "comfyui" }
+dependencies = [
+    { name = "aiohttp" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "aiohttp", specifier = ">=3.13.5" }]
+
+[[package]]
+name = "krita-plugin"
 version = "1.0.0"
 source = { editable = "krita" }
 dependencies = [
