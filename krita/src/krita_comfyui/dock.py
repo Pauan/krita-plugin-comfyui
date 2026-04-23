@@ -168,26 +168,87 @@ class OutputsWidget(QListWidget):
             self.hide_preview()
 
 
+    def apply_selected_images(self):
+        for (item, image) in self.selected_images():
+            item.setSelected(False)
+            item.setIcon(self.thumbnail(image["image"], True))
+            yield image
+
+
     def apply_new_layer(self):
         self.delete_preview()
 
         document = Document.current()
 
         if document is not None:
-            for (item, image) in self.selected_images():
-                item.setIcon(self.thumbnail(image["image"], True))
-
+            for image in self.apply_selected_images():
                 self.apply_image(document, image)
 
 
-    def apply_new_document(self):
-        pass
-
     def apply_existing_layer(self):
-        pass
+        self.delete_preview()
+
+        document = Document.current()
+
+        if document is not None:
+            activeLayer = document.active_layer()
+
+            for image in self.apply_selected_images():
+                activeLayer.write_image(image["image"], image["x"], image["y"])
+
+            document.refresh()
+
+
+    def apply_new_document(self):
+        self.delete_preview()
+
+        resolution = 300.0
+        profile = ""
+
+        document = Document.current()
+
+        if document is not None:
+            resolution = document.pixels_per_inch()
+            profile = document.color_profile()
+
+        for image in self.apply_selected_images():
+            new_document = Document.create(
+                image["image"].width,
+                image["image"].height,
+                image["name"],
+                "RGBA",
+                "U8",
+                profile,
+                resolution,
+            )
+
+            for layer in new_document.root_layer().all_children():
+                layer.remove()
+
+            layer = Layer.fromImage(new_document, image["name"], image["image"], 0, 0)
+
+            new_document.root_layer().insert_child(layer, None)
+
 
     def delete_selected(self):
-        pass
+        seen_item = False
+
+        for i in reversed(range(self.count())):
+            item = self.item(i)
+
+            if item.isSelected():
+                self.takeItem(i)
+
+            else:
+                data = item.data(Qt.ItemDataRole.UserRole)
+
+                if data is None:
+                    # Remove unneeded spacers
+                    if not seen_item:
+                        self.takeItem(i)
+                    seen_item = False
+                else:
+                    seen_item = True
 
 
     def delete_all(self):

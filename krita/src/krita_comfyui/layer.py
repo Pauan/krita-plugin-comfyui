@@ -55,6 +55,18 @@ class HideModifications:
         return False
 
 
+class ActiveNode:
+    def __init__(self, document):
+        self.document = document
+
+    def __enter__(self):
+        self.active = self.document.activeNode()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.document.setActiveNode(self.active)
+        return False
+
+
 class Document:
     def __init__(self, document):
         self._document = document
@@ -65,6 +77,23 @@ class Document:
         document = Krita.instance().activeDocument()
         if document is not None:
             return Document(document)
+
+
+    @staticmethod
+    def create(width, height, name, color_model, color_depth, color_profile, pixels_per_inch):
+        new_document = Document(Krita.instance().createDocument(
+            width,
+            height,
+            name,
+            color_model,
+            color_depth,
+            color_profile,
+            pixels_per_inch,
+        ))
+
+        Krita.instance().activeWindow().addView(new_document._document)
+
+        return new_document
 
 
     def remove_key(self, key):
@@ -142,6 +171,12 @@ class Document:
     def active_layer(self):
         return Layer(self._document.activeNode())
 
+    def pixels_per_inch(self):
+        return self._document.resolution()
+
+    def color_profile(self):
+        return self._document.colorProfile()
+
 
     def new_paint_layer(self, name):
         return Layer(self._document.createNode(name, "paintLayer"))
@@ -190,7 +225,7 @@ class Document:
 
 
     def show_preview_layer(self, name, image, x, y):
-        with HideModifications(self._document):
+        with HideModifications(self._document), ActiveNode(self._document):
             layer = self.find_preview_layer()
 
             if layer is None:
