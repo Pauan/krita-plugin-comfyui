@@ -1,13 +1,15 @@
 from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension, Krita
 
-from .server import Server
+from .server import Server, ComfyUIClient
 
 
 class ComfyUIExtension(Extension):
     def __init__(self, parent):
         super().__init__(parent)
 
-        self.server = Server()
+        self.client = ComfyUIClient(self, url="127.0.0.1:8188", reconnect_delay=10000)
+
+        #self.server = Server()
 
         notifier = parent.notifier()
         notifier.setActive(True)
@@ -19,8 +21,10 @@ class ComfyUIExtension(Extension):
 
 
     def setup(self):
-        self.server.start()
+        pass
+        #self.server.start()
 
 
     def shutdown(self):
-        self.server.stop()
+        self.client.disconnect()
+        #self.server.stop()

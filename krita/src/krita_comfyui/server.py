@@ -3,7 +3,413 @@ from aiohttp import web
 import threading
 import asyncio
 import json
+import uuid
+from enum import Enum, auto
 from .layer import (Document, Bounds, Layer, Image)
+
+from PyQt6.QtCore import QObject, QTimer, QUrl, QByteArray, pyqtSignal
+from PyQt6.QtWebSockets import QWebSocket
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+
+
+class ProgressNode:
+    def __init__(self, id, value, max):
+        self.id = id
+        self.value = value
+        self.max = max
+
+    def percent(self):
+        return self.value / self.max
+
+
+class PromptState(Enum):
+    Idle = auto()
+    Sent = auto()
+    Executing = auto()
+    Done = auto()
+
+class Prompt:
+    def __init__(self, client_id, graph_id, graph):
+        self.client_id = client_id
+        self.graph_id = graph_id
+        self.graph = graph
+
+        self.prompt_id = str(uuid.uuid4())
+
+        self.state = PromptState.Idle
+
+        self.body = json.dumps({
+            "client_id": self.client_id,
+            "prompt_id": self.prompt_id,
+            "prompt": graph.serialize(),
+        }).encode("utf-8")
+
+    # Returns a fresh Prompt with the same graph.
+    # This is needed for retrying the Prompt in the case of a disconnection.
+    def copy(self):
+        return Prompt(self.client_id, self.graph_id, self.graph)
+
+    def is_idle(self):
+        return self.state == PromptState.Idle
+
+    def is_executing(self):
+        return self.state == PromptState.Executing
+
+    def is_running(self):
+        return self.state == PromptState.Sent or self.state == PromptState.Executing
+
+    def is_done(self):
+        return self.state == PromptState.Done
+
+
+class GraphError:
+    def __init__(self):
+        self.message = ""
+        self.node_id = None
+        self.node_name = None
+        self.backtrace = None
+
+
+    def format(self):
+        return "#{} {}\n  {}".format(self.node_id, self.node_name, info["exception_message"])
+
+
+    @staticmethod
+    def from_execution_error(info):
+        error = GraphError()
+        error.message = info["exception_message"]
+        error.node_id = info["node_id"]
+        error.node_name = info["node_type"]
+        error.backtrace = "".join(info["traceback"])
+        return error
+
+
+    @staticmethod
+    def from_comfyui_error(info):
+        error = GraphError()
+
+        print(info)
+
+        message = info["error"]["message"]
+        details = info["error"]["details"]
+
+        if details != "":
+            message = "{} ({})".format(message, details)
+
+        error.message = message
+        return error
+
+
+    @staticmethod
+    def from_string(string):
+        error = GraphError()
+        error.message = string
+        return error
+
+
+class ConnectState(Enum):
+    Disconnected = auto()
+    Connecting = auto()
+    Connected = auto()
+
+class WebsocketClient(QObject):
+    messages = pyqtSignal(dict)
+    state_changed = pyqtSignal(ConnectState)
+
+    def __init__(self, parent, url, reconnect_delay):
+        super().__init__(parent)
+
+        self.state = ConnectState.Disconnected
+        self.should_connect = False
+
+        self.url = url
+        self.reconnect_delay = reconnect_delay
+
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self._open_connection)
+
+        self.client = QWebSocket(url)
+        self.client.error.connect(self.on_error)
+        self.client.textMessageReceived.connect(self.on_text_message)
+        self.client.connected.connect(self.on_connected)
+        self.client.disconnected.connect(self.on_disconnected)
+
+    def _change_state(self, state):
+        if self.state != state:
+            self.state = state
+            self.state_changed.emit(self.state)
+
+    # WebSocket is connected and active
+    def is_ready(self):
+        return self.should_connect and self.state == ConnectState.Connected
+
+    def _open_connection(self):
+        if self.should_connect and self.state == ConnectState.Disconnected:
+            self.client.open(QUrl(self.url))
+            self._change_state(ConnectState.Connecting)
+
+    def connect(self):
+        if not self.should_connect:
+            self.should_connect = True
+            self._open_connection()
+
+    def disconnect(self):
+        if self.should_connect:
+            self.should_connect = False
+            self.timer.stop()
+            self.client.close()
+            self._change_state(ConnectState.Disconnected)
+
+    def on_connected(self):
+        if self.should_connect:
+            assert self.state != ConnectState.Connected
+            self._change_state(ConnectState.Connected)
+        else:
+            assert self.state == ConnectState.Disconnected
+
+    def on_disconnected(self):
+        if self.should_connect:
+            self.timer.start(self.reconnect_delay)
+        self._change_state(ConnectState.Disconnected)
+
+    def on_error(self, error_code):
+        print(f"WebSocket Error: {self.client.errorString()}")
+
+    def on_text_message(self, message):
+        if self.is_ready():
+            self.messages.emit(json.loads(message))
+
+
+class ComfyUIClient(QObject):
+    graph_sent = pyqtSignal(str)
+    graph_progress = pyqtSignal(str, list)
+    graph_finished = pyqtSignal(str)
+    graph_errored = pyqtSignal(str, GraphError)
+    graph_queue_changed = pyqtSignal(list)
+
+
+    def __init__(self, parent, url, reconnect_delay):
+        super().__init__(parent)
+
+        self.client_id = str(uuid.uuid4())
+        self.graph_id = 0
+
+        self.url = url
+        self.queue = []
+
+        self.http = QNetworkAccessManager(self)
+        self.http.setAutoDeleteReplies(True)
+        self.http.finished.connect(self.on_http_finished)
+
+        self.websocket = WebsocketClient(self, "ws://{}/ws?clientId={}".format(self.url, self.client_id), reconnect_delay)
+        self.websocket.messages.connect(self.on_websocket_message)
+        self.websocket.state_changed.connect(self.on_websocket_state_changed)
+
+
+    def find_prompt(self, prompt_id):
+        for prompt in self.queue:
+            if prompt.prompt_id == prompt_id:
+                return prompt
+
+
+    def post_prompt(self, url, prompt):
+        request = QNetworkRequest(QUrl(url))
+        request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
+        request.setAttribute(QNetworkRequest.Attribute.User, prompt.prompt_id)
+        return self.http.post(request, QByteArray(prompt.body))
+
+
+    def queue_changed(self):
+        self.graph_queue_changed.emit([prompt.graph_id for prompt in self.queue])
+
+
+    def execute_queue(self):
+        # We only send HTTP requests when the WebSocket server is connected.
+        #
+        # If it's not connected, it will automatically call execute_queue
+        # when it connects.
+        if self.websocket.is_ready() and len(self.queue) > 0:
+            prompt = self.queue[0]
+
+            # Don't send the same prompt multiple times
+            if prompt.is_idle():
+                self.post_prompt("http://{}/prompt".format(self.url), prompt)
+                prompt.state = PromptState.Sent
+
+                self.graph_sent.emit(prompt.graph_id)
+
+
+    def on_websocket_state_changed(self, state):
+        if state == ConnectState.Disconnected:
+            # When the WebSocket disconnects, we assume that the entire ComfyUI server
+            # has died, so we assume that in-progress prompts will never finish,
+            # so we reset all of the prompts in the queue.
+            #
+            # When the WebSocket reconnects, it will automatically re-run the prompts
+            # in the queue.
+            new_queue = []
+
+            for prompt in self.queue:
+                prompt.state = PromptState.Done
+                new_queue.append(prompt.copy())
+
+            self.queue = new_queue
+
+        elif state == ConnectState.Connected:
+            self.execute_queue()
+
+
+    def on_prompt_executing(self, prompt_id):
+        prompt = self.find_prompt(prompt_id)
+
+        # If the prompt hasn't been reset...
+        if prompt is not None and prompt.is_running():
+            prompt.state = PromptState.Executing
+
+            self.graph_progress.emit(prompt.graph_id, [])
+
+
+    def on_prompt_progress(self, prompt_id, nodes):
+        prompt = self.find_prompt(prompt_id)
+
+        # If the prompt hasn't been reset...
+        if prompt is not None and prompt.is_executing():
+            progress = []
+
+            for node in nodes.values():
+                progress.append(ProgressNode(node["node_id"], node["value"], node["max"]))
+
+            self.graph_progress.emit(prompt.graph_id, progress)
+
+
+    def on_prompt_finished(self, prompt_id):
+        prompt = self.find_prompt(prompt_id)
+
+        # If the prompt hasn't been reset...
+        if prompt is not None and prompt.is_running():
+            prompt.state = PromptState.Done
+            self.queue.remove(prompt)
+            self.graph_finished.emit(prompt.graph_id)
+            self.queue_changed()
+            self.execute_queue()
+
+
+    def on_prompt_error(self, prompt_id, info):
+        prompt = self.find_prompt(prompt_id)
+
+        # If the prompt hasn't been reset...
+        if prompt is not None and prompt.is_running():
+            prompt.state = PromptState.Done
+            self.queue.remove(prompt)
+            self.graph_errored.emit(prompt.graph_id, GraphError.from_execution_error(info))
+            self.queue_changed()
+            self.execute_queue()
+
+
+    def on_websocket_message(self, message):
+        if message["type"] == "execution_start":
+            self.on_prompt_executing(message["data"]["prompt_id"])
+
+        elif message["type"] == "progress_state":
+            data = message["data"]
+            self.on_prompt_progress(data["prompt_id"], data["nodes"])
+
+        elif message["type"] == "execution_success":
+            self.on_prompt_finished(message["data"]["prompt_id"])
+
+        elif message["type"] == "execution_error":
+            data = message["data"]
+            self.on_prompt_error(data["prompt_id"], data)
+
+
+    def on_http_finished(self, reply):
+        error = None
+        status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+
+        # Prompt was bad, display ComfyUI error message
+        if status == 400:
+            error = GraphError.from_comfyui_error(json.loads(reply.readAll().data().decode("utf-8")))
+
+        # Other major network error happened
+        elif not (status >= 200 and status < 300):
+            error = GraphError.from_string(reply.errorString())
+
+        # Everything was fine!
+        else:
+            assert reply.error() == QNetworkReply.NetworkError.NoError
+
+        # An error happened when sending the prompt to ComfyUI
+        if error is not None:
+            prompt_id = reply.request().attribute(QNetworkRequest.Attribute.User)
+
+            prompt = self.find_prompt(prompt_id)
+
+            # If the prompt hasn't been reset...
+            if prompt is not None and prompt.is_running():
+                prompt.state = PromptState.Done
+                self.queue.remove(prompt)
+                self.graph_errored.emit(prompt.graph_id, error)
+                self.queue_changed()
+                self.execute_queue()
+
+        reply.deleteLater()
+
+
+    def connect(self):
+        self.websocket.connect()
+        self.execute_queue()
+
+
+    def disconnect(self):
+        self.websocket.disconnect()
+
+
+    # Stop executing a specific graph
+    def stop_execute_graph(self, graph_id):
+        remove = [prompt for prompt in self.queue if prompt.graph_id == graph_id]
+
+        if len(remove) > 0:
+            for prompt in remove:
+                self.queue.remove(prompt)
+                # TODO also cancel execution in ComfyUI
+
+            self.queue_changed()
+
+
+    # Removes pending prompts which haven't been sent yet
+    def clear_queue_pending(self):
+        remove = [prompt for prompt in self.queue if prompt.is_idle()]
+
+        if len(remove) > 0:
+            for prompt in remove:
+                self.queue.remove(prompt)
+
+            self.queue_changed()
+
+
+    # Removes all prompts, including prompts that are in progress
+    def clear_queue(self):
+        if len(self.queue) > 0:
+            self.queue = []
+            # TODO also cancel execution in ComfyUI
+
+            self.queue_changed()
+
+
+    def execute_graph(self, graph):
+        graph_id = str(self.graph_id)
+
+        self.graph_id += 1
+
+        self.queue.append(Prompt(self.client_id, graph_id, graph))
+
+        self.queue_changed()
+
+        # We lazily connect to the WebSocket only when a graph is executed
+        self.connect()
+
+        return graph_id
 
 
 # Starts the web server in a separate thread
