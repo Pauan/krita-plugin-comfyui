@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QToolButton,
     QWidget,
 )
-from .layer import (Document, Layer, Image, Bounds, BlockSignals)
+from ..layer import (Document, Layer, Image, Bounds, BlockSignals)
 
 
 class OutputsWidget(QListWidget):

@@ -6,6 +6,9 @@ from .src.krita_comfyui import nodes
 class KritaComfyui(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         return [
+            # image
+            nodes.LoadImageBase64,
+
             # krita
             nodes.KritaConnect,
             nodes.KritaCanvas,

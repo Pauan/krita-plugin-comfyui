@@ -94,6 +94,29 @@ class KritaConnect(io.ComfyNode):
         return io.NodeOutput(aiohttp.ClientSession(url + "/", raise_for_status=True, connector_owner=True))
 
 
+class LoadImageBase64(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: LoadImageBase64",
+            display_name="Load Image (Base64)",
+            category="image",
+            description="Converts a base64 string into an image.",
+            inputs=[
+                io.String.Input("base64", tooltip="PNG image formatted as base64"),
+            ],
+            outputs=[
+                io.Image.Output(display_name="image"),
+                io.Mask.Output(display_name="mask"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, base64) -> io.NodeOutput:
+        (image, mask) = decode_png(base64)
+        return io.NodeOutput(image, mask)
+
+
 class KritaLayers(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
