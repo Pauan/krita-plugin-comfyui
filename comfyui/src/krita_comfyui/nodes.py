@@ -81,7 +81,7 @@ class KritaConnect(io.ComfyNode):
                 io.String.Input("url", default="http://localhost:8321", tooltip="The URL of the Krita server."),
             ],
             outputs=[
-                Krita.Output(),
+                Krita.Output(display_name="krita"),
             ],
         )
 
@@ -228,7 +228,7 @@ You can use the following special syntax:
 
   %index% is replaced with the index of the image.
 
-  %timestamp% is replaced with the current time in milliseconds."""),
+  %timestamp% is replaced with the current time."""),
             ],
             outputs=[],
             is_input_list=True,

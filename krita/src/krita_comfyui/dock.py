@@ -3,30 +3,15 @@ from krita import DockWidget
 from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
-    QCheckBox,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QStackedWidget,
-    QVBoxLayout,
-    QWidget,
-)
-from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
-    QComboBox,
     QFrame,
-    QHBoxLayout,
     QListView,
     QListWidget,
     QListWidgetItem,
     QMenu,
     QMessageBox,
-    QProgressBar,
-    QPushButton,
     QSizePolicy,
     QToolButton,
-    QVBoxLayout,
     QWidget,
 )
 from .layer import (Document, Layer, Image, Bounds, BlockSignals)
@@ -45,6 +30,7 @@ class OutputsWidget(QListWidget):
         self.old_selected = None
 
         self.image_menus = []
+        self.all_menus = []
 
         self.menu = QMenu(self)
         #self.image_menus.append(self.menu.addSection("Apply images to..."))
@@ -53,7 +39,7 @@ class OutputsWidget(QListWidget):
         self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Existing layer", self.apply_existing_layer))
         self.menu.addSeparator()
         self.image_menus.append(self.menu.addAction(Krita.icon("edit-clear"), "Delete selected", self.delete_selected))
-        self.menu.addAction(Krita.icon("deletelayer"), "Delete all", self.delete_all)
+        self.all_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete all", self.delete_all))
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setResizeMode(QListView.ResizeMode.Adjust)
@@ -171,6 +157,7 @@ class OutputsWidget(QListWidget):
     def apply_selected_images(self):
         with BlockSignals(self):
             self.old_selected = None
+            self.delete_preview()
 
             for (item, image) in self.selected_images():
                 item.setSelected(False)
@@ -179,8 +166,6 @@ class OutputsWidget(QListWidget):
 
 
     def apply_new_layer(self):
-        self.delete_preview()
-
         document = Document.current()
 
         if document is not None:
@@ -189,8 +174,6 @@ class OutputsWidget(QListWidget):
 
 
     def apply_existing_layer(self):
-        self.delete_preview()
-
         document = Document.current()
 
         if document is not None:
@@ -203,8 +186,6 @@ class OutputsWidget(QListWidget):
 
 
     def apply_new_document(self):
-        self.delete_preview()
-
         resolution = 300.0
         profile = ""
 
@@ -270,8 +251,10 @@ class OutputsWidget(QListWidget):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            self.delete_preview()
-            self.clear()
+            with BlockSignals(self):
+                self.old_selected = None
+                self.delete_preview()
+                self.clear()
 
 
     def add_outputs(self, outputs: list):
@@ -312,8 +295,13 @@ class OutputsWidget(QListWidget):
     def show_context_menu(self, pos: QPoint):
         images_selected = len(self.selected_images()) > 0
 
+        has_images = self.count() > 0
+
         for menu in self.image_menus:
             menu.setEnabled(images_selected)
+
+        for menu in self.all_menus:
+            menu.setEnabled(has_images)
 
         self.menu.exec(self.mapToGlobal(pos))
 
