@@ -221,7 +221,7 @@ class KritaOutput(io.ComfyNode):
                 io.Int.Input("y", default=0, tooltip="Y position relative to the canvas."),
 
                 io.String.Input("name",
-                    default="ComfyUI %index%",
+                    default="ComfyUI [%index%]",
                     tooltip="""Name that will be used for the images in Krita.
 
 You can use the following special syntax:

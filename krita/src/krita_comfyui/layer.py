@@ -1,10 +1,11 @@
+from pathlib import Path
 from enum import Enum
 from PyQt6 import sip
 from typing import NamedTuple
 from json import (dumps, loads)
 
 from PyQt6.QtCore import QByteArray, QRect, QBuffer, QUuid, Qt
-from PyQt6.QtGui import QIcon, QPixmap, QImage, QImageWriter
+from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
 
 
 class Bounds(NamedTuple):
@@ -16,6 +17,10 @@ class Bounds(NamedTuple):
     @staticmethod
     def from_qrect(qrect: QRect):
         return Bounds(qrect.x(), qrect.y(), qrect.width(), qrect.height())
+
+
+    def to_qrect(self):
+        return QRect(self.x, self.y, self.width, self.height)
 
 
     def clamp_to_parent(self, parent):
@@ -36,6 +41,18 @@ class Bounds(NamedTuple):
 
     def area(self):
         return self.width * self.height
+
+
+class HideModifications:
+    def __init__(self, document):
+        self.document = document
+
+    def __enter__(self):
+        self.modified = self.document.modified()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.document.setModified(self.modified)
+        return False
 
 
 class Document:
@@ -96,26 +113,27 @@ class Document:
 
 
     def canvas(self, bounds):
-        preview = self.find_preview_layer()
+        with HideModifications(self._document):
+            preview = self.find_preview_layer()
 
-        if preview is not None:
-            visible = preview.is_visible
+            if preview is not None:
+                visible = preview.is_visible
 
-            try:
-                preview.is_visible = False
+                try:
+                    preview.is_visible = False
 
+                    self.refresh()
+                    return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
+                    #return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+
+                finally:
+                    preview.is_visible = visible
+                    self.refresh()
+
+            else:
                 self.refresh()
                 return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
                 #return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
-
-            finally:
-                preview.is_visible = visible
-                self.refresh()
-
-        else:
-            self.refresh()
-            return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
-            #return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
 
     def root_layer(self):
@@ -152,30 +170,59 @@ class Document:
                 return layer
 
 
-    def make_preview_layer(self, name):
-        layer = self.find_preview_layer()
-
-        if layer is None:
-            layer = self.new_paint_layer(name)
-
-            self.set_key_str("krita_comfyui/preview_layer", "krita_comfyui: Preview Layer ID", layer.id)
-
-        return layer
-
-
     def remove_preview_layer(self):
-        layer = self.find_preview_layer()
+        with HideModifications(self._document):
+            layer = self.find_preview_layer()
 
-        if layer is not None:
-            layer.remove()
+            if layer is not None:
+                layer.remove()
 
-        self.remove_key("krita_comfyui/preview_layer")
+            self.remove_key("krita_comfyui/preview_layer")
 
+
+    def hide_preview_layer(self):
+        with HideModifications(self._document):
+            layer = self.find_preview_layer()
+
+            if layer is not None:
+                layer.is_visible = False
+                self.refresh()
+
+
+    def show_preview_layer(self, name, image, x, y):
+        with HideModifications(self._document):
+            layer = self.find_preview_layer()
+
+            if layer is None:
+                layer = self.new_paint_layer(name)
+
+                self.set_key_str("krita_comfyui/preview_layer", "krita_comfyui: Preview Layer ID", layer.id)
+
+            layer.replace_image(image, x, y)
+
+            layer.name = name
+            layer.is_visible = True
+            layer.is_locked = True
+            layer.move_to_top(self.root_layer())
 
 
 class Image:
     def __init__(self, qimage: QImage):
         self._qimage = qimage
+
+
+    @staticmethod
+    def filename(name: str):
+        return str(Path(__file__).parent / "images" / name)
+
+
+    @staticmethod
+    def load_file(filename: str):
+        path = Image.filename(filename)
+        image = QImage()
+        if not image.load(path):
+            raise RuntimeError("Failed to load image {}", path)
+        return Image(image)
 
 
     @staticmethod
@@ -221,6 +268,22 @@ class Image:
         quality = Qt.TransformationMode.SmoothTransformation
         scaled = self._qimage.scaled(width, height, mode, quality)
         return Image(scaled)
+
+
+    def draw_image(self, image, bounds: Bounds):
+        mode = QPainter.CompositionMode.CompositionMode_SourceOver
+        painter = QPainter(self._qimage)
+        painter.setCompositionMode(mode)
+        painter.drawImage(bounds.to_qrect(), image._qimage)
+        painter.end()
+
+
+    def draw_icon(self, icon: QIcon, bounds: Bounds, alignment: Qt.AlignmentFlag, state: QIcon.State):
+        mode = QPainter.CompositionMode.CompositionMode_SourceOver
+        painter = QPainter(self._qimage)
+        painter.setCompositionMode(mode)
+        icon.paint(painter, bounds.to_qrect(), alignment, QIcon.Mode.Normal, state)
+        painter.end()
 
 
     def to_icon(self):

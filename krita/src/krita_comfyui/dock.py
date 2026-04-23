@@ -1,6 +1,7 @@
 import krita
 from krita import DockWidget
 from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -28,7 +29,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from .layer import (Document, Layer, Image)
+from .layer import (Document, Layer, Image, Bounds)
 
 
 class OutputsWidget(QListWidget):
@@ -47,12 +48,12 @@ class OutputsWidget(QListWidget):
 
         self.menu = QMenu(self)
         #self.image_menus.append(self.menu.addSection("Apply images to..."))
-        self.image_menus.append(self.menu.addAction("New layer", self.apply_new_layer))
-        #self.image_menus.append(self.menu.addAction("New document", self.apply_new_document))
-        #self.image_menus.append(self.menu.addAction("Existing layer", self.apply_existing_layer))
+        self.image_menus.append(self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer))
+        self.image_menus.append(self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document))
+        self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Existing layer", self.apply_existing_layer))
         self.menu.addSeparator()
-        #self.image_menus.append(self.menu.addAction("Delete selected", self.delete_selected))
-        self.menu.addAction("Delete all", self.delete_all)
+        self.image_menus.append(self.menu.addAction(Krita.icon("edit-clear"), "Delete selected", self.delete_selected))
+        self.menu.addAction(Krita.icon("deletelayer"), "Delete all", self.delete_all)
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setResizeMode(QListView.ResizeMode.Adjust)
@@ -72,6 +73,21 @@ class OutputsWidget(QListWidget):
         self.itemSelectionChanged.connect(self.selection_changed)
 
 
+    def thumbnail(self, image, applied):
+        # Displays the image at twice the image_size resolution then downscales it
+        thumbnail = image.scale_to_fit(self.image_size * 2, self.image_size * 2)
+
+        if applied:
+            thumbnail.draw_icon(
+                QIcon(Image.filename("diamond.svg")),
+                Bounds(6, 6, 38, 38),
+                alignment=Qt.AlignmentFlag.AlignCenter,
+                state=QIcon.State.On,
+            )
+
+        return thumbnail.to_icon()
+
+
     def apply_image(self, document, image):
         activeLayer = document.active_layer()
         parent = activeLayer.parent
@@ -85,27 +101,19 @@ class OutputsWidget(QListWidget):
         document = Document.current()
 
         if document is not None:
-            name = "[Preview] ComfyUI"
-
-            preview_layer = document.make_preview_layer(name)
-
-            preview_layer.replace_image(image["image"], image["x"], image["y"])
-
-            preview_layer.name = name
-            preview_layer.is_visible = True
-            preview_layer.is_locked = True
-            preview_layer.move_to_top(document.root_layer())
+            document.show_preview_layer(
+                name="[Preview] ComfyUI",
+                image=image["image"],
+                x=image["x"],
+                y=image["y"],
+            )
 
 
     def hide_preview(self):
         document = Document.current()
 
         if document is not None:
-            preview_layer = document.find_preview_layer()
-
-            if preview_layer is not None:
-                preview_layer.is_visible = False
-                document.refresh()
+            document.hide_preview_layer()
 
 
     def delete_preview(self):
@@ -122,20 +130,22 @@ class OutputsWidget(QListWidget):
             data = item.data(Qt.ItemDataRole.UserRole)
 
             if data is not None:
-                selected.append(data)
+                selected.append((item, data))
 
         return selected
 
 
     def item_activated(self, item):
-        assert item.isSelected()
+        if item.isSelected():
+            if self.old_selected is item:
+                self.old_selected = None
+                item.setSelected(False)
 
-        if self.old_selected is item:
-            self.old_selected = None
-            item.setSelected(False)
+            else:
+                self.old_selected = item
 
         else:
-            self.old_selected = item
+            self.old_selected = None
 
 
     def item_double_clicked(self, item):
@@ -152,7 +162,7 @@ class OutputsWidget(QListWidget):
         selected = self.selected_images()
 
         if len(selected) > 0:
-            self.show_preview(selected[-1])
+            self.show_preview(selected[-1][1])
         else:
             self.old_selected = None
             self.hide_preview()
@@ -164,8 +174,20 @@ class OutputsWidget(QListWidget):
         document = Document.current()
 
         if document is not None:
-            for image in self.selected_images():
+            for (item, image) in self.selected_images():
+                item.setIcon(self.thumbnail(image["image"], True))
+
                 self.apply_image(document, image)
+
+
+    def apply_new_document(self):
+        pass
+
+    def apply_existing_layer(self):
+        pass
+
+    def delete_selected(self):
+        pass
 
 
     def delete_all(self):
@@ -193,14 +215,11 @@ class OutputsWidget(QListWidget):
                 self.addItem(header)
 
             for output in outputs:
-                image = Image.from_base64(output["png"], "png")
-
-                # Displays the image at twice the image_size resolution then downscales it
-                thumbnail = image.scale_to_fit(self.image_size * 2, self.image_size * 2)
-
                 tooltip = output["name"]
 
-                item = QListWidgetItem(thumbnail.to_icon(), None)
+                image = Image.from_base64(output["png"], "png")
+
+                item = QListWidgetItem(self.thumbnail(image, applied=False), None)
 
                 item.setSizeHint(QSize(self.image_size + (self.image_padding * 2), self.image_size + (self.image_padding * 2)))
 
@@ -239,16 +258,6 @@ class ComfyUIOutputWidget(DockWidget):
         self._outputs = OutputsWidget(self)
 
         self.setWidget(self._outputs)
-
-        #self._frame = QStackedWidget(self)
-        #self._frame.addWidget(self._welcome)
-        #self._frame.addWidget(self._generation)
-        #self._frame.addWidget(self._upscaling)
-        #self._frame.addWidget(self._live)
-        #self._frame.addWidget(self._animation)
-        #self._frame.addWidget(self._custom)
-        #self._frame.addWidget(self._custom_placeholder)
-        #self.setWidget(self._frame)
 
     def canvasChanged(self, canvas: krita.Canvas):
         if canvas is not None and canvas.view() is not None:

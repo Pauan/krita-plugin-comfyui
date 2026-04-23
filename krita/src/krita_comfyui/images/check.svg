@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.0"
+   width="8.4666643mm"
+   height="8.4666748mm"
+   viewBox="0 0 23.999993 24.000022"
+   preserveAspectRatio="xMidYMid"
+   id="svg2"
+   sodipodi:docname="check.svg"
+   inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2">
+    <filter
+       style="color-interpolation-filters:sRGB"
+       inkscape:label="Drop Shadow"
+       id="filter23"
+       x="-0.058304507"
+       y="-0.084328816"
+       width="1.1431384"
+       height="1.1422953">
+      <feFlood
+         result="flood"
+         in="SourceGraphic"
+         flood-opacity="0.498039"
+         flood-color="rgb(0,0,0)"
+         id="feFlood22" />
+      <feGaussianBlur
+         result="blur"
+         in="SourceGraphic"
+         stdDeviation="3.000000"
+         id="feGaussianBlur22" />
+      <feOffset
+         result="offset"
+         in="blur"
+         dx="5.000000"
+         dy="-5.000000"
+         id="feOffset22" />
+      <feComposite
+         result="comp1"
+         operator="in"
+         in="flood"
+         in2="offset"
+         id="feComposite22" />
+      <feComposite
+         result="comp2"
+         operator="over"
+         in="SourceGraphic"
+         in2="comp1"
+         id="feComposite23" />
+    </filter>
+    <filter
+       style="color-interpolation-filters:sRGB"
+       inkscape:label="Drop Shadow"
+       id="filter30"
+       x="-0.069626564"
+       y="-0.071520077"
+       width="1.1480761"
+       height="1.1656974">
+      <feFlood
+         result="flood"
+         in="SourceGraphic"
+         flood-opacity="0.498039"
+         flood-color="rgb(0,0,0)"
+         id="feFlood29" />
+      <feGaussianBlur
+         result="blur"
+         in="SourceGraphic"
+         stdDeviation="5.000000"
+         id="feGaussianBlur29" />
+      <feOffset
+         result="offset"
+         in="blur"
+         dx="2.000000"
+         dy="5.000000"
+         id="feOffset29" />
+      <feComposite
+         result="comp1"
+         operator="in"
+         in="flood"
+         in2="offset"
+         id="feComposite29" />
+      <feComposite
+         result="comp2"
+         operator="over"
+         in="SourceGraphic"
+         in2="comp1"
+         id="feComposite30" />
+    </filter>
+    <filter
+       style="color-interpolation-filters:sRGB"
+       inkscape:label="Drop Shadow"
+       id="filter66"
+       x="-0.052069358"
+       y="-0.053501352"
+       width="1.152671"
+       height="1.1693364">
+      <feFlood
+         result="flood"
+         in="SourceGraphic"
+         flood-opacity="0.498039"
+         flood-color="rgb(0,0,0)"
+         id="feFlood65" />
+      <feGaussianBlur
+         result="blur"
+         in="SourceGraphic"
+         stdDeviation="2.000000"
+         id="feGaussianBlur65" />
+      <feOffset
+         result="offset"
+         in="blur"
+         dx="8.000000"
+         dy="10.000000"
+         id="feOffset65" />
+      <feComposite
+         result="comp1"
+         operator="out"
+         in="flood"
+         in2="offset"
+         id="feComposite65" />
+      <feComposite
+         result="comp2"
+         operator="atop"
+         in="comp1"
+         in2="SourceGraphic"
+         id="feComposite66" />
+    </filter>
+  </defs>
+  <sodipodi:namedview
+     id="namedview2"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="pt"
+     showgrid="false"
+     inkscape:zoom="4.6736458"
+     inkscape:cx="22.894332"
+     inkscape:cy="13.800789"
+     inkscape:window-width="1920"
+     inkscape:window-height="1032"
+     inkscape:window-x="0"
+     inkscape:window-y="20"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g2" />
+  <metadata
+     id="metadata1">
+Created by potrace 1.15, written by Peter Selinger 2001-2017
+</metadata>
+  <g
+     transform="matrix(0.1,0,0,-0.1,-624.25957,657.80779)"
+     fill="#000000"
+     stroke="none"
+     id="g2"
+     inkscape:label="g2">
+    <ellipse
+       style="fill:#429f21;fill-opacity:1;stroke:#000000;stroke-width:7.5661;stroke-dasharray:none;stroke-opacity:1;filter:url(#filter30)"
+       id="path3"
+       transform="matrix(0.90587514,0,0,-0.89889877,585.30706,666.20775)"
+       ry="110.34"
+       rx="113.34072"
+       cy="-6440.9214"
+       cx="6374.2324" />
+    <ellipse
+       style="fill:#efffa5;fill-opacity:1;stroke:#000000;stroke-width:7.5661;stroke-dasharray:none;stroke-opacity:1;filter:url(#filter66)"
+       id="ellipse3"
+       transform="matrix(0.90587514,0,0,-0.89889877,585.30706,666.20775)"
+       ry="80.213394"
+       rx="82.419395"
+       cy="-6440.9214"
+       cx="6374.2324" />
+    <path
+       d="m 6478.7774,6565.6934 c -12.08,-0.9264 -21.0473,-4.3169 -27.3653,-10.3384 -3.3535,-3.1867 -16.1005,-18.3609 -26.198,-31.1634 -20.1951,-25.6052 -42.7617,-57.6209 -64.9763,-92.1749 -1.8343,-2.8532 -3.7055,-5.6324 -4.1502,-6.1697 -1.5749,-1.8342 -3.4091,-2.7235 -4.5022,-2.1677 -1.8528,0.9634 -4.7431,7.0405 -8.9859,18.9908 -2.2604,6.355 -3.5388,8.7635 -5.6695,10.6163 -2.9273,2.5568 -6.5402,2.7792 -12.5802,0.7596 -6.1882,-2.0565 -13.7104,-6.9478 -16.4896,-10.7274 -2.7235,-3.687 -2.8532,-6.355 -0.7596,-14.8221 1.8713,-7.5037 7.4851,-24.6788 11.061,-33.7203 1.6304,-4.1131 4.8172,-10.6719 6.1882,-12.747 1.1117,-1.686 2.9459,-3.7055 3.8908,-4.2984 1.5193,-0.9449 3.1867,-1.1672 10.3755,-1.371 9.9122,-0.2779 14.4144,0.3335 18.2311,2.4641 2.4086,1.3526 2.8162,1.8528 10.0235,12.71 36.9255,55.5272 74.5921,105.7741 116.761,155.7431 5.373,6.3735 7.5036,9.0414 8.7079,10.9683 1.019,1.6304 1.7046,3.2609 1.7231,4.039 0,1.334 -1.5749,2.631 -3.7982,3.1312 -1.5563,0.352 -8.3744,0.5188 -11.4871,0.2779 z"
+       id="path1"
+       style="fill:#8bff35;fill-opacity:1;stroke:#000000;stroke-width:7.5661;stroke-dasharray:none;stroke-opacity:1;filter:url(#filter23)"
+       transform="matrix(0.90587514,0,0,0.89889877,585.30706,666.20775)" />
+    <path
+       d="m 5955,12083 c -765,-36 -1413,-173 -2086,-438 -627,-248 -1215,-601 -1738,-1043 -168,-142 -571,-545 -710,-711 C 610,8926 145,7821 23,6570 2,6351 -1,5783 18,5575 94,4748 302,4023 666,3321 1221,2251 2099,1358 3178,766 3833,406 4614,151 5354,55 6227,-58 7115,8 7947,249 c 838,242 1632,671 2311,1246 179,152 564,541 717,725 1182,1419 1642,3228 1279,5030 -181,899 -598,1784 -1196,2541 -27,34 -28,34 -46,14 -15,-15 -461,-533 -549,-636 -12,-15 -1,-33 93,-155 553,-719 838,-1510 904,-2518 14,-208 14,-664 0,-836 C 11379,4630 10995,3663 10346,2855 9764,2131 8980,1563 8103,1231 6866,763 5481,767 4248,1241 c -400,154 -755,341 -1113,588 -476,327 -922,763 -1268,1239 -268,367 -512,830 -667,1263 -597,1664 -286,3508 824,4894 418,522 959,979 1541,1303 1019,566 2167,780 3425,636 515,-58 960,-190 1425,-420 82,-40 152,-70 156,-66 37,42 539,694 539,700 0,9 -317,165 -445,220 -488,210 -1007,353 -1545,427 -365,50 -841,74 -1165,58 z"
+       id="path2"
+       style="display:none;fill:#429f21;fill-opacity:1;stroke:#000000;stroke-width:226.772;stroke-dasharray:none;stroke-opacity:1" />
+  </g>
+</svg>
