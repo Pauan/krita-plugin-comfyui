@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from .layer import (Document, Layer, Image, Bounds)
+from .layer import (Document, Layer, Image, Bounds, BlockSignals)
 
 
 class OutputsWidget(QListWidget):
@@ -169,10 +169,13 @@ class OutputsWidget(QListWidget):
 
 
     def apply_selected_images(self):
-        for (item, image) in self.selected_images():
-            item.setSelected(False)
-            item.setIcon(self.thumbnail(image["image"], True))
-            yield image
+        with BlockSignals(self):
+            self.old_selected = None
+
+            for (item, image) in self.selected_images():
+                item.setSelected(False)
+                item.setIcon(self.thumbnail(image["image"], True))
+                yield image
 
 
     def apply_new_layer(self):
@@ -231,24 +234,32 @@ class OutputsWidget(QListWidget):
 
 
     def delete_selected(self):
-        seen_item = False
+        with BlockSignals(self):
+            self.old_selected = None
 
-        for i in reversed(range(self.count())):
-            item = self.item(i)
+            seen_item = False
 
-            if item.isSelected():
-                self.takeItem(i)
+            for i in reversed(range(self.count())):
+                item = self.item(i)
 
-            else:
-                data = item.data(Qt.ItemDataRole.UserRole)
+                if item.isSelected():
+                    self.takeItem(i)
 
-                if data is None:
-                    # Remove unneeded spacers
-                    if not seen_item:
-                        self.takeItem(i)
-                    seen_item = False
                 else:
-                    seen_item = True
+                    data = item.data(Qt.ItemDataRole.UserRole)
+
+                    if data is None:
+                        # Remove unneeded spacers
+                        if not seen_item:
+                            self.takeItem(i)
+                        seen_item = False
+                    else:
+                        seen_item = True
+
+            if self.count() == 0:
+                self.delete_preview()
+            else:
+                self.hide_preview()
 
 
     def delete_all(self):

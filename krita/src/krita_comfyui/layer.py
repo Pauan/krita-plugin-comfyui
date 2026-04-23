@@ -4,8 +4,20 @@ from PyQt6 import sip
 from typing import NamedTuple
 from json import (dumps, loads)
 
-from PyQt6.QtCore import QByteArray, QRect, QBuffer, QUuid, Qt
+from PyQt6.QtCore import QObject, QByteArray, QRect, QBuffer, QUuid, Qt
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
+
+
+class BlockSignals:
+    def __init__(self, obj: QObject):
+        self.obj = obj
+
+    def __enter__(self):
+        self.obj.blockSignals(True)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.obj.blockSignals(False)
+        return False
 
 
 class Bounds(NamedTuple):
