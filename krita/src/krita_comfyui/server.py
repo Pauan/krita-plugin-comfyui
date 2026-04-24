@@ -55,10 +55,8 @@ class GraphState(Enum):
 
     def status_icon(self):
         if self == GraphState.Idle:
-            return Krita.icon("media-playback-stop")
-        elif self == GraphState.Sent:
-            return Krita.icon("media-playback-start")
-        elif self == GraphState.Executing:
+            return Krita.icon("animation_pause")
+        elif self == GraphState.Sent or GraphState.Executing:
             return Krita.icon("media-record")
         elif self == GraphState.Cancelled:
             return Krita.icon("dialog-cancel")
@@ -411,11 +409,15 @@ class ComfyUIClient(QObject):
     def stop_execute_graph(self, graph_id):
         remove = [prompt for prompt in self.queue if prompt.graph_id == graph_id]
 
-        if len(remove) > 0:
-            for prompt in remove:
-                prompt.state = GraphState.Cancelled
-                self.queue.remove(prompt)
-                self.graph_changed.emit(prompt.graph_info())
+        for prompt in remove:
+            is_running = prompt.state.is_running()
+
+            prompt.state = GraphState.Cancelled
+            self.queue.remove(prompt)
+            self.graph_changed.emit(prompt.graph_info())
+
+            if is_running:
+                pass
                 # TODO also cancel execution in ComfyUI
 
 
@@ -423,11 +425,10 @@ class ComfyUIClient(QObject):
     def clear_queue_pending(self):
         remove = [prompt for prompt in self.queue if prompt.state.is_idle()]
 
-        if len(remove) > 0:
-            for prompt in remove:
-                prompt.state = GraphState.Cancelled
-                self.queue.remove(prompt)
-                self.graph_changed.emit(prompt.graph_info())
+        for prompt in remove:
+            prompt.state = GraphState.Cancelled
+            self.queue.remove(prompt)
+            self.graph_changed.emit(prompt.graph_info())
 
 
     # Removes all prompts, including prompts that are in progress

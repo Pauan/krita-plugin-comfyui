@@ -27,15 +27,20 @@ from ..qt import Layout
 
 
 class Job(QWidget):
-    def __init__(self, parent, info):
+    def __init__(self, parent, client, info):
         super().__init__(parent)
 
+        self.client = client
         self.layout = Layout(self)
 
         with self.layout.row() as row:
+            row.addSpacing(4)
+
             with self.layout.label() as label:
                 self.icon = label
                 row.addWidget(label)
+
+            row.addSpacing(6)
 
             with self.layout.progress_bar() as progress:
                 progress.setMinimum(0)
@@ -66,7 +71,7 @@ class Job(QWidget):
 
 
     def cancel_job(self):
-        print("JOB CANCELLED")
+        self.client.stop_execute_graph(self.info.graph_id)
 
 
 
@@ -77,22 +82,22 @@ class QueueList(QListWidget):
         #self.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
         #self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
         self.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
         self.setStyleSheet("QListWidget { background-color: transparent; }")
 
         self.jobs = []
 
 
-    def add_job(self, info):
-        job = Job(self, info)
+    def add_job(self, client, info):
+        job = Job(self, client, info)
         self.jobs.append(job)
 
-        print(job.sizeHint())
-
         item = QListWidgetItem()
-        item.setSizeHint(QSize(30, 30))
-        #item.setSizeHint(job.sizeHint())
-        self.setItemWidget(item, job)
+        item.setSizeHint(job.sizeHint())
+
         self.addItem(item)
+        self.setItemWidget(item, job)
 
 
     def update_job(self, info):
@@ -122,12 +127,12 @@ class QueueList(QListWidget):
         job.deleteLater()
 
 
-    def process_graph_info(self, info):
+    def process_graph_info(self, client, info):
         if info.state.is_ended():
             self.remove_job(info)
         else:
             if not self.update_job(info):
-                self.add_job(info)
+                self.add_job(client, info)
 
 
 class QueueWidget(QWidget):
@@ -137,16 +142,44 @@ class QueueWidget(QWidget):
         self.layout = Layout(self)
 
         with self.layout.column() as column:
-            column.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+            #column.setContentsMargins(4, 0, 4, 0)
+            #column.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            with self.layout.button() as button:
-                button.setText("Hi")
-                column.addWidget(button)
+            #with self.layout.row() as row:
+                #with self.layout.label() as label:
+                    #label.setText("Queue")
+                    #row.addWidget(label)
+
+                #row.addStretch()
+
+                #with self.layout.tool_button() as button:
+                    #button.setIcon(Krita.icon("animation_pause"))
+                    #button.clicked.connect(self.pause_jobs)
+                    #row.addWidget(button)
+
+                #with self.layout.tool_button() as button:
+                    #button.setIcon(Krita.icon("dialog-cancel"))
+                    #button.clicked.connect(self.cancel_jobs)
+                    #row.addWidget(button)
+
+                #column.addLayout(row)
+
+            #with self.layout.button() as button:
+                #button.setText("Hi")
+                #column.addWidget(button)
 
             self.queue_list = QueueList(self)
             column.addWidget(self.queue_list)
 
             self.setLayout(column)
+
+
+    #def pause_jobs(self):
+        #pass
+
+    #def cancel_jobs(self):
+        #pass
+
 
     def jobs_len(self):
         return len(self.queue_list.jobs)
@@ -155,8 +188,8 @@ class QueueWidget(QWidget):
         if len(self.queue_list.jobs) > 0:
             return self.queue_list.jobs[0]
 
-    def process_graph_info(self, info):
-        self.queue_list.process_graph_info(info)
+    def process_graph_info(self, client, info):
+        self.queue_list.process_graph_info(client, info)
 
 
 class InputsWidget(QWidget):
@@ -199,7 +232,7 @@ class InputsWidget(QWidget):
                     self.queue_menu.addAction(widget_action)
 
                     for info in self.extension.client.current_queue():
-                        self.queue.process_graph_info(info)
+                        self.queue.process_graph_info(self.extension.client, info)
 
                     self.update()
 
@@ -215,8 +248,7 @@ class InputsWidget(QWidget):
 
 
     def on_graph_changed(self, info):
-        print("CHANGED", info.graph_id, info.state, info.progress)
-        self.queue.process_graph_info(info)
+        self.queue.process_graph_info(self.extension.client, info)
         self.update()
 
 
@@ -241,8 +273,6 @@ class InputsWidget(QWidget):
 
 
     def run_workflow(self):
-        print("RUN WORKFLOW")
-
         graph = Graph()
 
         parse_lines = graph.node("prompt_helpers: ParseLines", text="1girl").out(0)
@@ -254,24 +284,24 @@ class InputsWidget(QWidget):
         import random
         seed = random.randint(0, 10000000)
 
-        print(seed)
-
         sampler = graph.node("prompt_helpers: EZSampler", sampler_name="euler", scheduler="normal", steps=30, seed=seed)
 
         image = graph.node("prompt_helpers: EZBlank", width=1024, height=1024)
 
-        graph.node(
-            "prompt_helpers: EZGenerateSave",
+        generate = graph.node(
+            "prompt_helpers: EZGenerate",
             model=checkpoint.out(0),
             clip=checkpoint.out(1),
             vae=checkpoint.out(2),
-            folder="tmp",
-            filename="%timestamp%",
+            #folder="tmp",
+            #filename="%timestamp%",
             prompt=prompt.out(0),
             sampler=sampler.out(0),
             image=image.out(0),
             control_net=None,
         )
+
+        graph.node("PreviewImage", images=generate.out(0))
 
         #graph.node("PreviewAny", source=graph.node("CheckpointLoaderSimple", ckpt_name=).out(0))
 
