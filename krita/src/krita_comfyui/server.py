@@ -110,7 +110,22 @@ class GraphError:
 
 
     def format(self):
-        return "#{} {}\n  {}".format(self.node_id, self.node_name, info["exception_message"])
+        message = []
+
+        if self.node_id is not None:
+            message.append(self.node_id)
+
+        if self.node_name is not None:
+            if len(message) > 0:
+                message.append(" ")
+            message.append(self.node_name)
+
+        if len(message) > 0:
+            message.append("\n  ")
+
+        message.append(self.message)
+
+        return "".join(message)
 
 
     @staticmethod
@@ -223,9 +238,13 @@ class WebsocketClient(QObject):
 class ComfyUIClient(QObject):
     graph_changed = pyqtSignal(GraphInfo)
 
+    node_metadata_changed = pyqtSignal(dict)
+
 
     def __init__(self, parent, url, reconnect_delay):
         super().__init__(parent)
+
+        self.node_metadata = None
 
         self.client_id = str(uuid.uuid4())
         self.graph_id = 0
@@ -249,23 +268,27 @@ class ComfyUIClient(QObject):
 
 
     def post_prompt(self, prompt):
-        url = "http://{}/prompt".format(self.url)
-        request = QNetworkRequest(QUrl(url))
-        request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
-        request.setAttribute(QNetworkRequest.Attribute.User, prompt.prompt_id)
-        return self.http.post(request, QByteArray(prompt.body))
+        if self.websocket.is_ready():
+            url = "http://{}/prompt".format(self.url)
+            request = QNetworkRequest(QUrl(url))
+            request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
+            request.setAttribute(QNetworkRequest.Attribute.User, "prompt")
+            request.setAttribute(QNetworkRequest.Attribute(QNetworkRequest.Attribute.User.value + 1), prompt.prompt_id)
+            self.http.post(request, QByteArray(prompt.body))
 
 
     def interrupt_prompt(self, prompt):
-        url = "http://{}/interrupt".format(self.url)
+        if self.websocket.is_ready():
+            url = "http://{}/interrupt".format(self.url)
 
-        message = {
-            "prompt_id": prompt.prompt_id,
-        }
+            message = {
+                "prompt_id": prompt.prompt_id,
+            }
 
-        request = QNetworkRequest(QUrl(url))
-        request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
-        return self.http.post(request, QByteArray(json.dumps(message).encode("utf-8")))
+            request = QNetworkRequest(QUrl(url))
+            request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
+            request.setAttribute(QNetworkRequest.Attribute.User, "interrupt")
+            self.http.post(request, QByteArray(json.dumps(message).encode("utf-8")))
 
 
     def execute_queue(self):
@@ -304,6 +327,7 @@ class ComfyUIClient(QObject):
                 self.graph_changed.emit(prompt.graph_info())
 
         elif state == ConnectState.Connected:
+            self.update_node_metadata()
             self.execute_queue()
 
 
@@ -380,8 +404,11 @@ class ComfyUIClient(QObject):
         error = None
         status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
 
+        if status is None:
+            error = GraphError.from_string(reply.errorString())
+
         # Prompt was bad, display ComfyUI error message
-        if status == 400:
+        elif status == 400:
             error = GraphError.from_comfyui_error(json.loads(reply.readAll().data().decode("utf-8")))
 
         # Other major network error happened
@@ -392,23 +419,34 @@ class ComfyUIClient(QObject):
         else:
             assert reply.error() == QNetworkReply.NetworkError.NoError
 
-        # An error happened when sending the prompt to ComfyUI
         if error is not None:
-            prompt_id = reply.request().attribute(QNetworkRequest.Attribute.User)
+            print("HTTP Error: {}".format(error.format()))
 
-            if prompt_id is not None:
-                prompt = self.find_prompt(prompt_id)
+        match reply.request().attribute(QNetworkRequest.Attribute.User):
+            case "prompt":
+                if error is not None:
+                    prompt_id = reply.request().attribute(QNetworkRequest.Attribute(QNetworkRequest.Attribute.User.value + 1))
 
-                # If the prompt hasn't been reset...
-                if prompt is not None and prompt.state.is_running():
-                    prompt.state = GraphState.Error
-                    prompt.error = error
-                    self.queue.remove(prompt)
-                    self.graph_changed.emit(prompt.graph_info())
-                    self.execute_queue()
+                    assert prompt_id is not None
 
-            else:
-                print("HTTP Error: {}".format(error.format()))
+                    prompt = self.find_prompt(prompt_id)
+
+                    # If the prompt hasn't been reset...
+                    if prompt is not None and not prompt.state.is_ended():
+                        prompt.state = GraphState.Error
+                        prompt.error = error
+                        self.queue.remove(prompt)
+                        self.graph_changed.emit(prompt.graph_info())
+                        self.execute_queue()
+
+            case "interrupt":
+                pass
+
+            case "object_info":
+                if error is None:
+                    self.node_metadata = json.loads(reply.readAll().data().decode("utf-8"))
+                    print(self.node_metadata)
+                    self.node_metadata_changed.emit(self.node_metadata)
 
         reply.deleteLater()
 
@@ -470,6 +508,13 @@ class ComfyUIClient(QObject):
 
     def current_queue(self):
         return [prompt.graph_info() for prompt in self.queue]
+
+
+    def update_node_metadata(self):
+        if self.websocket.is_ready():
+            request = QNetworkRequest(QUrl("http://{}/object_info".format(self.url)))
+            request.setAttribute(QNetworkRequest.Attribute.User, "object_info")
+            self.http.get(request)
 
 
     def execute_graph(self, graph):
