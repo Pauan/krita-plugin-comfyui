@@ -145,12 +145,14 @@ class QueueWidget(QWidget):
             #column.setContentsMargins(4, 0, 4, 0)
             #column.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            #with self.layout.row() as row:
-                #with self.layout.label() as label:
-                    #label.setText("Queue")
-                    #row.addWidget(label)
+            with self.layout.row() as row:
+                row.addStretch()
 
-                #row.addStretch()
+                with self.layout.label() as label:
+                    label.setText("Queue")
+                    row.addWidget(label)
+
+                row.addStretch()
 
                 #with self.layout.tool_button() as button:
                     #button.setIcon(Krita.icon("animation_pause"))
@@ -162,7 +164,7 @@ class QueueWidget(QWidget):
                     #button.clicked.connect(self.cancel_jobs)
                     #row.addWidget(button)
 
-                #column.addLayout(row)
+                column.addLayout(row)
 
             #with self.layout.button() as button:
                 #button.setText("Hi")
