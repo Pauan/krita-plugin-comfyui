@@ -15,7 +15,9 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QHBoxLayout,
     QVBoxLayout,
+    QWidgetAction,
     QWidget,
+    QLayout,
 )
 from ..extension import ComfyUIExtension
 from ..layer import Document, Layer, Image, Bounds, BlockSignals
@@ -72,17 +74,23 @@ class QueueList(QListWidget):
     def __init__(self, parent: QWidget | None):
         super().__init__(parent)
 
-        self.jobs = []
-
-        #self.setResizeMode(QListWidget.Adjust)
+        #self.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        #self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
         self.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.setStyleSheet("QListWidget { background-color: transparent; }")
+
+        self.jobs = []
 
 
     def add_job(self, info):
         job = Job(self, info)
         self.jobs.append(job)
 
-        item = QListWidgetItem("TEST")
+        print(job.sizeHint())
+
+        item = QListWidgetItem()
+        item.setSizeHint(QSize(30, 30))
+        #item.setSizeHint(job.sizeHint())
         self.setItemWidget(item, job)
         self.addItem(item)
 
@@ -122,17 +130,15 @@ class QueueList(QListWidget):
                 self.add_job(info)
 
 
-class QueuePopup(QMenu):
-    def __init__(self, parent: QWidget | None, client):
+class QueueWidget(QWidget):
+    def __init__(self, parent):
         super().__init__(parent)
-
-        self.client = client
-
-        self.setObjectName("QueuePopup")
 
         self.layout = Layout(self)
 
         with self.layout.column() as column:
+            column.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+
             with self.layout.button() as button:
                 button.setText("Hi")
                 column.addWidget(button)
@@ -184,17 +190,23 @@ class InputsWidget(QWidget):
 
                 with self.layout.tool_button() as button:
                     self.run_button = button
-                    self.queue_popup = QueuePopup(self, self.extension.client)
+
+                    self.queue_menu = QMenu(self)
+                    self.queue = QueueWidget(self.queue_menu)
+
+                    widget_action = QWidgetAction(self.queue_menu)
+                    widget_action.setDefaultWidget(self.queue)
+                    self.queue_menu.addAction(widget_action)
 
                     for info in self.extension.client.current_queue():
-                        self.queue_popup.process_graph_info(info)
+                        self.queue.process_graph_info(info)
 
                     self.update()
 
                     button.setToolTip("Run workflow in ComfyUI")
                     button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
                     button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-                    button.setMenu(self.queue_popup)
+                    button.setMenu(self.queue_menu)
                     button.clicked.connect(self.run_workflow)
                     row.addWidget(button)
 
@@ -204,12 +216,12 @@ class InputsWidget(QWidget):
 
     def on_graph_changed(self, info):
         print("CHANGED", info.graph_id, info.state, info.progress)
-        self.queue_popup.process_graph_info(info)
+        self.queue.process_graph_info(info)
         self.update()
 
 
     def update(self):
-        len = self.queue_popup.jobs_len()
+        len = self.queue.jobs_len()
 
         if len == 0:
             self.run_button.setText("Run")
@@ -217,7 +229,7 @@ class InputsWidget(QWidget):
             self.run_button.setText("Run [{}]".format(len))
 
 
-        current_job = self.queue_popup.get_first_job()
+        current_job = self.queue.get_first_job()
 
         if current_job is None:
             self.run_button.setIcon(GraphState.Idle.button_icon())
