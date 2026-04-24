@@ -1,4 +1,3 @@
-from krita import Krita
 from aiohttp import web
 import threading
 import asyncio
@@ -22,21 +21,72 @@ class ProgressNode:
         return self.value / self.max
 
 
-class PromptState(Enum):
+class GraphState(Enum):
     Idle = auto()
     Sent = auto()
     Executing = auto()
     Done = auto()
+    Error = auto()
+    Cancelled = auto()
+
+    def is_idle(self):
+        return self == GraphState.Idle
+
+    def is_executing(self):
+        return self == GraphState.Executing
+
+    def is_running(self):
+        return self == GraphState.Sent or self == GraphState.Executing
+
+    def is_ended(self):
+        return self == GraphState.Done or self == GraphState.Error or self == GraphState.Cancelled
+
+    def button_icon(self):
+        if self == GraphState.Idle:
+            return Krita.icon("media-playback-start")
+        elif self == GraphState.Sent or self == GraphState.Executing:
+            return Krita.icon("media-record")
+        elif self == GraphState.Cancelled:
+            return Krita.icon("dialog-cancel")
+        elif self == GraphState.Error:
+            return Krita.icon("warning")
+        else:
+            return Krita.icon("dialog-ok")
+
+    def status_icon(self):
+        if self == GraphState.Idle:
+            return Krita.icon("media-playback-stop")
+        elif self == GraphState.Sent:
+            return Krita.icon("media-playback-start")
+        elif self == GraphState.Executing:
+            return Krita.icon("media-record")
+        elif self == GraphState.Cancelled:
+            return Krita.icon("dialog-cancel")
+        elif self == GraphState.Error:
+            return Krita.icon("warning")
+        else:
+            return Krita.icon("dialog-ok")
+
+class GraphInfo:
+    def __init__(self, graph_id, progress, state, error):
+        self.graph_id = graph_id
+        self.progress = progress
+        self.state = state
+        self.error = error
+
 
 class Prompt:
     def __init__(self, client_id, graph_id, graph):
         self.client_id = client_id
         self.graph_id = graph_id
         self.graph = graph
+        self.error = None
+
+        self.progress = 0.0
 
         self.prompt_id = str(uuid.uuid4())
 
-        self.state = PromptState.Idle
+        self.state = GraphState.Idle
 
         self.body = json.dumps({
             "client_id": self.client_id,
@@ -44,22 +94,13 @@ class Prompt:
             "prompt": graph.serialize(),
         }).encode("utf-8")
 
+    def graph_info(self):
+        return GraphInfo(self.graph_id, self.progress, self.state, self.error)
+
     # Returns a fresh Prompt with the same graph.
     # This is needed for retrying the Prompt in the case of a disconnection.
     def copy(self):
         return Prompt(self.client_id, self.graph_id, self.graph)
-
-    def is_idle(self):
-        return self.state == PromptState.Idle
-
-    def is_executing(self):
-        return self.state == PromptState.Executing
-
-    def is_running(self):
-        return self.state == PromptState.Sent or self.state == PromptState.Executing
-
-    def is_done(self):
-        return self.state == PromptState.Done
 
 
 class GraphError:
@@ -182,11 +223,7 @@ class WebsocketClient(QObject):
 
 
 class ComfyUIClient(QObject):
-    graph_sent = pyqtSignal(str)
-    graph_progress = pyqtSignal(str, list)
-    graph_finished = pyqtSignal(str)
-    graph_errored = pyqtSignal(str, GraphError)
-    graph_queue_changed = pyqtSignal(list)
+    graph_changed = pyqtSignal(GraphInfo)
 
 
     def __init__(self, parent, url, reconnect_delay):
@@ -220,10 +257,6 @@ class ComfyUIClient(QObject):
         return self.http.post(request, QByteArray(prompt.body))
 
 
-    def queue_changed(self):
-        self.graph_queue_changed.emit([prompt.graph_id for prompt in self.queue])
-
-
     def execute_queue(self):
         # We only send HTTP requests when the WebSocket server is connected.
         #
@@ -233,11 +266,11 @@ class ComfyUIClient(QObject):
             prompt = self.queue[0]
 
             # Don't send the same prompt multiple times
-            if prompt.is_idle():
+            if prompt.state.is_idle():
                 self.post_prompt("http://{}/prompt".format(self.url), prompt)
-                prompt.state = PromptState.Sent
+                prompt.state = GraphState.Sent
 
-                self.graph_sent.emit(prompt.graph_id)
+                self.graph_changed.emit(prompt.graph_info())
 
 
     def on_websocket_state_changed(self, state):
@@ -251,10 +284,13 @@ class ComfyUIClient(QObject):
             new_queue = []
 
             for prompt in self.queue:
-                prompt.state = PromptState.Done
+                prompt.state = GraphState.Cancelled
                 new_queue.append(prompt.copy())
 
             self.queue = new_queue
+
+            for prompt in self.queue:
+                self.graph_changed.emit(prompt.graph_info())
 
         elif state == ConnectState.Connected:
             self.execute_queue()
@@ -264,34 +300,40 @@ class ComfyUIClient(QObject):
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
-        if prompt is not None and prompt.is_running():
-            prompt.state = PromptState.Executing
+        if prompt is not None and prompt.state.is_running():
+            prompt.state = GraphState.Executing
 
-            self.graph_progress.emit(prompt.graph_id, [])
+            self.graph_changed.emit(prompt.graph_info())
 
 
     def on_prompt_progress(self, prompt_id, nodes):
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
-        if prompt is not None and prompt.is_executing():
-            progress = []
+        if prompt is not None and prompt.state.is_executing():
+            progress = 0.0
+            total_progress = 0.0
 
             for node in nodes.values():
-                progress.append(ProgressNode(node["node_id"], node["value"], node["max"]))
+                progress += node["value"]
+                total_progress += node["max"]
 
-            self.graph_progress.emit(prompt.graph_id, progress)
+            if total_progress == 0.0:
+                prompt.progress = 0.0
+            else:
+                prompt.progress = progress / total_progress
+
+            self.graph_changed.emit(prompt.graph_info())
 
 
     def on_prompt_finished(self, prompt_id):
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
-        if prompt is not None and prompt.is_running():
-            prompt.state = PromptState.Done
+        if prompt is not None and prompt.state.is_running():
+            prompt.state = GraphState.Done
             self.queue.remove(prompt)
-            self.graph_finished.emit(prompt.graph_id)
-            self.queue_changed()
+            self.graph_changed.emit(prompt.graph_info())
             self.execute_queue()
 
 
@@ -299,11 +341,11 @@ class ComfyUIClient(QObject):
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
-        if prompt is not None and prompt.is_running():
-            prompt.state = PromptState.Done
+        if prompt is not None and prompt.state.is_running():
+            prompt.state = GraphState.Error
+            prompt.error = GraphError.from_execution_error(info)
             self.queue.remove(prompt)
-            self.graph_errored.emit(prompt.graph_id, GraphError.from_execution_error(info))
-            self.queue_changed()
+            self.graph_changed.emit(prompt.graph_info())
             self.execute_queue()
 
 
@@ -346,11 +388,11 @@ class ComfyUIClient(QObject):
             prompt = self.find_prompt(prompt_id)
 
             # If the prompt hasn't been reset...
-            if prompt is not None and prompt.is_running():
-                prompt.state = PromptState.Done
+            if prompt is not None and prompt.state.is_running():
+                prompt.state = GraphState.Error
+                prompt.error = error
                 self.queue.remove(prompt)
-                self.graph_errored.emit(prompt.graph_id, error)
-                self.queue_changed()
+                self.graph_changed.emit(prompt.graph_info())
                 self.execute_queue()
 
         reply.deleteLater()
@@ -371,30 +413,38 @@ class ComfyUIClient(QObject):
 
         if len(remove) > 0:
             for prompt in remove:
+                prompt.state = GraphState.Cancelled
                 self.queue.remove(prompt)
+                self.graph_changed.emit(prompt.graph_info())
                 # TODO also cancel execution in ComfyUI
-
-            self.queue_changed()
 
 
     # Removes pending prompts which haven't been sent yet
     def clear_queue_pending(self):
-        remove = [prompt for prompt in self.queue if prompt.is_idle()]
+        remove = [prompt for prompt in self.queue if prompt.state.is_idle()]
 
         if len(remove) > 0:
             for prompt in remove:
+                prompt.state = GraphState.Cancelled
                 self.queue.remove(prompt)
-
-            self.queue_changed()
+                self.graph_changed.emit(prompt.graph_info())
 
 
     # Removes all prompts, including prompts that are in progress
     def clear_queue(self):
         if len(self.queue) > 0:
+            old = self.queue
+
             self.queue = []
+
+            for prompt in old:
+                prompt.state = GraphState.Cancelled
+                self.graph_changed.emit(prompt.graph_info())
             # TODO also cancel execution in ComfyUI
 
-            self.queue_changed()
+
+    def current_queue(self):
+        return [prompt.graph_info() for prompt in self.queue]
 
 
     def execute_graph(self, graph):
@@ -402,14 +452,18 @@ class ComfyUIClient(QObject):
 
         self.graph_id += 1
 
-        self.queue.append(Prompt(self.client_id, graph_id, graph))
+        prompt = Prompt(self.client_id, graph_id, graph)
 
-        self.queue_changed()
+        self.queue.append(prompt)
+
+        graph_info = prompt.graph_info()
+
+        self.graph_changed.emit(graph_info)
 
         # We lazily connect to the WebSocket only when a graph is executed
         self.connect()
 
-        return graph_id
+        return graph_info
 
 
 # Starts the web server in a separate thread
