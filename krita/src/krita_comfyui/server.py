@@ -248,11 +248,24 @@ class ComfyUIClient(QObject):
                 return prompt
 
 
-    def post_prompt(self, url, prompt):
+    def post_prompt(self, prompt):
+        url = "http://{}/prompt".format(self.url)
         request = QNetworkRequest(QUrl(url))
         request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
         request.setAttribute(QNetworkRequest.Attribute.User, prompt.prompt_id)
         return self.http.post(request, QByteArray(prompt.body))
+
+
+    def interrupt_prompt(self, prompt):
+        url = "http://{}/interrupt".format(self.url)
+
+        message = {
+            "prompt_id": prompt.prompt_id,
+        }
+
+        request = QNetworkRequest(QUrl(url))
+        request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
+        return self.http.post(request, QByteArray(json.dumps(message).encode("utf-8")))
 
 
     def execute_queue(self):
@@ -265,7 +278,7 @@ class ComfyUIClient(QObject):
 
             # Don't send the same prompt multiple times
             if prompt.state.is_idle():
-                self.post_prompt("http://{}/prompt".format(self.url), prompt)
+                self.post_prompt(prompt)
                 prompt.state = GraphState.Sent
 
                 self.graph_changed.emit(prompt.graph_info())
@@ -383,15 +396,19 @@ class ComfyUIClient(QObject):
         if error is not None:
             prompt_id = reply.request().attribute(QNetworkRequest.Attribute.User)
 
-            prompt = self.find_prompt(prompt_id)
+            if prompt_id is not None:
+                prompt = self.find_prompt(prompt_id)
 
-            # If the prompt hasn't been reset...
-            if prompt is not None and prompt.state.is_running():
-                prompt.state = GraphState.Error
-                prompt.error = error
-                self.queue.remove(prompt)
-                self.graph_changed.emit(prompt.graph_info())
-                self.execute_queue()
+                # If the prompt hasn't been reset...
+                if prompt is not None and prompt.state.is_running():
+                    prompt.state = GraphState.Error
+                    prompt.error = error
+                    self.queue.remove(prompt)
+                    self.graph_changed.emit(prompt.graph_info())
+                    self.execute_queue()
+
+            else:
+                print("HTTP Error: {}".format(error.format()))
 
         reply.deleteLater()
 
@@ -417,8 +434,9 @@ class ComfyUIClient(QObject):
             self.graph_changed.emit(prompt.graph_info())
 
             if is_running:
-                pass
-                # TODO also cancel execution in ComfyUI
+                self.interrupt_prompt(prompt)
+
+        self.execute_queue()
 
 
     # Removes pending prompts which haven't been sent yet
@@ -430,6 +448,8 @@ class ComfyUIClient(QObject):
             self.queue.remove(prompt)
             self.graph_changed.emit(prompt.graph_info())
 
+        self.execute_queue()
+
 
     # Removes all prompts, including prompts that are in progress
     def clear_queue(self):
@@ -439,9 +459,13 @@ class ComfyUIClient(QObject):
             self.queue = []
 
             for prompt in old:
+                is_running = prompt.state.is_running()
+
                 prompt.state = GraphState.Cancelled
                 self.graph_changed.emit(prompt.graph_info())
-            # TODO also cancel execution in ComfyUI
+
+                if is_running:
+                    self.interrupt_prompt(prompt)
 
 
     def current_queue(self):
