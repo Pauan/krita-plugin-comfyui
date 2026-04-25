@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QProgressBar,
     QLabel,
+    QComboBox,
 )
 
 
@@ -51,6 +52,11 @@ class Layout:
 
     def progress_bar(self):
         widget = QProgressBar(self.parent)
+        self.widgets.append(widget)
+        return Scope(widget)
+
+    def combo_box(self):
+        widget = QComboBox(self.parent)
         self.widgets.append(widget)
         return Scope(widget)
 

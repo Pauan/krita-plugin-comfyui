@@ -1,6 +1,6 @@
 from comfy_api.latest import ComfyExtension, io
 
-from .src.krita_comfyui import nodes
+from .src.krita_comfyui import nodes, ui
 
 
 class KritaComfyui(ComfyExtension):
@@ -8,6 +8,18 @@ class KritaComfyui(ComfyExtension):
         return [
             # image
             nodes.LoadImageBase64,
+
+            # ui
+            ui.KritaUiRoot,
+            ui.KritaUiRow,
+            ui.KritaUiGroup,
+            ui.KritaUiList,
+            ui.KritaUiBoolean,
+            ui.KritaUiCombo,
+            ui.KritaUiFloat,
+            ui.KritaUiInt,
+            ui.KritaUiLayer,
+            ui.KritaUiString,
 
             # krita
             nodes.KritaConnect,

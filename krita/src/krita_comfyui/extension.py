@@ -1,6 +1,7 @@
-from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension, Krita
+from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension
 
 from .server import Server, ComfyUIClient
+from .settings import Settings
 
 
 class ComfyUIExtension(Extension):
@@ -8,6 +9,8 @@ class ComfyUIExtension(Extension):
         super().__init__(parent)
 
         self.client = ComfyUIClient(self, url="127.0.0.1:8188", reconnect_delay=10000)
+
+        self.settings = Settings(self)
 
         #self.server = Server()
 

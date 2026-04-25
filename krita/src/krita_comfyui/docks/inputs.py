@@ -1,6 +1,6 @@
 import krita
 from krita import DockWidget
-from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QObject, QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QLayout,
 )
 from ..extension import ComfyUIExtension
-from ..layer import Document, Layer, Image, Bounds, BlockSignals
+from ..layer import Document, Layer, Image, Bounds, BlockSignals, CurrentDocument
 from ..server import GraphInfo, GraphState
 from ..graph import Graph
 from ..qt import Layout
@@ -194,9 +194,63 @@ class QueueWidget(QWidget):
         self.queue_list.process_graph_info(client, info)
 
 
+class DocumentInputs(QObject):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.inputs = None
+        self.document = CurrentDocument(self)
+
+        self.document.changed.connect(self.on_document_changed)
+
+
+    def on_document_changed(self):
+        print("CHANGED")
+        document = self.document.current()
+
+        if document is not None:
+            self.inputs = document.get_key_json("krita_comfyui/inputs")
+
+
+class WorkflowWidget(QWidget):
+    def __init__(self, parent, extension, document):
+        super().__init__(parent)
+
+        self.extension = extension
+        self.document = document
+
+        self.layout = Layout(self)
+
+        with self.layout.row() as row:
+            with self.layout.combo_box() as combo:
+                combo.currentTextChanged.connect(self.on_workflow_changed)
+
+                combo.addItem(Krita.icon("bookmarks"), "Standard")
+
+                row.addWidget(combo)
+
+            with self.layout.tool_button() as button:
+                button.setIcon(Krita.icon("properties"))
+                button.setToolTip("Open settings")
+                button.clicked.connect(self.open_settings)
+                row.addWidget(button)
+
+            self.setLayout(row)
+
+
+    def on_workflow_changed(self, text):
+        pass
+
+
+    def open_settings(self):
+        self.extension.show_settings()
+
+
 class InputsWidget(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
+
+        self.document = DocumentInputs(self)
 
         self.extension = None
 
@@ -210,6 +264,9 @@ class InputsWidget(QWidget):
         self.layout = Layout(self)
 
         with self.layout.column() as column:
+            self.workflow = WorkflowWidget(self, self.extension, self.document)
+            column.addWidget(self.workflow)
+
             #with self.layout.column() as inputs:
                 #column.addLayout(inputs)
 
@@ -321,7 +378,5 @@ class ComfyUIInputWidget(DockWidget):
 
         self.setWidget(self._inputs)
 
-
-    def canvasChanged(self, canvas: krita.Canvas):
-        pass
-
+    def canvasChanged(self, _canvas: krita.Canvas):
+        self._inputs.document.document.check_current()

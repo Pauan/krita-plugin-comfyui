@@ -4,8 +4,42 @@ from PyQt6 import sip
 from typing import NamedTuple
 from json import (dumps, loads)
 
-from PyQt6.QtCore import QObject, QByteArray, QRect, QBuffer, QUuid, Qt
+from PyQt6.QtCore import QObject, QByteArray, QRect, QBuffer, QUuid, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
+
+
+class CurrentDocument(QObject):
+    changed = pyqtSignal()
+
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self._document = None
+
+
+    def is_equal(self, new):
+        if self._document is None and new is None:
+            return True
+        elif self._document is not None and new is not None:
+            return self._document._document == new._document
+        else:
+            return False
+
+
+    def current(self):
+        document = Document.current()
+
+        if self.is_equal(document):
+            return self._document
+
+
+    def check_current(self):
+        document = Document.current()
+
+        if not self.is_equal(document):
+            self._document = document
+            self.changed.emit()
 
 
 class BlockSignals:
@@ -161,27 +195,33 @@ class Document:
                 visible = preview.is_visible
 
                 try:
-                    preview.is_visible = False
+                    if visible:
+                        preview.is_visible = False
 
                     self.refresh()
-                    return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
-                    #return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+                    #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
+                    return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
                 finally:
-                    preview.is_visible = visible
-                    self.refresh()
+                    if visible:
+                        preview.is_visible = visible
+                        self.refresh()
 
             else:
                 self.refresh()
-                return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
-                #return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+                #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
+                return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
 
     def root_layer(self):
-        return Layer(self._document.rootNode())
+        node = self._document.rootNode()
+        if node is not None:
+            return Layer(node)
 
     def active_layer(self):
-        return Layer(self._document.activeNode())
+        node = self._document.activeNode()
+        if node is not None:
+            return Layer(node)
 
     def pixels_per_inch(self):
         return self._document.resolution()
