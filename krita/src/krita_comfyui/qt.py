@@ -20,47 +20,186 @@ class Scope:
         return False
 
 
+def make_column():
+    qlayout = QVBoxLayout()
+    qlayout.setSpacing(0)
+    qlayout.setContentsMargins(0, 0, 0, 0)
+    return Layout(qlayout)
+
+
+def make_row():
+    qlayout = QHBoxLayout()
+    qlayout.setSpacing(0)
+    qlayout.setContentsMargins(0, 0, 0, 0)
+    return Layout(qlayout)
+
+
 class Layout:
-    def __init__(self, parent):
-        self.parent = parent
+    def __init__(self, qlayout):
+        self.qlayout = qlayout
         self.widgets = []
         self.layouts = []
 
+
+    def clear(self):
+        for layout in self.layouts:
+            layout.clear()
+
+        while True:
+            len = self.qlayout.count()
+
+            if len > 0:
+                item = self.qlayout.takeAt(len - 1)
+
+                widget = item.widget()
+
+                if widget is not None:
+                    widget.setParent(None)
+                    widget.deleteLater()
+
+            else:
+                break
+
+        self.widgets = []
+        self.layouts = []
+
+
+    def remove(self, widget):
+        is_removed = False
+
+        for layout in self.layouts:
+            if layout.remove(widget):
+                is_removed = True
+
+        try:
+            self.widgets.remove(widget)
+        except ValueError:
+            return is_removed
+
+        # We only run this code if the widget is inside of self.widgets
+        self.qlayout.removeWidget(widget)
+        widget.setParent(None)
+        widget.deleteLater()
+        return True
+
+
+    def set_child_spacing(self, amount):
+        self.qlayout.setSpacing(amount)
+
+    def set_padding(self, left, top, right, bottom):
+        self.qlayout.setContentsMargins(left, top, right, bottom)
+
+
     def column(self):
-        layout = QVBoxLayout(self.parent)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout = make_column()
+        self.qlayout.addLayout(layout.qlayout)
         self.layouts.append(layout)
         return Scope(layout)
 
     def row(self):
-        layout = QHBoxLayout(self.parent)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout = make_row()
+        self.qlayout.addLayout(layout.qlayout)
         self.layouts.append(layout)
         return Scope(layout)
 
-    def button(self):
-        widget = QPushButton(self.parent)
+
+    def stretch(self, stretch=1):
+        self.qlayout.addStretch(stretch)
+
+    def spacer(self, amount):
+        self.qlayout.addSpacing(amount)
+
+
+    def widget(self, widget):
+        self.qlayout.addWidget(widget)
         self.widgets.append(widget)
         return Scope(widget)
 
-    def tool_button(self):
-        widget = QToolButton(self.parent)
-        self.widgets.append(widget)
-        return Scope(widget)
 
-    def progress_bar(self):
-        widget = QProgressBar(self.parent)
-        self.widgets.append(widget)
-        return Scope(widget)
+    def button(self, icon=None, text=None, tooltip=None):
+        widget = QPushButton()
 
-    def combo_box(self):
-        widget = QComboBox(self.parent)
-        self.widgets.append(widget)
-        return Scope(widget)
+        if icon is not None:
+            widget.setIcon(icon)
 
-    def label(self):
-        widget = QLabel(self.parent)
-        self.widgets.append(widget)
-        return Scope(widget)
+        if text is not None:
+            widget.setText(text)
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def tool_button(self, icon=None, text=None, tooltip=None):
+        widget = QToolButton()
+
+        if icon is not None:
+            widget.setIcon(icon)
+
+        if text is not None:
+            widget.setText(text)
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def progress_bar(self, minimum=None, maximum=None, tooltip=None):
+        widget = QProgressBar()
+
+        if minimum is not None:
+            widget.setMinimum(minimum)
+
+        if maximum is not None:
+            widget.setMaximum(maximum)
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def label(self, icon=None, text=None, tooltip=None):
+        widget = QLabel()
+
+        if icon is not None:
+            widget.setIcon(icon)
+
+        if text is not None:
+            widget.setText(text)
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def combo_box(self, tooltip=None):
+        widget = QComboBox()
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+class LayoutManager:
+    def __init__(self, parent):
+        self.parent = parent
+        self.layout = None
+
+
+    def column(self):
+        assert self.layout is None
+        self.layout = make_column()
+        self.parent.setLayout(self.layout.qlayout)
+        return Scope(self.layout)
+
+
+    def row(self):
+        assert self.layout is None
+        self.layout = make_row()
+        self.parent.setLayout(self.layout.qlayout)
+        return Scope(self.layout)

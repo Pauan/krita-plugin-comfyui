@@ -12,28 +12,35 @@ class Settings(QObject):
 
         self.workflows_dir = self.dir / "workflows"
 
-        os.makedirs(self.workflows_dir)
+        self.workflows = {}
 
-        self.workflows = self.load_workflows()
 
-        print(self.dir)
-        print(self.workflows_dir)
+    def setup(self):
+        os.makedirs(self.workflows_dir, exist_ok=True)
+
+
+    def workflow_path(self, name):
+        return self.workflows_dir / (name + ".json")
 
 
     def load_workflow(self, name):
-        with open(self.workflows_dir / (name + ".json"), "r") as file:
-            return load(file)
+        workflow = self.workflows.get(name, None)
+
+        if workflow is None:
+            with open(self.workflow_path(name), "r") as file:
+                workflow = load(file)
+
+            self.workflows[name] = workflow
+
+        return workflow
 
 
     def load_workflows(self):
-        workflows = {}
-
         for name in os.listdir(self.workflows_dir):
             print(name)
-
-        return workflows
+            #self.load_workflow(name)
 
 
     def save_workflow(self, name, json):
-        with open(self.workflows_dir / (name + ".json"), "w") as file:
-            file.write(dump(json, file, indent=2))
+        with open(self.workflow_path(name), "w") as file:
+            dump(json, file, indent=2)

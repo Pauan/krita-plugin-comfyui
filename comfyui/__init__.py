@@ -6,25 +6,24 @@ from .src.krita_comfyui import nodes, ui
 class KritaComfyui(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         return [
-            # image
+            # util
             nodes.LoadImageBase64,
+            nodes.LoadMaskBase64,
+            nodes.ThrowError,
 
             # ui
-            ui.KritaUiRoot,
-            ui.KritaUiRow,
-            ui.KritaUiGroup,
-            ui.KritaUiList,
             ui.KritaUiBoolean,
             ui.KritaUiCombo,
             ui.KritaUiFloat,
             ui.KritaUiInt,
-            ui.KritaUiLayer,
+            ui.KritaUiLayerName,
             ui.KritaUiString,
 
             # krita
             nodes.KritaConnect,
             nodes.KritaCanvas,
             nodes.KritaLayers,
+            nodes.KritaSeed,
             nodes.KritaSelection,
             nodes.KritaOutput,
         ]

@@ -3,6 +3,7 @@ from enum import Enum
 from PyQt6 import sip
 from typing import NamedTuple
 from json import (dumps, loads)
+import numpy as np
 
 from PyQt6.QtCore import QObject, QByteArray, QRect, QBuffer, QUuid, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
@@ -113,6 +114,27 @@ class ActiveNode:
         return False
 
 
+class Selection:
+    def __init__(self, selection):
+        self._selection = selection
+
+    def copy(self):
+        return Selection(self._selection.duplicate())
+
+    def feather(self, radius):
+        self._selection.feather(radius)
+
+    def grow(self, horizontal, vertical):
+        self._selection.grow(horizontal, vertical)
+
+    def mask(self, bounds):
+        bytes = self._selection.pixelData(bounds.x, bounds.y, bounds.width, bounds.height)
+        return Mask.from_packed_bytes(bytes, bounds.width, bounds.height)
+
+    def bounds(self):
+        return Bounds(self._selection.x(), self._selection.y(), self._selection.width(), self._selection.height())
+
+
 class Document:
     def __init__(self, document):
         self._document = document
@@ -176,11 +198,12 @@ class Document:
     def bounds(self):
         return Bounds.from_qrect(self._document.bounds())
 
+
     def selection(self):
         selection = self._document.selection()
 
         if selection is not None:
-            return Bounds(selection.x(), selection.y(), selection.width(), selection.height())
+            return Selection(selection)
 
 
     def refresh(self):
@@ -293,6 +316,48 @@ class Document:
             layer.move_to_top(self.root_layer())
 
 
+class Mask:
+    def __init__(self, qimage: QImage):
+        self._qimage = qimage
+
+
+    @staticmethod
+    def solid(value, width, height):
+        qimage = QImage(width, height, QImage.Format.Format_Grayscale8)
+        qimage.fill(value)
+        return Mask(qimage)
+
+
+    @staticmethod
+    def from_packed_bytes(data: QByteArray, width, height):
+        stride = width
+        qimg = QImage(data, width, height, stride, QImage.Format.Format_Grayscale8)
+        return Mask(qimg)
+
+
+    @property
+    def width(self):
+        return self._qimage.width()
+
+    @property
+    def height(self):
+        return self._qimage.height()
+
+
+    def is_solid(self, value):
+        bytes = self._qimage.constBits()
+
+        array = np.frombuffer(bytes, dtype=np.uint8).reshape(self.height, self.width, 1)
+
+        print(array)
+
+        return np.all(array[:, :, 0] == value)
+
+
+    def to_base64(self, format, quality):
+        return Image(self._qimage).to_base64(format, quality)
+
+
 class Image:
     def __init__(self, qimage: QImage):
         self._qimage = qimage
@@ -320,11 +385,9 @@ class Image:
 
 
     @staticmethod
-    def from_packed_bytes(data: QByteArray, width, height, channels=4):
-        assert channels in {4, 1}
-        stride = width * channels
-        format = QImage.Format.Format_ARGB32 if channels == 4 else QImage.Format.Format_Grayscale8
-        qimg = QImage(data, width, height, stride, format)
+    def from_packed_bytes(data: QByteArray, width, height):
+        stride = width * 4
+        qimg = QImage(data, width, height, stride, QImage.Format.Format_ARGB32)
         return Image(qimg)
 
 

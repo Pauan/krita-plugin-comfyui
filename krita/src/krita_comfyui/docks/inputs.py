@@ -23,37 +23,29 @@ from ..extension import ComfyUIExtension
 from ..layer import Document, Layer, Image, Bounds, BlockSignals, CurrentDocument
 from ..server import GraphInfo, GraphState
 from ..graph import Graph
-from ..qt import Layout
+from ..qt import LayoutManager
 
 
-class Job(QWidget):
-    def __init__(self, parent, client, info):
-        super().__init__(parent)
+class JobWidget(QWidget):
+    def __init__(self, client, info):
+        super().__init__()
 
         self.client = client
-        self.layout = Layout(self)
+        self.layout = LayoutManager(self)
 
         with self.layout.row() as row:
-            row.addSpacing(4)
+            row.spacer(4)
 
-            with self.layout.label() as label:
+            with row.label(tooltip="Status") as label:
                 self.icon = label
-                row.addWidget(label)
 
-            row.addSpacing(6)
+            row.spacer(6)
 
-            with self.layout.progress_bar() as progress:
-                progress.setMinimum(0)
-                progress.setMaximum(1000000)
+            with row.progress_bar(minimum=0, maximum=1000000, tooltip="Progress") as progress:
                 self.progress = progress
-                row.addWidget(progress)
 
-            with self.layout.tool_button() as button:
-                button.setIcon(Krita.icon("dialog-cancel"))
+            with row.tool_button(icon=Krita.icon("dialog-cancel"), tooltip="Cancel") as button:
                 button.clicked.connect(self.cancel_job)
-                row.addWidget(button)
-
-            self.setLayout(row)
 
         self.update_info(info)
 
@@ -76,8 +68,8 @@ class Job(QWidget):
 
 
 class QueueList(QListWidget):
-    def __init__(self, parent: QWidget | None):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
 
         #self.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
         #self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed))
@@ -90,7 +82,7 @@ class QueueList(QListWidget):
 
 
     def add_job(self, client, info):
-        job = Job(self, client, info)
+        job = JobWidget(client, info)
         self.jobs.append(job)
 
         item = QListWidgetItem()
@@ -136,23 +128,21 @@ class QueueList(QListWidget):
 
 
 class QueueWidget(QWidget):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
 
-        self.layout = Layout(self)
+        self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
             #column.setContentsMargins(4, 0, 4, 0)
             #column.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            with self.layout.row() as row:
-                row.addStretch()
+            with column.row() as row:
+                row.stretch()
 
-                with self.layout.label() as label:
-                    label.setText("Queue")
-                    row.addWidget(label)
+                row.label(text="Queue")
 
-                row.addStretch()
+                row.stretch()
 
                 #with self.layout.tool_button() as button:
                     #button.setIcon(Krita.icon("animation_pause"))
@@ -164,16 +154,12 @@ class QueueWidget(QWidget):
                     #button.clicked.connect(self.cancel_jobs)
                     #row.addWidget(button)
 
-                column.addLayout(row)
-
             #with self.layout.button() as button:
                 #button.setText("Hi")
                 #column.addWidget(button)
 
-            self.queue_list = QueueList(self)
-            column.addWidget(self.queue_list)
-
-            self.setLayout(column)
+            self.queue_list = QueueList()
+            column.widget(self.queue_list)
 
 
     #def pause_jobs(self):
@@ -213,29 +199,22 @@ class DocumentInputs(QObject):
 
 
 class WorkflowWidget(QWidget):
-    def __init__(self, parent, extension, document):
-        super().__init__(parent)
+    def __init__(self, extension, document):
+        super().__init__()
 
         self.extension = extension
         self.document = document
 
-        self.layout = Layout(self)
+        self.layout = LayoutManager(self)
 
         with self.layout.row() as row:
-            with self.layout.combo_box() as combo:
+            with row.combo_box(tooltip="Workflow") as combo:
                 combo.currentTextChanged.connect(self.on_workflow_changed)
 
                 combo.addItem(Krita.icon("bookmarks"), "Standard")
 
-                row.addWidget(combo)
-
-            with self.layout.tool_button() as button:
-                button.setIcon(Krita.icon("properties"))
-                button.setToolTip("Open settings")
+            with row.tool_button(icon=Krita.icon("properties"), tooltip="Open settings") as button:
                 button.clicked.connect(self.open_settings)
-                row.addWidget(button)
-
-            self.setLayout(row)
 
 
     def on_workflow_changed(self, text):
@@ -247,8 +226,8 @@ class WorkflowWidget(QWidget):
 
 
 class InputsWidget(QWidget):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
 
         self.document = DocumentInputs(self)
 
@@ -261,30 +240,29 @@ class InputsWidget(QWidget):
 
         self.extension.client.graph_changed.connect(self.on_graph_changed)
 
-        self.layout = Layout(self)
+        self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
-            self.workflow = WorkflowWidget(self, self.extension, self.document)
-            column.addWidget(self.workflow)
+            self.workflow = WorkflowWidget(self.extension, self.document)
+            column.widget(self.workflow)
 
             #with self.layout.column() as inputs:
                 #column.addLayout(inputs)
 
-            column.addStretch()
+            column.stretch()
 
-            with self.layout.row() as row:
-                with self.layout.progress_bar() as progress:
+            with column.row() as row:
+                row.set_padding(left=8, top=0, right=4, bottom=2)
+
+                with row.progress_bar(minimum=0, maximum=1000000, tooltip="Progress") as progress:
                     self.progress_bar = progress
-                    progress.setMinimum(0)
-                    progress.setMaximum(1000000)
                     progress.setValue(0)
-                    row.addWidget(progress)
 
-                with self.layout.tool_button() as button:
+                with row.tool_button(tooltip="Run workflow in ComfyUI") as button:
                     self.run_button = button
 
                     self.queue_menu = QMenu(self)
-                    self.queue = QueueWidget(self.queue_menu)
+                    self.queue = QueueWidget()
 
                     widget_action = QWidgetAction(self.queue_menu)
                     widget_action.setDefaultWidget(self.queue)
@@ -295,15 +273,10 @@ class InputsWidget(QWidget):
 
                     self.update()
 
-                    button.setToolTip("Run workflow in ComfyUI")
                     button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
                     button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
                     button.setMenu(self.queue_menu)
                     button.clicked.connect(self.run_workflow)
-                    row.addWidget(button)
-
-                row.setContentsMargins(8, 0, 4, 2)
-                column.addLayout(row)
 
 
     def on_graph_changed(self, info):
@@ -374,7 +347,7 @@ class ComfyUIInputWidget(DockWidget):
 
         #self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred))
 
-        self._inputs = InputsWidget(self)
+        self._inputs = InputsWidget()
 
         self.setWidget(self._inputs)
 

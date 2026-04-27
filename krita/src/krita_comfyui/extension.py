@@ -24,7 +24,7 @@ class ComfyUIExtension(Extension):
 
 
     def setup(self):
-        pass
+        self.settings.setup()
         #self.server.start()
 
 
