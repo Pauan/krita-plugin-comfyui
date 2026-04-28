@@ -24,6 +24,7 @@ from ..server import GraphInfo, GraphState
 from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, CurrentDocument, get_extension
 from ..util.graph import Graph
 from ..util.qt import LayoutManager
+from ..util.workflow import Workflow
 
 
 class JobWidget(QWidget):
@@ -180,14 +181,32 @@ class QueueWidget(QWidget):
         self.queue_list.process_graph_info(client, info)
 
 
-class DocumentInputs(QObject):
-    def __init__(self, parent):
-        super().__init__(parent)
+class WorkflowWidget(QWidget):
+    def __init__(self, extension):
+        super().__init__()
 
-        self.inputs = None
+        self.extension = extension
+
         self.document = CurrentDocument(self)
-
         self.document.changed.connect(self.on_document_changed)
+
+        self.layout = LayoutManager(self)
+
+        with self.layout.row() as row:
+            with row.combo_box(tooltip="Workflow") as combo:
+                self.workflow_name = combo
+
+                combo.currentTextChanged.connect(self.on_workflow_changed)
+
+                for name in self.extension.settings.all_workflows:
+                    combo.addItem(Krita.icon("bookmarks"), name)
+
+            with row.tool_button(icon=Krita.icon("properties"), tooltip="Open settings") as button:
+                button.clicked.connect(self.open_settings)
+
+
+    def on_workflow_changed(self, text):
+        print("WORKFLOW NAME", text)
 
 
     def on_document_changed(self):
@@ -198,107 +217,7 @@ class DocumentInputs(QObject):
             self.inputs = document.get_key_json("krita_comfyui/inputs")
 
 
-class WorkflowWidget(QWidget):
-    def __init__(self, extension, document):
-        super().__init__()
-
-        self.extension = extension
-        self.document = document
-
-        self.layout = LayoutManager(self)
-
-        with self.layout.row() as row:
-            with row.combo_box(tooltip="Workflow") as combo:
-                combo.currentTextChanged.connect(self.on_workflow_changed)
-
-                combo.addItem(Krita.icon("bookmarks"), "Standard")
-
-            with row.tool_button(icon=Krita.icon("properties"), tooltip="Open settings") as button:
-                button.clicked.connect(self.open_settings)
-
-
-    def on_workflow_changed(self, text):
-        pass
-
-
-    def open_settings(self):
-        self.extension.show_settings()
-
-
-class InputsWidget(QWidget):
-    def __init__(self):
-        super().__init__()
-
-        self.document = DocumentInputs(self)
-
-        self.extension = get_extension(ComfyUIExtension)
-        self.extension.client.graph_changed.connect(self.on_graph_changed)
-
-        self.layout = LayoutManager(self)
-
-        with self.layout.column() as column:
-            self.workflow = WorkflowWidget(self.extension, self.document)
-            column.widget(self.workflow)
-
-            #with self.layout.column() as inputs:
-                #column.addLayout(inputs)
-
-            column.stretch()
-
-            with column.row() as row:
-                row.set_padding(left=8, top=0, right=4, bottom=2)
-
-                with row.progress_bar(minimum=0, maximum=1000000, tooltip="Progress") as progress:
-                    self.progress_bar = progress
-                    progress.setValue(0)
-
-                with row.tool_button(tooltip="Run workflow in ComfyUI") as button:
-                    self.run_button = button
-
-                    self.queue_menu = QMenu(self)
-                    self.queue = QueueWidget()
-
-                    widget_action = QWidgetAction(self.queue_menu)
-                    widget_action.setDefaultWidget(self.queue)
-                    self.queue_menu.addAction(widget_action)
-
-                    for info in self.extension.client.current_queue():
-                        self.queue.process_graph_info(self.extension.client, info)
-
-                    self.update()
-
-                    button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-                    button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-                    button.setMenu(self.queue_menu)
-                    button.clicked.connect(self.run_workflow)
-
-
-    def on_graph_changed(self, info):
-        self.queue.process_graph_info(self.extension.client, info)
-        self.update()
-
-
-    def update(self):
-        len = self.queue.jobs_len()
-
-        if len == 0:
-            self.run_button.setText("Run")
-        else:
-            self.run_button.setText("Run [{}]".format(len))
-
-
-        current_job = self.queue.get_first_job()
-
-        if current_job is None:
-            self.run_button.setIcon(GraphState.Idle.button_icon())
-            self.progress_bar.setValue(0)
-
-        else:
-            self.run_button.setIcon(current_job.info.state.button_icon())
-            current_job.update_progress_bar(self.progress_bar)
-
-
-    def run_workflow(self):
+    def test_graph():
         graph = Graph()
 
         parse_lines = graph.node("prompt_helpers: ParseLines", text="1girl").out(0)
@@ -338,7 +257,111 @@ class InputsWidget(QWidget):
 
         #graph.node("PreviewAny", source=graph.node("CheckpointLoaderSimple", ckpt_name=).out(0))
 
+        return graph
+
+
+    def run_workflow(self):
+        document = self.document.current()
+
+        if document is None:
+            raise RuntimeError("Krita does not have an opened image")
+
+        workflow_name = self.workflow_name.currentText()
+
+        if workflow_name == "":
+            raise RuntimeError("Workflow cannot be empty")
+
+        json = self.extension.settings.load_workflow(workflow_name)
+
+        seed = Workflow.random_seed()
+
+        workflow = Workflow(
+            document=document,
+            json=json,
+            seed=seed,
+            ui_values={
+                "layer": "Regions",
+            },
+        )
+
+        graph = workflow.to_graph()
+
         self.extension.client.execute_graph(graph)
+
+
+    def open_settings(self):
+        self.extension.show_settings()
+
+
+class InputsWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.extension = get_extension(ComfyUIExtension)
+        self.extension.client.graph_changed.connect(self.on_graph_changed)
+
+        self.layout = LayoutManager(self)
+
+        with self.layout.column() as column:
+            self.workflow = WorkflowWidget(self.extension)
+            column.widget(self.workflow)
+
+            #with self.layout.column() as inputs:
+                #column.addLayout(inputs)
+
+            column.stretch()
+
+            with column.row() as row:
+                row.set_padding(left=8, top=0, right=4, bottom=2)
+
+                with row.progress_bar(minimum=0, maximum=1000000, tooltip="Progress") as progress:
+                    self.progress_bar = progress
+                    progress.setValue(0)
+
+                with row.tool_button(tooltip="Run workflow in ComfyUI") as button:
+                    self.run_button = button
+
+                    self.queue_menu = QMenu(self)
+                    self.queue = QueueWidget()
+
+                    widget_action = QWidgetAction(self.queue_menu)
+                    widget_action.setDefaultWidget(self.queue)
+                    self.queue_menu.addAction(widget_action)
+
+                    for info in self.extension.client.current_queue():
+                        self.queue.process_graph_info(self.extension.client, info)
+
+                    self.update()
+
+                    button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+                    button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+                    button.setMenu(self.queue_menu)
+                    button.clicked.connect(self.workflow.run_workflow)
+
+
+    def on_graph_changed(self, info):
+        self.queue.process_graph_info(self.extension.client, info)
+        self.update()
+
+
+    def update(self):
+        len = self.queue.jobs_len()
+
+        if len == 0:
+            self.run_button.setText("Run")
+        else:
+            self.run_button.setText("Run [{}]".format(len))
+
+
+        current_job = self.queue.get_first_job()
+
+        if current_job is None:
+            self.run_button.setIcon(GraphState.Idle.button_icon())
+            self.progress_bar.setValue(0)
+
+        else:
+            self.run_button.setIcon(current_job.info.state.button_icon())
+            current_job.update_progress_bar(self.progress_bar)
 
 
 class ComfyUIInputWidget(DockWidget):
@@ -349,8 +372,7 @@ class ComfyUIInputWidget(DockWidget):
         #self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred))
 
         self._inputs = InputsWidget()
-
         self.setWidget(self._inputs)
 
     def canvasChanged(self, _canvas: krita.Canvas):
-        self._inputs.document.document.check_current()
+        self._inputs.workflow.document.check_current()

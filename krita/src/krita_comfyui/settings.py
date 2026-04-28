@@ -12,11 +12,13 @@ class Settings(QObject):
 
         self.workflows_dir = self.dir / "workflows"
 
-        self.workflows = {}
-
-
-    def setup(self):
         os.makedirs(self.workflows_dir, exist_ok=True)
+
+        self.all_workflows = set(Path(path).stem for path in os.listdir(self.workflows_dir))
+
+        print(self.all_workflows)
+
+        self.workflows = {}
 
 
     def workflow_path(self, name):
@@ -36,11 +38,12 @@ class Settings(QObject):
 
 
     def load_workflows(self):
-        for name in os.listdir(self.workflows_dir):
-            print(name)
-            #self.load_workflow(name)
+        for name in self.all_workflows:
+            self.load_workflow(name)
 
 
     def save_workflow(self, name, json):
         with open(self.workflow_path(name), "w") as file:
             dump(json, file, indent=2)
+
+        self.all_workflows.add(name)

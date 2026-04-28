@@ -18,6 +18,45 @@ from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, get_exten
 from ..util.qt import LayoutManager
 
 
+class ErrorWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.layout = LayoutManager(self)
+
+        with self.layout.column() as column:
+            with column.scroll(max_height=200) as scroll:
+                widget = QWidget()
+                layout = LayoutManager(widget)
+
+                widget.setStyleSheet("""
+                    * {
+                        background-color: #470000;
+                        color: #ffffff;
+                    }
+                """)
+
+                with layout.column() as column:
+                    column.set_padding(left=8, right=8, top=10, bottom=0)
+
+                    with column.label(selectable=True) as label:
+                        self.label = label
+
+                scroll.setWidget(widget)
+
+        self.setVisible(False)
+
+
+    def set_error(self, error):
+        if error is None:
+            self.label.setText("")
+            self.setVisible(False)
+
+        else:
+            self.label.setText(error.format())
+            self.setVisible(True)
+
+
 class TextWidget(QWidget):
     def __init__(self):
         super().__init__()
@@ -351,6 +390,9 @@ class OutputsWidget(QWidget):
         self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
+            self.error = ErrorWidget()
+            column.widget(self.error)
+
             self.text = TextWidget()
             column.widget(self.text)
 
@@ -370,11 +412,13 @@ class ComfyUIOutputWidget(DockWidget):
         self._widget.setParent(self)
         self.setWidget(self._widget)
 
+
     def canvasChanged(self, canvas):
         pass
 
+
     def on_graph_changed(self, info):
-        if info.state.is_ended():
+        if info.state.is_success():
             texts = []
 
             for output in info.outputs:
@@ -388,6 +432,14 @@ class ComfyUIOutputWidget(DockWidget):
             texts.sort(key=lambda x: x["name"].casefold())
 
             self.set_text(texts)
+            self.set_error(None)
+
+        elif info.state.is_error():
+            self.set_error(info.error)
+
+
+    def set_error(self, error):
+        self._widget.error.set_error(error)
 
     def set_text(self, texts):
         self._widget.text.set_text(texts)

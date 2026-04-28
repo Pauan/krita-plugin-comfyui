@@ -1,18 +1,55 @@
-class WorkflowInputs:
-    def __init__(self, document, seed, ui_values):
+import random
+import sys
+from .graph import Graph
+
+
+# Used to mark links that shouldn't be replaced
+class NoReplace:
+    def __init__(self, value):
+        self.value = value
+
+
+class Workflow:
+    def __init__(self, document, json, seed, ui_values):
         self.document = document
+        self.json = json
         self.seed = seed
         self.ui_values = ui_values
 
+        self.graph = Graph()
 
-    def get_ui(self, id):
+        self.replaced_links = {}
+        self.replaced_ids = {}
+
+        self.canvas = None
+        self.selection = None
+        self.layers = {}
+
+        self.const_nodes = {
+            "krita_comfyui: KritaUiFloat": self.evaluate_ui,
+            "krita_comfyui: KritaUiInt": self.evaluate_ui,
+            "krita_comfyui: KritaUiBoolean": self.evaluate_ui,
+            "krita_comfyui: KritaUiString": self.evaluate_ui,
+            "krita_comfyui: KritaUiLayerName": self.evaluate_ui,
+            "krita_comfyui: KritaUiCombo": self.evaluate_ui,
+        }
+
+
+    @staticmethod
+    def random_seed():
+        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1570
+        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_primitive.py#L52
+        return random.randint(0, sys.maxsize)
+
+
+    def get_ui_value(self, id):
         try:
             return self.ui_values[id]
         except KeyError:
             raise RuntimeError("UI {} not found", id)
 
 
-    def get_selection(self):
+    def get_document_selection(self):
         bounds = self.document.bounds()
 
         selection = self.document.selection()
@@ -41,13 +78,13 @@ class WorkflowInputs:
         )
 
 
-    def get_canvas(self):
+    def get_document_canvas(self):
         bounds = self.document.bounds()
         image = self.document.canvas(bounds)
         return (image, bounds.width, bounds.height)
 
 
-    def get_layers(self, layer_name, mode):
+    def get_document_layers(self, layer_name, mode):
         layers = []
 
         bounds = self.document.bounds()
@@ -78,42 +115,18 @@ class WorkflowInputs:
         return layers
 
 
-class Workflow:
-    def __init__(self, json, inputs):
-        self.json = json
-        self.inputs = inputs
-
-        self.graph = Graph()
-
-        self.replaced_links = {}
-        self.replaced_ids = {}
-
-        self.canvas = None
-        self.selected = None
-        self.layers = {}
-
-        self.const_nodes = {
-            "krita_comfyui: KritaUiFloat": self.evaluate_ui,
-            "krita_comfyui: KritaUiInt": self.evaluate_ui,
-            "krita_comfyui: KritaUiBoolean": self.evaluate_ui,
-            "krita_comfyui: KritaUiString": self.evaluate_ui,
-            "krita_comfyui: KritaUiLayerName": self.evaluate_ui,
-            "krita_comfyui: KritaUiCombo": self.evaluate_ui,
-        }
-
-
     def replace_outputs(self, id, outputs):
         for index, output in enumerate(outputs):
             self.replaced_links[(id, index)] = output
 
 
-    def replace_id(old_id, node):
+    def replace_id(self, old_id, node):
         self.replaced_ids[old_id] = node.id
 
 
     def evaluate_ui(self, node):
         ui_id = node["inputs"]["id"]
-        value = self.inputs.get_ui(ui_id)
+        value = self.get_ui_value(ui_id)
         return (value, value != "")
 
 
@@ -140,7 +153,7 @@ class Workflow:
 
     def get_canvas(self):
         if self.canvas is None:
-            (image, width, height) = self.inputs.get_canvas()
+            (image, width, height) = self.get_document_canvas()
             (image, mask) = self.graph.image(image)
             self.canvas = (image, mask, width, height)
 
@@ -149,7 +162,7 @@ class Workflow:
 
     def get_selection(self):
         if self.selection is None:
-            (active, mask, x, y, width, height) = self.inputs.get_selection()
+            (active, mask, x, y, width, height) = self.get_document_selection()
             mask = self.graph.mask(mask)
             self.selection = (active, mask, x, y, width, height)
 
@@ -164,10 +177,10 @@ class Workflow:
             masks = []
             names = []
 
-            for (name, image) in self.inputs.get_layers(layer_name, mode):
+            for (name, image) in self.get_document_layers(layer_name, mode):
                 (image, mask) = self.graph.image(image)
-                images.append(image)
-                masks.append(mask)
+                images.append(NoReplace(image))
+                masks.append(NoReplace(mask))
                 names.append(name)
 
             layer = (
@@ -190,7 +203,7 @@ class Workflow:
 
 
             case "krita_comfyui: KritaSeed":
-                self.replace_outputs(id, (self.inputs.seed,))
+                self.replace_outputs(id, (self.seed,))
 
 
             case "krita_comfyui: KritaLayers":
@@ -227,6 +240,9 @@ class Workflow:
     def replace_input(self, value):
         value = self.evaluate_link(value)
 
+        if isinstance(value, NoReplace):
+            return value.value
+
         if isinstance(value, list) and len(value) == 2:
             try:
                 new_id = self.replaced_ids[value[0]]
@@ -242,7 +258,7 @@ class Workflow:
         return value
 
 
-    def serialize(self):
+    def to_graph(self):
         for id, node in self.json.items():
             # We skip const nodes completely, they're evaluated by `evaluate_link`
             if not node["class_type"] in self.const_nodes:
@@ -257,5 +273,4 @@ class Workflow:
 
             node["inputs"] = inputs
 
-
-        return self.graph.serialize()
+        return self.graph

@@ -39,6 +39,12 @@ class GraphState(Enum):
     def is_ended(self):
         return self == GraphState.Done or self == GraphState.Error or self == GraphState.Cancelled
 
+    def is_success(self):
+        return self == GraphState.Done
+
+    def is_error(self):
+        return self == GraphState.Error
+
     def button_icon(self):
         if self == GraphState.Idle:
             return Krita.icon("media-playback-start")
@@ -178,6 +184,18 @@ class Prompt:
             "prompt": serialized,
         }).encode("utf-8")
 
+
+    def cancel(self):
+        self.state = GraphState.Cancelled
+        self.outputs = {}
+
+
+    def set_error(self, error):
+        self.state = GraphState.Error
+        self.error = error
+        self.outputs = {}
+
+
     def graph_info(self):
         outputs = []
 
@@ -190,6 +208,7 @@ class Prompt:
             progress = self.progress.percent()
 
         return GraphInfo(self.graph_id, progress, self.state, self.error, outputs)
+
 
     # Returns a fresh Prompt with the same graph.
     # This is needed for retrying the Prompt in the case of a disconnection.
@@ -209,12 +228,12 @@ class GraphError:
         message = []
 
         if self.node_id is not None:
-            message.append(self.node_id)
+            message.append("#" + self.node_id)
 
         if self.node_name is not None:
             if len(message) > 0:
                 message.append(" ")
-            message.append(self.node_name)
+            message.append(self.node_name + ":")
 
         if len(message) > 0:
             message.append("\n  ")
@@ -414,7 +433,7 @@ class ComfyUIClient(QObject):
             new_queue = []
 
             for prompt in self.queue:
-                prompt.state = GraphState.Cancelled
+                prompt.cancel()
                 new_queue.append(prompt.copy())
 
             self.queue = new_queue
@@ -504,15 +523,14 @@ class ComfyUIClient(QObject):
 
         # If the prompt hasn't been reset...
         if prompt is not None and prompt.state.is_running():
-            prompt.state = GraphState.Error
-            prompt.error = GraphError.from_execution_error(info)
+            prompt.set_error(GraphError.from_execution_error(info))
             self.queue.remove(prompt)
             self.graph_changed.emit(prompt.graph_info())
             self.execute_queue()
 
 
     def on_websocket_message(self, message):
-        #util.log_debug_json(message)
+        util.log_debug_json(message)
 
         if message["type"] == "execution_start":
             self.on_prompt_executing(message["data"]["prompt_id"])
@@ -573,8 +591,7 @@ class ComfyUIClient(QObject):
 
                     # If the prompt hasn't been reset...
                     if prompt is not None and not prompt.state.is_ended():
-                        prompt.state = GraphState.Error
-                        prompt.error = error
+                        prompt.set_error(error)
                         self.queue.remove(prompt)
                         self.graph_changed.emit(prompt.graph_info())
                         self.execute_queue()
@@ -606,7 +623,7 @@ class ComfyUIClient(QObject):
         for prompt in remove:
             is_running = prompt.state.is_running()
 
-            prompt.state = GraphState.Cancelled
+            prompt.cancel()
             self.queue.remove(prompt)
             self.graph_changed.emit(prompt.graph_info())
 
@@ -621,7 +638,7 @@ class ComfyUIClient(QObject):
         remove = [prompt for prompt in self.queue if prompt.state.is_idle()]
 
         for prompt in remove:
-            prompt.state = GraphState.Cancelled
+            prompt.cancel()
             self.queue.remove(prompt)
             self.graph_changed.emit(prompt.graph_info())
 
@@ -638,7 +655,7 @@ class ComfyUIClient(QObject):
             for prompt in old:
                 is_running = prompt.state.is_running()
 
-                prompt.state = GraphState.Cancelled
+                prompt.cancel()
                 self.graph_changed.emit(prompt.graph_info())
 
                 if is_running:

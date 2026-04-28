@@ -119,7 +119,7 @@ class Layout:
         return Scope(widget)
 
 
-    def button(self, icon=None, text=None, tooltip=None):
+    def button(self, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
         widget = QPushButton()
 
         if icon is not None:
@@ -128,13 +128,16 @@ class Layout:
         if text is not None:
             widget.setText(text)
 
+        if cursor is not None:
+            widget.setCursor(cursor)
+
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
         return self.widget(widget)
 
 
-    def tool_button(self, icon=None, text=None, tooltip=None):
+    def tool_button(self, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
         widget = QToolButton()
 
         if icon is not None:
@@ -142,6 +145,9 @@ class Layout:
 
         if text is not None:
             widget.setText(text)
+
+        if cursor is not None:
+            widget.setCursor(cursor)
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
@@ -182,11 +188,14 @@ class Layout:
         return self.widget(widget)
 
 
-    def combo_box(self, tooltip=None):
+    def combo_box(self, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
         widget = QComboBox()
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
+
+        if cursor is not None:
+            widget.setCursor(cursor)
 
         return self.widget(widget)
 
