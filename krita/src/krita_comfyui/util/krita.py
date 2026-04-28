@@ -235,7 +235,7 @@ class Document:
 
                     self.refresh()
                     #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
-                    return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+                    return Image.from_krita_qimage(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
                 finally:
                     if visible:
@@ -245,7 +245,7 @@ class Document:
             else:
                 self.refresh()
                 #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
-                return Image(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
+                return Image.from_krita_qimage(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
 
     def root_layer(self):
@@ -356,6 +356,10 @@ class Mask:
         return self._qimage.height()
 
 
+    def check_format(self):
+        assert self._qimage.format() == QImage.Format.Format_Grayscale8
+
+
     def is_solid(self, value):
         raw = Image(self._qimage).bytes()
 
@@ -364,8 +368,8 @@ class Mask:
         return np.all(array == value)
 
 
-    def to_base64(self, format, quality):
-        return Image(self._qimage).to_base64(format, quality)
+    def to_base64(self):
+        return Image(self._qimage).to_base64()
 
 
 class Image:
@@ -375,7 +379,7 @@ class Image:
 
     @staticmethod
     def filename(name: str):
-        return str(Path(__file__).parent / "images" / name)
+        return str(Path(__file__).parent.parent / "images" / name)
 
 
     @staticmethod
@@ -388,17 +392,26 @@ class Image:
 
 
     @staticmethod
-    def from_base64(data: str, format: str):
+    def from_base64(data: str, width, height):
         bytes = QByteArray.fromBase64(data.encode("utf-8"))
-        image = QImage.fromData(bytes, format)
-        return Image(image)
+        # This swaps from RGB into BGR which is what Krita uses
+        return Image.from_packed_bytes(bytes, width, height)
+
+
+    @staticmethod
+    def from_krita_qimage(qimage: QImage):
+        # Krita uses BGR so we have to swap it to RGB
+        qimage.rgbSwap()
+        return Image(qimage)
 
 
     @staticmethod
     def from_packed_bytes(data: QByteArray, width, height):
+        assert data.size() == (width * height) * 4
+
         stride = width * 4
         qimg = QImage(data, width, height, stride, QImage.Format.Format_ARGB32)
-        return Image(qimg)
+        return Image.from_krita_qimage(qimg)
 
 
     @property
@@ -412,6 +425,10 @@ class Image:
     def bytes(self):
         ptr = self._qimage.constBits()
         return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
+
+
+    def check_format(self):
+        assert self._qimage.format() == QImage.Format.Format_ARGB32
 
 
     def scale_to_fit(self, width, height):
@@ -451,32 +468,8 @@ class Image:
         return QIcon(pixmap)
 
 
-    def write(self, buffer, format, quality):
-        writer = QImageWriter(buffer, QByteArray(format.encode("utf-8")))
-        writer.setQuality(quality)
-
-        if not writer.write(self._qimage):
-            raise RuntimeError(writer.errorString())
-
-
-    def to_bytes(self, format, quality):
-        byte_array = QByteArray()
-        buffer = QBuffer(byte_array)
-
-        buffer.open(QBuffer.OpenModeFlag.WriteOnly)
-
-        try:
-            self.write(buffer, format, quality)
-
-        finally:
-            buffer.close()
-
-        return byte_array
-
-
-    def to_base64(self, format, quality):
-        byte_array = self.to_bytes(format, quality)
-        return byte_array.toBase64().data().decode("utf-8")
+    def to_base64(self):
+        return self.bytes().toBase64().data().decode("utf-8")
 
 
 class LayerType(Enum):

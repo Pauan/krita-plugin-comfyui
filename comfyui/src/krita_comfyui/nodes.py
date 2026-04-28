@@ -1,6 +1,6 @@
 import json
 from comfy_api.latest import io
-from .util import timestamp, decode_png, decode_png_mask, encode_png
+from .util import timestamp, decode_image, decode_mask, encode_image
 
 
 class LoadImageBase64(io.ComfyNode):
@@ -12,7 +12,9 @@ class LoadImageBase64(io.ComfyNode):
             category="image",
             description="Converts a base64 string into an image.",
             inputs=[
-                io.String.Input("base64", tooltip="PNG image formatted as base64"),
+                io.String.Input("base64", tooltip="RGBA bytes formatted as base64."),
+                io.Int.Input("width", tooltip="Number of horizontal pixels."),
+                io.Int.Input("height", tooltip="Number of vertical pixels."),
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
@@ -21,8 +23,8 @@ class LoadImageBase64(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, base64) -> io.NodeOutput:
-        (image, mask) = decode_png(base64)
+    def execute(cls, base64, width, height) -> io.NodeOutput:
+        (image, mask) = decode_image(base64, width, height)
         return io.NodeOutput(image, mask)
 
 
@@ -35,7 +37,9 @@ class LoadMaskBase64(io.ComfyNode):
             category="image",
             description="Converts a base64 string into a mask.",
             inputs=[
-                io.String.Input("base64", tooltip="PNG image formatted as base64"),
+                io.String.Input("base64", tooltip="Grayscale bytes formatted as base64"),
+                io.Int.Input("width", tooltip="Number of horizontal pixels."),
+                io.Int.Input("height", tooltip="Number of vertical pixels."),
             ],
             outputs=[
                 io.Mask.Output(display_name="mask"),
@@ -43,8 +47,8 @@ class LoadMaskBase64(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, base64) -> io.NodeOutput:
-        return io.NodeOutput(decode_png_mask(base64))
+    def execute(cls, base64, width, height) -> io.NodeOutput:
+        return io.NodeOutput(decode_mask(base64, width, height))
 
 
 class ThrowError(io.ComfyNode):
@@ -193,7 +197,7 @@ You can use the following special syntax:
             time = timestamp()
             return name.replace("%index%", str(index)).replace("%timestamp%", time)
 
-        pngs = []
+        outputs = []
 
         list_index = 0
         image_index = 0
@@ -203,9 +207,15 @@ You can use the following special syntax:
             sub_y = lookup(y, list_index)
             sub_name = lookup(name, list_index)
 
+            # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_images.py#L576-L577
+            height = image.shape[1]
+            width = image.shape[2]
+
             for batch in image:
-                pngs.append({
-                    "png": encode_png(batch),
+                outputs.append({
+                    "bytes": encode_image(batch),
+                    "width": width,
+                    "height": height,
                     "x": sub_x,
                     "y": sub_y,
                     "name": replace_name(sub_name, image_index),
@@ -215,7 +225,7 @@ You can use the following special syntax:
 
             list_index += 1
 
-        return io.NodeOutput(ui={"krita_comfyui_output_images": pngs})
+        return io.NodeOutput(ui={"krita_comfyui_output_images": outputs})
 
 
 class KritaText(io.ComfyNode):

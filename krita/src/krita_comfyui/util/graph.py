@@ -70,13 +70,15 @@ class Graph:
     # Sends an Image to ComfyUI
     # Returns a tuple of (image, mask)
     def image(self, image):
-        node = self.node("krita_comfyui: LoadImageBase64", base64=image.to_base64("png", 9))
+        image.check_format()
+        node = self.node("krita_comfyui: LoadImageBase64", base64=image.to_base64(), width=image.width, height=image.height)
         return (node.out(0), node.out(1))
 
 
     # Sends a Mask to ComfyUI
     def mask(self, mask):
-        return self.node("krita_comfyui: LoadMaskBase64", base64=mask.to_base64("png", 9)).out(0)
+        mask.check_format()
+        return self.node("krita_comfyui: LoadMaskBase64", base64=mask.to_base64(), width=mask.width, height=mask.height).out(0)
 
 
     # Causes an error to be thrown when evaluating the graph

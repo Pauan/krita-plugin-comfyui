@@ -7,9 +7,12 @@ from PIL import Image
 from io import BytesIO
 
 
-def decode_png(png):
-    bytes = base64.b64decode(png)
-    image = Image.open(BytesIO(bytes))
+# https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1741-L1750
+def decode_image(text, width, height):
+    bytes = base64.b64decode(text)
+    image = Image.frombuffer("RGBA", (width, height), bytes)
+
+    assert image.mode == "RGBA"
 
     if "A" in image.getbands():
         mask = np.array(image.getchannel("A")).astype(np.float32) / 255.0
@@ -28,9 +31,9 @@ def decode_png(png):
     return (image, mask)
 
 
-def decode_png_mask(png):
-    bytes = base64.b64decode(png)
-    image = Image.open(BytesIO(bytes))
+def decode_mask(text, width, height):
+    bytes = base64.b64decode(text)
+    image = Image.frombuffer("L", (width, height), bytes)
 
     assert image.mode == "L"
 
@@ -40,15 +43,16 @@ def decode_png_mask(png):
     return mask
 
 
-def encode_png(tensor):
+def encode_image(tensor):
+    # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1661-L1662
     array = 255.0 * tensor.cpu().numpy()
-    image = Image.fromarray(np.clip(array, 0, 255).astype(np.uint8))
+    array = np.clip(array, 0, 255).astype(np.uint8)
+    image = Image.fromarray(array)
 
-    with BytesIO() as output:
-        image.save(output, format="png", compress_level=9, optimize=True)
-        encoded = base64.b64encode(output.getvalue()).decode(encoding="utf-8")
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
 
-    return encoded
+    return base64.b64encode(image.tobytes()).decode(encoding="utf-8")
 
 
 def timestamp():

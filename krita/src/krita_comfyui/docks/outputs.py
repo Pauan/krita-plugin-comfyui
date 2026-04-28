@@ -349,7 +349,7 @@ class ImageWidget(QListWidget):
             for info in images:
                 tooltip = info["name"]
 
-                image = Image.from_base64(info["png"], "png")
+                image = Image.from_base64(info["bytes"], info["width"], info["height"])
 
                 item = QListWidgetItem(self.thumbnail(image, applied=False), None)
 

@@ -46,4 +46,8 @@
 
 * Much more powerful UI system for creating custom workflows.
 
+* It's now possible to send images with full transparency between Krita and ComfyUI.
+
+* Sending / receiving images to ComfyUI is much faster.
+
 * Sending text to Krita is a little bit nicer.
