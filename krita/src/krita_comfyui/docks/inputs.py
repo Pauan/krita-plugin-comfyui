@@ -332,9 +332,9 @@ class InputsWidget(QWidget):
         graph.node("krita_comfyui: KritaOutput", images=generate.out(0), x=0, y=0, name="ComfyUI [%index%]")
         #graph.node("PreviewImage", images=generate.out(0))
 
-        graph.node("krita_comfyui: KritaText", text="Testing", name="Foo")
+        #graph.node("krita_comfyui: KritaText", text="Testing", name="Foo")
 
-        graph.node("krita_comfyui: KritaText", text=image.out(0), name="Image Text")
+        #graph.node("krita_comfyui: KritaText", text=image.out(0), name="Image Text")
 
         #graph.node("PreviewAny", source=graph.node("CheckpointLoaderSimple", ckpt_name=).out(0))
 

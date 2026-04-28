@@ -164,7 +164,7 @@ class Layout:
         return self.widget(widget)
 
 
-    def label(self, icon=None, text=None, tooltip=None):
+    def label(self, icon=None, text=None, selectable=False, tooltip=None):
         widget = QLabel()
 
         if icon is not None:
@@ -175,6 +175,9 @@ class Layout:
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
+
+        if selectable is True:
+            widget.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard)
 
         return self.widget(widget)
 

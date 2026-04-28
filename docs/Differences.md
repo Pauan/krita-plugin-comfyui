@@ -45,3 +45,5 @@
 * UI data is saved much more robustly. No more losing your prompts or custom settings.
 
 * Much more powerful UI system for creating custom workflows.
+
+* Sending text to Krita is a little bit nicer.

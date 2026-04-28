@@ -25,7 +25,7 @@ class TextWidget(QWidget):
         self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
-            with column.scroll(max_height=150) as scroll:
+            with column.scroll(max_height=200) as scroll:
                 widget = QWidget()
                 layout = LayoutManager(widget)
 
@@ -50,7 +50,7 @@ class TextWidget(QWidget):
 
                     with layout.column() as column:
                         column.set_padding(left=8, top=0, right=8, bottom=6)
-                        column.label(text=text["text"])
+                        column.label(text=text["text"], selectable=True)
 
             self.setVisible(True)
 
