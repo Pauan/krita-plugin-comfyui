@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from ..extension import ComfyUIExtension
-from ..layer import Document, Layer, Image, Bounds, BlockSignals, get_extension
+from ..krita import Document, Layer, Image, Bounds, BlockSignals, get_extension
 
 
 class OutputsWidget(QListWidget):

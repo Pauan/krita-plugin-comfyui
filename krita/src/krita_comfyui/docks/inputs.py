@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QLayout,
 )
 from ..extension import ComfyUIExtension
-from ..layer import Document, Layer, Image, Bounds, BlockSignals, CurrentDocument, get_extension
+from ..krita import Document, Layer, Image, Bounds, BlockSignals, CurrentDocument, get_extension
 from ..server import GraphInfo, GraphState
 from ..graph import Graph
 from ..qt import LayoutManager
