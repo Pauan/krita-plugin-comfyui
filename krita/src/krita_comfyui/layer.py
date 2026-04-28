@@ -9,6 +9,18 @@ from PyQt6.QtCore import QObject, QByteArray, QRect, QBuffer, QUuid, Qt, pyqtSig
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
 
 
+def get_extension(type):
+    output = None
+
+    for extension in Krita.extensions():
+        if isinstance(extension, type):
+            assert output is None
+            output = extension
+
+    assert output is not None
+    return output
+
+
 class CurrentDocument(QObject):
     changed = pyqtSignal()
 

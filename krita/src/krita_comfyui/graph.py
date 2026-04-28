@@ -39,12 +39,12 @@ class Graph:
         return graph
 
 
-    def node(self, name, **kwargs):
+    def node(self, class_type, **kwargs):
         id = str(self.node_id)
         self.node_id += 1
 
         self.nodes[id] = {
-            "class_type": name,
+            "class_type": class_type,
             "inputs": kwargs,
         }
 

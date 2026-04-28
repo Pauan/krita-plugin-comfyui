@@ -20,7 +20,6 @@ class KritaComfyui(ComfyExtension):
             ui.KritaUiString,
 
             # krita
-            nodes.KritaConnect,
             nodes.KritaCanvas,
             nodes.KritaLayers,
             nodes.KritaSeed,
@@ -32,9 +31,6 @@ async def comfy_entrypoint() -> KritaComfyui:
     return KritaComfyui()
 
 
-WEB_DIRECTORY = "./js"
-
 __all__ = [
     "comfy_entrypoint",
-    "WEB_DIRECTORY",
 ]

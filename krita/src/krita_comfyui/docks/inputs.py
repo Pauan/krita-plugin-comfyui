@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QLayout,
 )
 from ..extension import ComfyUIExtension
-from ..layer import Document, Layer, Image, Bounds, BlockSignals, CurrentDocument
+from ..layer import Document, Layer, Image, Bounds, BlockSignals, CurrentDocument, get_extension
 from ..server import GraphInfo, GraphState
 from ..graph import Graph
 from ..qt import LayoutManager
@@ -231,13 +231,7 @@ class InputsWidget(QWidget):
 
         self.document = DocumentInputs(self)
 
-        self.extension = None
-
-        for extension in Krita.extensions():
-            if isinstance(extension, ComfyUIExtension):
-                assert self.extension is None
-                self.extension = extension
-
+        self.extension = get_extension(ComfyUIExtension)
         self.extension.client.graph_changed.connect(self.on_graph_changed)
 
         self.layout = LayoutManager(self)
@@ -320,6 +314,8 @@ class InputsWidget(QWidget):
 
         image = graph.node("prompt_helpers: EZBlank", width=1024, height=1024)
 
+        image = graph.node("prompt_helpers: EZBatch", image_settings=image.out(0), batch_size=4, select_index=-1)
+
         generate = graph.node(
             "prompt_helpers: EZGenerate",
             model=checkpoint.out(0),
@@ -333,7 +329,8 @@ class InputsWidget(QWidget):
             control_net=None,
         )
 
-        graph.node("PreviewImage", images=generate.out(0))
+        graph.node("krita_comfyui: KritaOutput", images=generate.out(0), x=0, y=0, name="ComfyUI [%index%]")
+        #graph.node("PreviewImage", images=generate.out(0))
 
         #graph.node("PreviewAny", source=graph.node("CheckpointLoaderSimple", ckpt_name=).out(0))
 

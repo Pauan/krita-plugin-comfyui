@@ -2,12 +2,6 @@ from comfy_api.latest import io
 from .util import timestamp, decode_png, decode_png_mask, encode_png
 
 
-# Hack that causes ComfyUI to always execute the node
-# https://github.com/Comfy-Org/ComfyUI/discussions/12546
-def always_execute():
-    return float("nan")
-
-
 class LoadImageBase64(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -191,19 +185,12 @@ You can use the following special syntax:
 
     @classmethod
     def execute(cls, images, x, y, name) -> io.NodeOutput:
-        return io.NodeOutput(ui={"foo": "BAR"})
-
-
         def lookup(list, index):
             return list[min(index, len(list) - 1)]
-
 
         def replace_name(name, index):
             time = timestamp()
             return name.replace("%index%", str(index)).replace("%timestamp%", time)
-
-
-        assert len(krita) == 1
 
         pngs = []
 
@@ -227,10 +214,4 @@ You can use the following special syntax:
 
             list_index += 1
 
-        if len(pngs) > 0:
-            for krita in krita:
-                post(krita, "/krita-output", {
-                    "images": pngs,
-                })
-
-        return io.NodeOutput()
+        return io.NodeOutput(ui={"krita_comfyui_output_images": pngs})

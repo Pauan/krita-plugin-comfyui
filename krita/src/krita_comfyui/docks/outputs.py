@@ -1,4 +1,3 @@
-import krita
 from krita import DockWidget
 from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
@@ -14,7 +13,8 @@ from PyQt6.QtWidgets import (
     QToolButton,
     QWidget,
 )
-from ..layer import (Document, Layer, Image, Bounds, BlockSignals)
+from ..extension import ComfyUIExtension
+from ..layer import Document, Layer, Image, Bounds, BlockSignals, get_extension
 
 
 class OutputsWidget(QListWidget):
@@ -307,21 +307,26 @@ class OutputsWidget(QListWidget):
 
 
 class ComfyUIOutputWidget(DockWidget):
-    images = pyqtSignal(list)
-
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ComfyUI Outputs")
 
-        self.images.connect(self.add_images)
+        self.extension = get_extension(ComfyUIExtension)
+        self.extension.client.graph_changed.connect(self.on_graph_changed)
 
         self._outputs = OutputsWidget(self)
 
         self.setWidget(self._outputs)
 
-    def canvasChanged(self, canvas: krita.Canvas):
-        if canvas is not None and canvas.view() is not None:
-            pass
+    def canvasChanged(self, canvas):
+        pass
+
+    def on_graph_changed(self, info):
+        if info.state.is_ended():
+            for output in info.outputs:
+                if output.node_name == "krita_comfyui: KritaOutput":
+                    images = output.value["krita_comfyui_output_images"]
+                    self.add_images(images)
 
     def add_images(self, images):
         self._outputs.add_outputs(images)

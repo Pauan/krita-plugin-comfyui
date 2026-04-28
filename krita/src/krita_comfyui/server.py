@@ -4,6 +4,7 @@ import asyncio
 import json
 import uuid
 from enum import Enum, auto
+from . import util
 from .layer import (Document, Bounds, Layer, Image)
 
 from PyQt6.QtCore import QObject, QTimer, QUrl, QByteArray, pyqtSignal
@@ -31,9 +32,6 @@ class GraphState(Enum):
 
     def is_idle(self):
         return self == GraphState.Idle
-
-    def is_executing(self):
-        return self == GraphState.Executing
 
     def is_running(self):
         return self == GraphState.Sent or self == GraphState.Executing
@@ -65,12 +63,97 @@ class GraphState(Enum):
         else:
             return Krita.icon("dialog-ok")
 
+
+class GraphOutput:
+    def __init__(self, node_name, value):
+        self.node_name = node_name
+        self.value = value
+
 class GraphInfo:
-    def __init__(self, graph_id, progress, state, error):
+    def __init__(self, graph_id, progress, state, error, outputs):
         self.graph_id = graph_id
         self.progress = progress
         self.state = state
         self.error = error
+        self.outputs = outputs
+
+
+class ProgressPercent:
+    # The progress is based on a weighted average of all the nodes.
+    #
+    # Sample nodes (e.g. KSampler) take a lot longer than normal nodes.
+    #
+    # Normal nodes usually execute instantly, so we ignore them for
+    # the progress bar.
+    SAMPLE_WEIGHT = 1.0
+    NORMAL_WEIGHT = 0.0
+
+    def __init__(self):
+        self.value = 0.0
+        self.max = 1.0
+        self.is_sample = False
+
+
+    def update(self, value, max):
+        is_sample = isinstance(max, int)
+
+        changed = (self.value != value or self.max != max or self.is_sample != is_sample)
+        self.value = value
+        self.max = max
+        self.is_sample = is_sample
+        return changed
+
+
+    def percent(self):
+        if self.value == self.max:
+            return 1.0
+        else:
+            return float(self.value) / float(self.max)
+
+
+    def weight(self):
+        if self.is_sample:
+            return ProgressPercent.SAMPLE_WEIGHT
+        else:
+            return ProgressPercent.NORMAL_WEIGHT
+
+
+class PromptProgress:
+    def __init__(self, nodes):
+        self.nodes = {}
+
+        for id in nodes.keys():
+            self.nodes[id] = ProgressPercent()
+
+
+    def update(self, id, value, max):
+        node = self.nodes.get(id, None)
+
+        if node is None:
+            node = ProgressPercent()
+            self.nodes[id] = node
+
+        return node.update(value, max)
+
+
+    def update_done(self, id):
+        node = self.nodes[id]
+        return node.update(node.max, node.max)
+
+
+    def percent(self):
+        percent = 0.0
+        total_percent = 0.0
+
+        for node in self.nodes.values():
+            weight = node.weight()
+            percent += (node.percent() * weight)
+            total_percent += weight
+
+        if total_percent == 0.0:
+            return 0.0
+        else:
+            return percent / total_percent
 
 
 class Prompt:
@@ -79,8 +162,11 @@ class Prompt:
         self.graph_id = graph_id
         self.graph = graph
         self.error = None
+        self.outputs = {}
 
-        self.progress = 0.0
+        serialized = graph.serialize()
+
+        self.progress = PromptProgress(serialized)
 
         self.prompt_id = str(uuid.uuid4())
 
@@ -89,11 +175,21 @@ class Prompt:
         self.body = json.dumps({
             "client_id": self.client_id,
             "prompt_id": self.prompt_id,
-            "prompt": graph.serialize(),
+            "prompt": serialized,
         }).encode("utf-8")
 
     def graph_info(self):
-        return GraphInfo(self.graph_id, self.progress, self.state, self.error)
+        outputs = []
+
+        for id, value in self.outputs.items():
+            outputs.append(GraphOutput(self.graph.nodes[id]["class_type"], value))
+
+        if self.state.is_ended():
+            progress = 1.0
+        else:
+            progress = self.progress.percent()
+
+        return GraphInfo(self.graph_id, progress, self.state, self.error, outputs)
 
     # Returns a fresh Prompt with the same graph.
     # This is needed for retrying the Prompt in the case of a disconnection.
@@ -337,27 +433,58 @@ class ComfyUIClient(QObject):
         # If the prompt hasn't been reset...
         if prompt is not None and prompt.state.is_running():
             prompt.state = GraphState.Executing
-
             self.graph_changed.emit(prompt.graph_info())
+
+
+    def on_execution_cached(self, prompt_id, nodes):
+        prompt = self.find_prompt(prompt_id)
+
+        # If the prompt hasn't been reset...
+        if prompt is not None and prompt.state.is_running():
+            changed = False
+
+            # These nodes have been cached, so they won't be re-executed.
+            # But we still need to count them toward the total progress.
+            for id in nodes:
+                if prompt.progress.update_done(id):
+                    changed = True
+
+            if changed:
+                self.graph_changed.emit(prompt.graph_info())
 
 
     def on_prompt_progress(self, prompt_id, nodes):
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
-        if prompt is not None and prompt.state.is_executing():
-            progress = 0.0
-            total_progress = 0.0
+        if prompt is not None and prompt.state.is_running():
+            changed = False
 
             for node in nodes.values():
-                progress += node["value"]
-                total_progress += node["max"]
+                parent = node["parent_node_id"]
 
-            if total_progress == 0.0:
-                prompt.progress = 0.0
-            else:
-                prompt.progress = progress / total_progress
+                # If a node has a parent, then that means the parent was
+                # replaced with a sub-graph of nodes.
+                #
+                # Since the parent was replaced, it has already been finished,
+                # so we mark it as done.
+                if parent is not None:
+                    if prompt.progress.update_done(parent):
+                        changed = True
 
+                if prompt.progress.update(node["node_id"], node["value"], node["max"]):
+                    changed = True
+
+            if changed:
+                self.graph_changed.emit(prompt.graph_info())
+
+
+    def on_prompt_executed(self, prompt_id, node_id, output):
+        prompt = self.find_prompt(prompt_id)
+
+        # If the prompt hasn't been reset...
+        if prompt is not None and prompt.state.is_running():
+            prompt.outputs[node_id] = output
             self.graph_changed.emit(prompt.graph_info())
 
 
@@ -385,12 +512,25 @@ class ComfyUIClient(QObject):
 
 
     def on_websocket_message(self, message):
+        #util.log_debug_json(message)
+
         if message["type"] == "execution_start":
             self.on_prompt_executing(message["data"]["prompt_id"])
+
+        elif message["type"] == "execution_cached":
+            data = message["data"]
+            self.on_execution_cached(data["prompt_id"], data["nodes"])
 
         elif message["type"] == "progress_state":
             data = message["data"]
             self.on_prompt_progress(data["prompt_id"], data["nodes"])
+
+        elif message["type"] == "executed":
+            data = message["data"]
+            output = data.get("output", None)
+
+            if output is not None:
+                self.on_prompt_executed(data["prompt_id"], data["node"], output)
 
         elif message["type"] == "execution_success":
             self.on_prompt_finished(message["data"]["prompt_id"])
@@ -445,7 +585,6 @@ class ComfyUIClient(QObject):
             case "object_info":
                 if error is None:
                     self.node_metadata = json.loads(reply.readAll().data().decode("utf-8"))
-                    print(self.node_metadata)
                     self.node_metadata_changed.emit(self.node_metadata)
 
         reply.deleteLater()
