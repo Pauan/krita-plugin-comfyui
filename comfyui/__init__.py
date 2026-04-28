@@ -25,6 +25,7 @@ class KritaComfyui(ComfyExtension):
             nodes.KritaSeed,
             nodes.KritaSelection,
             nodes.KritaOutput,
+            nodes.KritaText,
         ]
 
 async def comfy_entrypoint() -> KritaComfyui:

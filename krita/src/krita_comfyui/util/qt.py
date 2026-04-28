@@ -1,3 +1,4 @@
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QToolButton,
     QPushButton,
@@ -6,6 +7,8 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QLabel,
     QComboBox,
+    QGroupBox,
+    QScrollArea,
 )
 
 
@@ -181,6 +184,36 @@ class Layout:
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def group(self, title=None, align=None, flat=None, checkable=None, tooltip=None):
+        widget = QGroupBox()
+
+        if title is not None:
+            widget.setTitle(title)
+
+        if align is not None:
+            widget.setAlignment(align)
+
+        if flat is not None:
+            widget.setFlat(flat)
+
+        if checkable is not None:
+            widget.setCheckable(checkable)
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def scroll(self, max_height=None):
+        widget = QScrollArea()
+
+        if max_height is not None:
+            widget.setMaximumHeight(max_height)
 
         return self.widget(widget)
 

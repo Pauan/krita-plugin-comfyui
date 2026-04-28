@@ -14,18 +14,51 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from ..extension import ComfyUIExtension
-from ..krita import Document, Layer, Image, Bounds, BlockSignals, get_extension
+from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, get_extension
+from ..util.qt import LayoutManager
 
 
-class OutputsWidget(QListWidget):
+class TextWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.layout = LayoutManager(self)
+
+        with self.layout.column() as column:
+            self.column = column
+
+
+    def set_text(self, texts):
+        self.column.clear()
+
+        if len(texts) == 0:
+            self.setVisible(False)
+
+        else:
+            self.setVisible(True)
+
+            with self.column.scroll(max_height=100) as scroll:
+                scroll.setWidgetResizable(True)
+                scroll = LayoutManager(scroll)
+
+                with scroll.column() as scroll:
+                    for text in texts:
+                        with scroll.group(title=text["name"]) as group:
+                            layout = LayoutManager(group)
+
+                            with layout.column() as column:
+                                column.label(text=text["text"])
+
+
+class ImageWidget(QListWidget):
     image_selected = pyqtSignal(QListWidgetItem)
 
     image_size = 96
     image_padding = 1
     spacer_height = 2
 
-    def __init__(self, parent: QWidget | None):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
 
         self.old_selected = None
 
@@ -257,11 +290,11 @@ class OutputsWidget(QListWidget):
                 self.clear()
 
 
-    def add_outputs(self, outputs: list):
-        if len(outputs) > 0:
+    def add_images(self, images: list):
+        if len(images) > 0:
             # When there are existing items, and it is a batch of multiple images,
             # add a spacer, which causes the new items to be put onto a new row.
-            if len(outputs) > 1 and self.count() > 0:
+            if len(images) > 1 and self.count() > 0:
                 header = QListWidgetItem("")
                 header.setFlags(Qt.ItemFlag.NoItemFlags)
                 header.setData(Qt.ItemDataRole.UserRole, None)
@@ -269,10 +302,10 @@ class OutputsWidget(QListWidget):
                 header.setTextAlignment(Qt.AlignmentFlag.AlignLeft)
                 self.addItem(header)
 
-            for output in outputs:
-                tooltip = output["name"]
+            for info in images:
+                tooltip = info["name"]
 
-                image = Image.from_base64(output["png"], "png")
+                image = Image.from_base64(info["png"], "png")
 
                 item = QListWidgetItem(self.thumbnail(image, applied=False), None)
 
@@ -280,9 +313,9 @@ class OutputsWidget(QListWidget):
 
                 item.setData(Qt.ItemDataRole.UserRole, {
                     "image": image,
-                    "x": output["x"],
-                    "y": output["y"],
-                    "name": output["name"],
+                    "x": info["x"],
+                    "y": info["y"],
+                    "name": info["name"],
                 })
 
                 item.setData(Qt.ItemDataRole.ToolTipRole, tooltip)
@@ -306,6 +339,20 @@ class OutputsWidget(QListWidget):
         self.menu.exec(self.mapToGlobal(pos))
 
 
+class OutputsWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.layout = LayoutManager(self)
+
+        with self.layout.column() as column:
+            self.text = TextWidget()
+            column.widget(self.text)
+
+            self.image = ImageWidget()
+            column.widget(self.image)
+
+
 class ComfyUIOutputWidget(DockWidget):
     def __init__(self):
         super().__init__()
@@ -314,19 +361,31 @@ class ComfyUIOutputWidget(DockWidget):
         self.extension = get_extension(ComfyUIExtension)
         self.extension.client.graph_changed.connect(self.on_graph_changed)
 
-        self._outputs = OutputsWidget(self)
-
-        self.setWidget(self._outputs)
+        self._widget = OutputsWidget()
+        self._widget.setParent(self)
+        self.setWidget(self._widget)
 
     def canvasChanged(self, canvas):
         pass
 
     def on_graph_changed(self, info):
         if info.state.is_ended():
+            texts = []
+
             for output in info.outputs:
                 if output.node_name == "krita_comfyui: KritaOutput":
                     images = output.value["krita_comfyui_output_images"]
                     self.add_images(images)
 
+                elif output.node_name == "krita_comfyui: KritaText":
+                    texts.extend(output.value["krita_comfyui_text"])
+
+            texts.sort(key=lambda x: x["name"].casefold())
+
+            self.set_text(texts)
+
+    def set_text(self, texts):
+        self._widget.text.set_text(texts)
+
     def add_images(self, images):
-        self._outputs.add_outputs(images)
+        self._widget.image.add_images(images)

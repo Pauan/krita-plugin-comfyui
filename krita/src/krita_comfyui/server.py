@@ -5,7 +5,7 @@ import json
 import uuid
 from enum import Enum, auto
 from . import util
-from .krita import Document, Bounds, Layer, Image
+from .util.krita import Document, Bounds, Layer, Image
 
 from PyQt6.QtCore import QObject, QTimer, QUrl, QByteArray, pyqtSignal
 from PyQt6.QtWebSockets import QWebSocket

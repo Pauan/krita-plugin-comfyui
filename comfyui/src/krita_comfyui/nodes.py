@@ -1,3 +1,4 @@
+import json
 from comfy_api.latest import io
 from .util import timestamp, decode_png, decode_png_mask, encode_png
 
@@ -215,3 +216,41 @@ You can use the following special syntax:
             list_index += 1
 
         return io.NodeOutput(ui={"krita_comfyui_output_images": pngs})
+
+
+class KritaText(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaText",
+            display_name="Krita Text",
+            category="krita",
+            description="Sends text to Krita.",
+            inputs=[
+                io.AnyType.Input("text", tooltip="Will be converted into a string and sent to Krita."),
+                io.String.Input("name", default="", tooltip="Name that will be used for the text."),
+            ],
+            outputs=[],
+            is_output_node=True,
+        )
+
+    @classmethod
+    def execute(cls, text, name) -> io.NodeOutput:
+        output = ""
+
+        if isinstance(text, str):
+            output = text
+
+        elif isinstance(text, (int, float, bool)):
+            output = str(text)
+
+        elif text is not None:
+            try:
+                output = json.dumps(text, indent=2)
+            except:
+                try:
+                    output = str(text)
+                except:
+                    output = "Text could not be serialized."
+
+        return io.NodeOutput(ui={"krita_comfyui_text": [{ "name": name, "text": output }]})
