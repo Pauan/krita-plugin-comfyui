@@ -14,12 +14,8 @@ def decode_image(text, width, height):
 
     assert image.mode == "RGBA"
 
-    if "A" in image.getbands():
-        mask = np.array(image.getchannel("A")).astype(np.float32) / 255.0
-        mask = torch.from_numpy(mask)
-    else:
-        # https://github.com/Comfy-Org/ComfyUI/blob/43a1263b609b923b2f69a0510bcf7ac95097e41b/comfy_extras/nodes_mask.py#L191
-        mask = torch.full((1, image.height, image.width), 1.0, dtype=torch.float32, device="cpu")
+    mask = np.array(image.getchannel("A")).astype(np.float32) / 255.0
+    mask = torch.from_numpy(mask)
 
     # @TODO is this a good idea ?
     #if image.mode != "RGB":

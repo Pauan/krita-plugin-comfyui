@@ -320,6 +320,21 @@ class ImageWidget(QListWidget):
                 self.hide_preview()
 
 
+    # Returns true if the previous images were in a batch
+    def is_previous_batch(self):
+        for i in reversed(range(self.count())):
+            item = self.item(i)
+            data = item.data(Qt.ItemDataRole.UserRole)
+
+            # We found a spacer, so stop searching
+            if data is None:
+                return False
+            else:
+                return data["is_batch"]
+
+        return False
+
+
     def delete_all(self):
         reply = QMessageBox.question(
             self,
@@ -336,9 +351,18 @@ class ImageWidget(QListWidget):
 
     def add_images(self, images: list):
         if len(images) > 0:
-            # When there are existing items, and it is a batch of multiple images,
-            # add a spacer, which causes the new items to be put onto a new row.
-            if len(images) > 1 and self.count() > 0:
+            # This is a batch of multiple images.
+            is_batch = len(images) > 1
+
+            # There are two situations where we add a spacer:
+            #   1. If we are a batch and there are existing items.
+            #   2. If we are not a batch but the previous items are in a batch.
+            if is_batch:
+                should_add_spacer = self.count() > 0
+            else:
+                should_add_spacer = self.is_previous_batch()
+
+            if should_add_spacer:
                 header = QListWidgetItem("")
                 header.setFlags(Qt.ItemFlag.NoItemFlags)
                 header.setData(Qt.ItemDataRole.UserRole, None)
@@ -360,6 +384,7 @@ class ImageWidget(QListWidget):
                     "x": info["x"],
                     "y": info["y"],
                     "name": info["name"],
+                    "is_batch": is_batch,
                 })
 
                 item.setData(Qt.ItemDataRole.ToolTipRole, tooltip)
@@ -419,17 +444,22 @@ class ComfyUIOutputWidget(DockWidget):
 
     def on_graph_changed(self, info):
         if info.state.is_success():
+            images = []
             texts = []
 
             for output in info.outputs:
                 if output.node_name == "krita_comfyui: KritaOutput":
-                    images = output.value["krita_comfyui_output_images"]
-                    self.add_images(images)
+                    images.append(output.value["krita_comfyui_output_images"])
 
                 elif output.node_name == "krita_comfyui: KritaText":
                     texts.extend(output.value["krita_comfyui_text"])
 
+            # Sorts the bigger batches first
+            images.sort(key=lambda x: len(x), reverse=True)
             texts.sort(key=lambda x: x["name"].casefold())
+
+            for batch in images:
+                self.add_images(batch)
 
             self.set_text(texts)
             self.set_error(None)

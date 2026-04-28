@@ -48,6 +48,6 @@
 
 * It's now possible to send images with full transparency between Krita and ComfyUI.
 
-* Sending / receiving images to ComfyUI is much faster.
+* Transferring images to / from ComfyUI is 100 times faster.
 
 * Sending text to Krita is a little bit nicer.
