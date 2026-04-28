@@ -357,13 +357,11 @@ class Mask:
 
 
     def is_solid(self, value):
-        bytes = self._qimage.constBits()
+        raw = Image(self._qimage).bytes()
 
-        array = np.frombuffer(bytes, dtype=np.uint8).reshape(self.height, self.width, 1)
+        array = np.frombuffer(bytes(raw), dtype=np.uint8)
 
-        print(array)
-
-        return np.all(array[:, :, 0] == value)
+        return np.all(array == value)
 
 
     def to_base64(self, format, quality):

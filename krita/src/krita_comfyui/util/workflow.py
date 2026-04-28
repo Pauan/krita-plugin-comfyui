@@ -1,6 +1,7 @@
 import random
 import sys
 from .graph import Graph
+from .krita import Mask
 
 
 # Used to mark links that shouldn't be replaced
