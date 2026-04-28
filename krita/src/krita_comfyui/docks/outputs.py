@@ -25,7 +25,16 @@ class TextWidget(QWidget):
         self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
-            self.column = column
+            with column.scroll(max_height=150) as scroll:
+                widget = QWidget()
+                layout = LayoutManager(widget)
+
+                with layout.column() as column:
+                    self.column = column
+
+                scroll.setWidget(widget)
+
+        self.setVisible(False)
 
 
     def set_text(self, texts):
@@ -35,19 +44,15 @@ class TextWidget(QWidget):
             self.setVisible(False)
 
         else:
+            for text in texts:
+                with self.column.group(title=text["name"]) as group:
+                    layout = LayoutManager(group)
+
+                    with layout.column() as column:
+                        column.set_padding(left=8, top=0, right=8, bottom=6)
+                        column.label(text=text["text"])
+
             self.setVisible(True)
-
-            with self.column.scroll(max_height=100) as scroll:
-                scroll.setWidgetResizable(True)
-                scroll = LayoutManager(scroll)
-
-                with scroll.column() as scroll:
-                    for text in texts:
-                        with scroll.group(title=text["name"]) as group:
-                            layout = LayoutManager(group)
-
-                            with layout.column() as column:
-                                column.label(text=text["text"])
 
 
 class ImageWidget(QListWidget):
@@ -350,7 +355,7 @@ class OutputsWidget(QWidget):
             column.widget(self.text)
 
             self.image = ImageWidget()
-            column.widget(self.image)
+            column.widget(self.image, stretch=1)
 
 
 class ComfyUIOutputWidget(DockWidget):

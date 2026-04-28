@@ -113,8 +113,8 @@ class Layout:
         self.qlayout.addSpacing(amount)
 
 
-    def widget(self, widget):
-        self.qlayout.addWidget(widget)
+    def widget(self, widget, stretch=0):
+        self.qlayout.addWidget(widget, stretch)
         self.widgets.append(widget)
         return Scope(widget)
 
@@ -211,6 +211,8 @@ class Layout:
 
     def scroll(self, max_height=None):
         widget = QScrollArea()
+
+        widget.setWidgetResizable(True)
 
         if max_height is not None:
             widget.setMaximumHeight(max_height)
