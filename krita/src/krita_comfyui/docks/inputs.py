@@ -280,7 +280,7 @@ class WorkflowWidget(QWidget):
             json=json,
             seed=seed,
             ui_values={
-                "layer": "Regions",
+                "layer": ["leon", "ada"],
             },
         )
 

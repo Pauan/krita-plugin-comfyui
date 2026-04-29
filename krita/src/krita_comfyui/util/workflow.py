@@ -4,10 +4,21 @@ from .graph import Graph
 from .krita import Mask
 
 
-# Used to mark links that shouldn't be replaced
-class NoReplace:
-    def __init__(self, value):
-        self.value = value
+def is_link(value):
+    return isinstance(value, list) and len(value) == 2
+
+
+def zip_inputs(*inputs):
+    max_length = max(len(x) for x in inputs)
+
+    for index in range(max_length):
+        output = tuple(
+            input[min(index, len(input) - 1)]
+            for input
+            in inputs
+        )
+
+        yield output
 
 
 class Workflow:
@@ -19,12 +30,15 @@ class Workflow:
 
         self.graph = Graph()
 
+        self.node_ids = []
         self.replaced_links = {}
         self.replaced_ids = {}
 
+        self.document_bounds = self.document.bounds()
         self.canvas = None
         self.selection = None
         self.layers = {}
+        self.layer_image = {}
 
         self.const_nodes = {
             "krita_comfyui: KritaUiFloat": self.evaluate_ui,
@@ -43,77 +57,11 @@ class Workflow:
         return random.randint(0, sys.maxsize)
 
 
-    def get_ui_value(self, id):
+    def get_ui_values(self, id):
         try:
             return self.ui_values[id]
         except KeyError:
             raise RuntimeError("UI {} not found", id)
-
-
-    def get_document_selection(self):
-        bounds = self.document.bounds()
-
-        selection = self.document.selection()
-
-        if selection is not None:
-            selection_bounds = selection.bounds().clamp_to_parent(bounds)
-            mask = selection.mask(bounds)
-
-            if selection_bounds == bounds:
-                active = not mask.is_solid(0xff)
-            else:
-                active = True
-
-        else:
-            selection_bounds = bounds
-            mask = Mask.solid(0xff, bounds.width, bounds.height)
-            active = False
-
-        return (
-            active,
-            mask,
-            selection_bounds.x,
-            selection_bounds.y,
-            selection_bounds.width,
-            selection_bounds.height,
-        )
-
-
-    def get_document_canvas(self):
-        bounds = self.document.bounds()
-        image = self.document.canvas(bounds)
-        return (image, bounds.width, bounds.height)
-
-
-    def get_document_layers(self, layer_name, mode):
-        layers = []
-
-        bounds = self.document.bounds()
-
-        layer = self.document.find_layer_by_name(layer_name)
-
-        if layer is None:
-            raise RuntimeError("Could not find layer {}".format(layer_name))
-
-        def add_image(layer):
-            layers.append((layer.name, layer.image(bounds)))
-
-        if mode == "individual":
-            if layer.type.is_image():
-                add_image(layer)
-
-            for child in layer.all_children():
-                if child.type.is_image():
-                    add_image(child)
-
-        elif mode == "flatten":
-            if layer.type.is_image() or layer.type.is_group():
-                add_image(layer)
-
-        else:
-            raise RuntimeError("mode must be individual or flatten")
-
-        return layers
 
 
     def replace_outputs(self, id, outputs):
@@ -122,19 +70,26 @@ class Workflow:
 
 
     def replace_id(self, old_id, node):
+        self.node_ids.append(node.id)
         self.replaced_ids[old_id] = node.id
 
 
     def evaluate_ui(self, node):
         ui_id = node["inputs"]["id"]
-        value = self.get_ui_value(ui_id)
-        return (value, value != "")
+        values = self.get_ui_values(ui_id)
+        assert isinstance(values, list)
+        return (values, [x != "" for x in values])
 
 
-    # Evaluates the link if the connected node has a constant value
+    # Evaluates the link if the connected node has a constant value.
+    #
+    # Returns a tuple:
+    #
+    #   1. True if it was constant.
+    #   2. List of values.
     def evaluate_link(self, value):
         # If it's a node link, then follow the link.
-        if isinstance(value, list) and len(value) == 2:
+        if is_link(value):
             node = self.json[value[0]]
             name = node["class_type"]
 
@@ -142,57 +97,113 @@ class Workflow:
                 f = self.const_nodes[name]
             except KeyError:
                 # If the node isn't constant, return the link as-is
-                return value
+                return (False, [value])
 
             outputs = f(node)
-
-            return outputs[value[1]]
+            value = outputs[value[1]]
+            assert isinstance(value, list)
+            return (True, value)
 
         else:
-            return value
+            return (False, [value])
 
 
     def get_canvas(self):
         if self.canvas is None:
-            (image, width, height) = self.get_document_canvas()
+            image = self.document.canvas(self.document_bounds)
+
             (image, mask) = self.graph.image(image)
-            self.canvas = (image, mask, width, height)
+
+            self.canvas = (
+                image,
+                mask,
+                self.document_bounds.width,
+                self.document_bounds.height,
+            )
 
         return self.canvas
 
 
     def get_selection(self):
         if self.selection is None:
-            (active, mask, x, y, width, height) = self.get_document_selection()
+            selection = self.document.selection()
+
+            if selection is not None:
+                selection_bounds = selection.bounds().clamp_to_parent(self.document_bounds)
+                mask = selection.mask(self.document_bounds)
+
+                if selection_bounds == self.document_bounds:
+                    active = not mask.is_solid(0xff)
+                else:
+                    active = True
+
+            else:
+                selection_bounds = self.document_bounds
+                mask = Mask.solid(0xff, self.document_bounds.width, self.document_bounds.height)
+                active = False
+
             mask = self.graph.mask(mask)
-            self.selection = (active, mask, x, y, width, height)
+
+            self.selection = (
+                active,
+                mask,
+                selection_bounds.x,
+                selection_bounds.y,
+                selection_bounds.width,
+                selection_bounds.height,
+            )
 
         return self.selection
 
 
-    def get_layers(self, layer_name, mode):
-        layer = self.layers.get((layer_name, mode), None)
+    def get_layer_image(self, layer):
+        image = self.layer_image.get(layer.id, None)
 
-        if layer is None:
+        if image is None:
+            image = self.graph.image(layer.image(self.document_bounds))
+            self.layer_image[layer.id] = image
+
+        return image
+
+
+    def get_layers(self, layer_name, mode):
+        layers = self.layers.get((layer_name, mode), None)
+
+        if layers is None:
             images = []
             masks = []
             names = []
 
-            for (name, image) in self.get_document_layers(layer_name, mode):
-                (image, mask) = self.graph.image(image)
-                images.append(NoReplace(image))
-                masks.append(NoReplace(mask))
-                names.append(name)
+            layer = self.document.find_layer_by_name(layer_name)
 
-            layer = (
-                self.graph.list(images),
-                self.graph.list(masks),
-                self.graph.list(names),
-            )
+            if layer is None:
+                raise RuntimeError("Could not find layer {}".format(layer_name))
 
-            self.layers[(layer_name, mode)] = layer
+            def add_image(layer):
+                (image, mask) = self.get_layer_image(layer)
+                images.append(image)
+                masks.append(mask)
+                names.append(layer.name)
 
-        return layer
+            if mode == "individual":
+                if layer.type.is_image():
+                    add_image(layer)
+
+                for child in layer.all_children():
+                    if child.type.is_image():
+                        add_image(child)
+
+            elif mode == "flatten":
+                if layer.type.is_image() or layer.type.is_group():
+                    add_image(layer)
+
+            else:
+                raise RuntimeError("mode must be individual or flatten")
+
+            layers = (images, masks, names)
+            self.layers[(layer_name, mode)] = layers
+
+        return layers
 
 
     def process_node(self, id, node):
@@ -202,36 +213,52 @@ class Workflow:
             case "krita_comfyui: KritaCanvas":
                 self.replace_outputs(id, self.get_canvas())
 
+            case "krita_comfyui: KritaSelection":
+                self.replace_outputs(id, self.get_selection())
 
             case "krita_comfyui: KritaSeed":
                 self.replace_outputs(id, (self.seed,))
 
 
+            # @TODO maybe cache this based on inputs somehow ?
             case "krita_comfyui: KritaLayers":
                 inputs = node["inputs"]
 
-                layer_name = self.evaluate_link(inputs["layer_name"])
+                images = []
+                masks = []
+                names = []
 
-                if not isinstance(layer_name, str):
-                    raise RuntimeError("[#{} Krita Layers] layer_name must be a string constant".format(id))
+                (_, layer_name) = self.evaluate_link(inputs["layer_name"])
+                (_, mode) = self.evaluate_link(inputs["mode"])
 
-                # If the layer name is empty, throw an error
-                if layer_name == "":
-                    error = self.graph.error("[#{} Krita Layers] layer_name is empty".format(id))
+                error = None
 
-                    self.replace_outputs(id, (error, error, error))
-
-                else:
-                    mode = self.evaluate_link(inputs["mode"])
+                for (layer_name, mode) in zip_inputs(layer_name, mode):
+                    if not isinstance(layer_name, str):
+                        raise RuntimeError("[#{} Krita Layers] layer_name must be a string constant".format(id))
 
                     if not isinstance(mode, str):
                         raise RuntimeError("[#{} Krita Layers] mode must be a string constant".format(id))
 
-                    self.replace_outputs(id, self.get_layers(layer_name, mode))
+                    # If the layer name is empty, throw an error
+                    if layer_name == "":
+                        if error is None:
+                            error = self.graph.error("[#{} Krita Layers] layer_name is empty".format(id))
+                        images.append(error)
+                        masks.append(error)
+                        names.append(error)
 
+                    else:
+                        layers = self.get_layers(layer_name, mode)
+                        images.extend(layers[0])
+                        masks.extend(layers[1])
+                        names.extend(layers[2])
 
-            case "krita_comfyui: KritaSelection":
-                self.replace_outputs(id, self.get_selection())
+                self.replace_outputs(id, (
+                    self.graph.list(images),
+                    self.graph.list(masks),
+                    self.graph.list(names),
+                ))
 
 
             case _:
@@ -239,12 +266,12 @@ class Workflow:
 
 
     def replace_input(self, value):
-        value = self.evaluate_link(value)
+        (is_const, const_value) = self.evaluate_link(value)
 
-        if isinstance(value, NoReplace):
-            return value.value
+        if is_const:
+            return self.graph.list(const_value)
 
-        if isinstance(value, list) and len(value) == 2:
+        if is_link(value):
             try:
                 new_id = self.replaced_ids[value[0]]
                 return [new_id, value[1]]
@@ -265,8 +292,9 @@ class Workflow:
             if not node["class_type"] in self.const_nodes:
                 self.process_node(id, node)
 
+        for id in self.node_ids:
+            node = self.graph.nodes[id]
 
-        for node in self.graph.nodes.values():
             inputs = {}
 
             for key, value in node["inputs"].items():
