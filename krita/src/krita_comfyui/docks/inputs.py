@@ -21,8 +21,8 @@ from PyQt6.QtWidgets import (
 )
 from ..extension import ComfyUIExtension
 from ..server import GraphInfo, GraphState
-from ..ui.workflow import UiLayerId
-from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, CurrentDocument, get_extension
+from ..ui.workflow import UiInputs, UiInput, UiLayerId
+from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, DocumentManager, get_extension
 from ..util.graph import Graph
 from ..util.qt import LayoutManager
 from ..util.workflow import Workflow
@@ -182,82 +182,15 @@ class QueueWidget(QWidget):
         self.queue_list.process_graph_info(client, info)
 
 
-class UiInputs(QObject):
-    changed = pyqtSignal()
-
-    def __init__(self):
-        super().__init__()
-
-        self.document = None
-        self.inputs = {}
-
-
-    def current(self):
-        return self.inputs
-
-
-    def save(self):
-        if self.document is not None:
-            self.document.set_key_json("krita_comfyui/ui_inputs", "krita_comfyui: Stored UI Inputs", self.inputs)
-            print("Saving")
-            print(self.inputs)
-
-
-    def get(self, id, index):
-        value = self.inputs.get(id, None)
-
-        if value is not None:
-            try:
-                return value[index]
-            except IndexError:
-                pass
-
-
-    def set(self, id, index, value):
-        old_value = self.inputs.get(id, None)
-
-        if old_value is None:
-            old_value = []
-            self.inputs[id] = old_value
-
-        while len(old_value) <= index:
-            old_value.append(None)
-
-        if old_value[index] != value:
-            old_value[index] = value
-
-            print("Saving {} {} {}".format(id, index, value))
-
-            self.save()
-            self.changed.emit()
-
-
-    def load_document(self, document):
-        self.document = document
-
-        if self.document is not None:
-            self.inputs = self.document.get_key_json("krita_comfyui/ui_inputs")
-
-            print("Loading")
-            print(self.inputs)
-
-            if self.inputs is None:
-                self.inputs = {}
-
-        else:
-            self.inputs = {}
-
-        self.changed.emit()
-
-
 class WorkflowWidget(QWidget):
     def __init__(self, extension):
         super().__init__()
 
         self.extension = extension
 
-        self.document = CurrentDocument(self)
-        self.document.changed.connect(self.on_document_changed)
+        self.document = DocumentManager(self)
+        self.document.document_changed.connect(self.on_document_changed)
+        self.document.layers_changed.connect(self.update_layer_inputs)
 
         self.layout = LayoutManager(self)
 
@@ -280,52 +213,30 @@ class WorkflowWidget(QWidget):
                 with row.tool_button(icon=Krita.icon("properties"), tooltip="Open settings") as button:
                     button.clicked.connect(self.open_settings)
 
-            with column.widget(UiLayerId(self.ui_inputs, index=0, id="layer", tooltip="Layer")) as layer_id:
+            with column.widget(UiLayerId(self.ui_inputs.input("layer", 0), tooltip="Layer")) as layer_id:
                 self.layer_inputs.append(layer_id)
 
         self.update_layer_inputs()
 
 
-    def get_all_layers(self):
-        layers = []
-
-        document = self.document.current()
-
-        if document is not None:
-            def loop(node, path):
-                for layer in node.children():
-                    if layer.type.is_group() or layer.type.is_image():
-                        child_path = path + [layer.name]
-                        name = " ┊ ".join(child_path)
-
-                        layers.append({
-                            "id": layer.id,
-                            "name": name,
-                            "type": layer.type,
-                        })
-
-                        loop(layer, child_path)
-
-            loop(document.root_layer(), [])
-
-        return layers
-
-
     def update_layer_inputs(self):
-        layers = self.get_all_layers()
+        print("Updating layers")
+
+        layers = self.document.layers
 
         for input in self.layer_inputs:
-            input.clear()
+            with BlockSignals(input):
+                input.clear()
 
-            input.add(text="", data="")
+                input.add(text="", data="")
 
-            for layer in layers:
-                if layer is None:
-                    input.separator()
-                else:
-                    input.add(icon=layer["type"].icon(), text=layer["name"], data=layer["id"])
+                for layer in layers:
+                    if layer is None:
+                        input.separator()
+                    else:
+                        input.add(icon=layer.type.icon(), text=layer.name, data=layer.id)
 
-            input.reset()
+                input.reset()
 
 
     def on_workflow_changed(self, text):
@@ -338,7 +249,7 @@ class WorkflowWidget(QWidget):
 
         self.ui_inputs.load_document(document)
 
-        print(self.ui_inputs.inputs)
+        print(self.ui_inputs.current())
 
         self.update_layer_inputs()
 
@@ -438,7 +349,7 @@ class InputsWidget(QWidget):
 
         with self.layout.column() as column:
             self.workflow = WorkflowWidget(self.extension)
-            self.workflow.document.changed.connect(self.update_run_button)
+            self.workflow.document.document_changed.connect(self.update_run_button)
             self.workflow.workflow_name.currentTextChanged.connect(self.update_run_button)
             column.widget(self.workflow)
 
@@ -515,4 +426,5 @@ class ComfyUIInputWidget(DockWidget):
         self.setWidget(self._inputs)
 
     def canvasChanged(self, _canvas: krita.Canvas):
-        self._inputs.workflow.document.check_current()
+        print("canvasChanged")
+        self._inputs.workflow.document.check_changes()

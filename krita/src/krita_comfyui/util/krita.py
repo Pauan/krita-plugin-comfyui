@@ -5,7 +5,7 @@ from typing import NamedTuple
 from json import (dumps, loads)
 import numpy as np
 
-from PyQt6.QtCore import QObject, QByteArray, QRect, QBuffer, QUuid, Qt, pyqtSignal
+from PyQt6.QtCore import QObject, QByteArray, QRect, QBuffer, QUuid, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
 
 
@@ -21,14 +21,72 @@ def get_extension(type):
     return output
 
 
-class CurrentDocument(QObject):
-    changed = pyqtSignal()
+class LayerMetadata:
+    def __init__(self, id, name, type):
+        self.id = id
+        self.name = name
+        self.type = type
+
+    def __eq__(self, other):
+        return self.id == other.id and self.name == other.name and self.type == other.type
+
+
+"""
+    Manages the current document, notifies when it changes, and also notifies when layers change.
+"""
+class DocumentManager(QObject):
+    document_changed = pyqtSignal()
+    layers_changed = pyqtSignal()
 
 
     def __init__(self, parent):
         super().__init__(parent)
 
         self._document = None
+
+        self.layers = []
+
+        # Krita doesn't provide any way to be notified when the layers are changed,
+        # so unfortunately we have to poll in order to detect changes.
+        self._timer = QTimer(self)
+        self._timer.start(500)
+        self._timer.timeout.connect(self._update_layers)
+
+        self.check_changes()
+
+
+    def _get_all_layers(self):
+        layers = []
+
+        document = self._document
+
+        if document is not None:
+            root = document.root_layer()
+
+            if root is not None:
+                def loop(node, path):
+                    for layer in node.children():
+                        if layer.type.is_group() or layer.type.is_image():
+                            child_path = path + [layer.name]
+                            name = " ┊ ".join(child_path)
+
+                            layers.append(LayerMetadata(layer.id, name, layer.type))
+
+                            loop(layer, child_path)
+
+                loop(root, [])
+
+        return layers
+
+
+    def _update_layers(self, emit=True):
+        new_layers = self._get_all_layers()
+
+        if self.layers != new_layers:
+            self.layers = new_layers
+
+            if emit:
+                self.layers_changed.emit()
 
 
     def is_equal(self, new):
@@ -47,12 +105,13 @@ class CurrentDocument(QObject):
             return self._document
 
 
-    def check_current(self):
+    def check_changes(self):
         document = Document.current()
 
         if not self.is_equal(document):
             self._document = document
-            self.changed.emit()
+            self._update_layers(False)
+            self.document_changed.emit()
 
 
 class BlockSignals:
