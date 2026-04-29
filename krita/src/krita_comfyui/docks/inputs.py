@@ -21,7 +21,8 @@ from PyQt6.QtWidgets import (
 )
 from ..extension import ComfyUIExtension
 from ..server import GraphInfo, GraphState
-from ..ui.workflow import UiInputs, UiInput, UiLayerId
+from ..ui.workflow import UiInputs
+from ..ui.workflow.widgets import UiLayerId
 from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, DocumentManager, get_extension
 from ..util.graph import Graph
 from ..util.qt import LayoutManager
