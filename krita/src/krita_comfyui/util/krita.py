@@ -486,6 +486,21 @@ class LayerType(Enum):
     transform = "transformmask"
     colorize = "colorizemask"
 
+    def icon(self):
+        match self:
+            case LayerType.paint: return Krita.icon("paintLayer")
+            case LayerType.vector: return Krita.icon("vectorLayer")
+            case LayerType.group: return Krita.icon("groupLayer")
+            case LayerType.file: return Krita.icon("fileLayer")
+            case LayerType.clone: return Krita.icon("cloneLayer")
+            case LayerType.fill: return Krita.icon("fillLayer")
+            case LayerType.filter: return Krita.icon("filterLayer")
+            case LayerType.transparency: return Krita.icon("transparencyMask")
+            case LayerType.selection: return Krita.icon("selectionMask")
+            case LayerType.filtermask: return Krita.icon("filterMask")
+            case LayerType.transform: return Krita.icon("transformMask")
+            case LayerType.colorize: return Krita.icon("colorizeMask")
+
     def is_group(self):
         return self in (LayerType.group,)
 

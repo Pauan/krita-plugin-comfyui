@@ -23,6 +23,8 @@
 
 * The Outputs are automatically organized into separate batches.
 
+* The layer selection widget is a lot nicer.
+
 * You can now open an output in a new document.
 
 * You can now apply an output to an existing layer.
