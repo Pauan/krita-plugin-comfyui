@@ -16,7 +16,7 @@ class KritaComfyui(ComfyExtension):
             ui.KritaUiCombo,
             ui.KritaUiFloat,
             ui.KritaUiInt,
-            ui.KritaUiLayerName,
+            ui.KritaUiLayerId,
             ui.KritaUiString,
 
             # krita

@@ -1,4 +1,5 @@
 from comfy_api.latest import io
+from .nodes import LayerId
 
 
 class KritaUiFloat(io.ComfyNode):
@@ -85,19 +86,19 @@ class KritaUiString(io.ComfyNode):
         raise RuntimeError("Workflow must be run from Krita.")
 
 
-class KritaUiLayerName(io.ComfyNode):
+class KritaUiLayerId(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
         return io.Schema(
-            node_id="krita_comfyui: KritaUiLayerName",
-            display_name="Krita UI Layer Name",
+            node_id="krita_comfyui: KritaUiLayerId",
+            display_name="Krita UI Layer Id",
             category="krita/ui",
-            description="Retrieves a layer name from Krita.",
+            description="Retrieves a layer ID from Krita.",
             inputs=[
                 io.String.Input("id", default="", tooltip="Unique ID of the layer selector."),
             ],
             outputs=[
-                io.String.Output(display_name="layer_name", is_output_list=True),
+                LayerId.Output(display_name="layer_id", is_output_list=True),
                 io.Boolean.Output(display_name="has_value", is_output_list=True, tooltip="Whether the layer selector has a value."),
             ],
         )

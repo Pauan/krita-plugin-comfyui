@@ -3,6 +3,11 @@ from comfy_api.latest import io
 from .util import timestamp, decode_image, decode_mask, encode_image
 
 
+@io.comfytype(io_type="KRITA_LAYER_ID")
+class LayerId(io.ComfyTypeIO):
+    Type = str
+
+
 class LoadImageBase64(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -80,7 +85,7 @@ class KritaLayers(io.ComfyNode):
             category="krita",
             description="Retrieves one or more layers from Krita.",
             inputs=[
-                io.String.Input("layer_name", tooltip="The name of the layer."),
+                LayerId.Input("layer_id", tooltip="The unique ID of the layer."),
                 io.Combo.Input("mode", options=["individual", "flatten"], default="individual", tooltip="How to process the layers.\n\n* individual: Return each layer as an individual image.\n* flatten: Flatten the layers into one image."),
             ],
             outputs=[
@@ -91,7 +96,7 @@ class KritaLayers(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, layer_name, mode) -> io.NodeOutput:
+    def execute(cls, layer_id, mode) -> io.NodeOutput:
         raise RuntimeError("Workflow must be run from Krita.")
 
 

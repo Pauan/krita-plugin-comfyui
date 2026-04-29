@@ -45,7 +45,7 @@ class Workflow:
             "krita_comfyui: KritaUiInt": self.evaluate_ui,
             "krita_comfyui: KritaUiBoolean": self.evaluate_ui,
             "krita_comfyui: KritaUiString": self.evaluate_ui,
-            "krita_comfyui: KritaUiLayerName": self.evaluate_ui,
+            "krita_comfyui: KritaUiLayerId": self.evaluate_ui,
             "krita_comfyui: KritaUiCombo": self.evaluate_ui,
         }
 
@@ -166,18 +166,18 @@ class Workflow:
         return image
 
 
-    def get_layers(self, layer_name, mode):
-        layers = self.layers.get((layer_name, mode), None)
+    def get_layers(self, layer_id, mode):
+        layers = self.layers.get((layer_id, mode), None)
 
         if layers is None:
             images = []
             masks = []
             names = []
 
-            layer = self.document.find_layer_by_name(layer_name)
+            layer = self.document.find_layer_by_id(layer_id)
 
             if layer is None:
-                raise RuntimeError("Could not find layer {}".format(layer_name))
+                raise RuntimeError("Could not find layer {}".format(layer_id))
 
             def add_image(layer):
                 (image, mask) = self.get_layer_image(layer)
@@ -201,7 +201,7 @@ class Workflow:
                 raise RuntimeError("mode must be individual or flatten")
 
             layers = (images, masks, names)
-            self.layers[(layer_name, mode)] = layers
+            self.layers[(layer_id, mode)] = layers
 
         return layers
 
@@ -228,28 +228,28 @@ class Workflow:
                 masks = []
                 names = []
 
-                (_, layer_name) = self.evaluate_link(inputs["layer_name"])
+                (_, layer_id) = self.evaluate_link(inputs["layer_id"])
                 (_, mode) = self.evaluate_link(inputs["mode"])
 
                 error = None
 
-                for (layer_name, mode) in zip_inputs(layer_name, mode):
-                    if not isinstance(layer_name, str):
-                        raise RuntimeError("[#{} Krita Layers] layer_name must be a string constant".format(id))
+                for (layer_id, mode) in zip_inputs(layer_id, mode):
+                    if not isinstance(layer_id, str):
+                        raise RuntimeError("[#{} Krita Layers] layer_id must be a string constant".format(id))
 
                     if not isinstance(mode, str):
                         raise RuntimeError("[#{} Krita Layers] mode must be a string constant".format(id))
 
                     # If the layer name is empty, throw an error
-                    if layer_name == "":
+                    if layer_id == "":
                         if error is None:
-                            error = self.graph.error("[#{} Krita Layers] layer_name is empty".format(id))
+                            error = self.graph.error("[#{} Krita Layers] layer_id is empty".format(id))
                         images.append(error)
                         masks.append(error)
                         names.append(error)
 
                     else:
-                        layers = self.get_layers(layer_name, mode)
+                        layers = self.get_layers(layer_id, mode)
                         images.extend(layers[0])
                         masks.extend(layers[1])
                         names.extend(layers[2])
