@@ -8,14 +8,79 @@ from PyQt6.QtWebSockets import QWebSocket
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
 
-class ProgressNode:
-    def __init__(self, id, value, max):
-        self.id = id
-        self.value = value
-        self.max = max
+class GraphError:
+    def __init__(self):
+        super()
+        self.message = ""
+        self.node_id = None
+        self.node_name = None
+        self.backtrace = None
 
-    def percent(self):
-        return self.value / self.max
+
+    def format(self):
+        message = []
+
+        has_id = self.node_id is not None
+        has_name = self.node_name is not None
+
+        if has_id or has_name:
+            message.append("[")
+
+        if has_id:
+            message.append("#" + self.node_id)
+
+        if has_name:
+            if len(message) > 0:
+                message.append(" ")
+            message.append(self.node_name)
+
+        if has_id or has_name:
+            message.append("]")
+
+        if len(message) > 0:
+            message.append("\n")
+
+        message.append(self.message)
+
+        return "".join(message)
+
+
+    @staticmethod
+    def from_execution_error(info):
+        error = GraphError()
+
+        node_name = info["node_type"]
+
+        if node_name != "krita_comfyui: ThrowError":
+            error.node_id = info["node_id"]
+            error.node_name = node_name
+
+        error.message = info["exception_message"]
+        error.backtrace = "".join(info["traceback"])
+        return error
+
+
+    @staticmethod
+    def from_comfyui_error(info):
+        error = GraphError()
+
+        print(info)
+
+        message = info["error"]["message"]
+        details = info["error"]["details"]
+
+        if details != "":
+            message = "{} ({})".format(message, details)
+
+        error.message = message
+        return error
+
+
+    @staticmethod
+    def from_string(string):
+        error = GraphError()
+        error.message = string
+        return error
 
 
 class GraphState(Enum):
@@ -210,66 +275,6 @@ class Prompt:
     # This is needed for retrying the Prompt in the case of a disconnection.
     def copy(self):
         return Prompt(self.client_id, self.graph_id, self.graph)
-
-
-class GraphError:
-    def __init__(self):
-        self.message = ""
-        self.node_id = None
-        self.node_name = None
-        self.backtrace = None
-
-
-    def format(self):
-        message = []
-
-        if self.node_id is not None:
-            message.append("#" + self.node_id)
-
-        if self.node_name is not None:
-            if len(message) > 0:
-                message.append(" ")
-            message.append(self.node_name + ":")
-
-        if len(message) > 0:
-            message.append("\n  ")
-
-        message.append(self.message)
-
-        return "".join(message)
-
-
-    @staticmethod
-    def from_execution_error(info):
-        error = GraphError()
-        error.message = info["exception_message"]
-        error.node_id = info["node_id"]
-        error.node_name = info["node_type"]
-        error.backtrace = "".join(info["traceback"])
-        return error
-
-
-    @staticmethod
-    def from_comfyui_error(info):
-        error = GraphError()
-
-        print(info)
-
-        message = info["error"]["message"]
-        details = info["error"]["details"]
-
-        if details != "":
-            message = "{} ({})".format(message, details)
-
-        error.message = message
-        return error
-
-
-    @staticmethod
-    def from_string(string):
-        error = GraphError()
-        error.message = string
-        return error
 
 
 class ConnectState(Enum):

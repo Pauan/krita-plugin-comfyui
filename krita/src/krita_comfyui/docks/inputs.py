@@ -26,7 +26,7 @@ from ..ui.workflow.widgets import UiLayerId
 from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, DocumentManager, get_extension
 from ..util.graph import Graph
 from ..util.qt import LayoutManager
-from ..util.workflow import Workflow
+from ..util.workflow import Workflow, WorkflowError
 
 
 class JobWidget(QWidget):
@@ -199,6 +199,9 @@ class WorkflowWidget(QWidget):
         self.ui_inputs.setParent(self)
         self.ui_inputs.load_document(self.document.current())
 
+        self.error = QMessageBox(QMessageBox.Icon.Critical, "Workflow error", "", parent=self)
+        self.error.setTextFormat(Qt.TextFormat.PlainText)
+
         self.layer_inputs = []
 
         with self.layout.column() as column:
@@ -306,6 +309,17 @@ class WorkflowWidget(QWidget):
         return has_document and workflow_name != ""
 
 
+    def show_error(self, message, backtrace=None):
+        self.error.setText(message)
+
+        if backtrace is None:
+            self.error.setDetailedText("")
+        else:
+            self.error.setDetailedText(backtrace)
+
+        self.error.exec()
+
+
     def run_workflow(self):
         document = self.document.current()
 
@@ -330,7 +344,11 @@ class WorkflowWidget(QWidget):
             ui_values=self.ui_inputs.current(),
         )
 
-        graph = workflow.to_graph()
+        try:
+            graph = workflow.to_graph()
+
+        except WorkflowError as e:
+            self.show_error(message=str(e))
 
         self.extension.client.execute_graph(graph)
 
@@ -388,6 +406,12 @@ class InputsWidget(QWidget):
 
 
     def on_graph_changed(self, info):
+        if info.state.is_error():
+            self.workflow.show_error(
+                message=info.error.format(),
+                backtrace=info.error.backtrace,
+            )
+
         self.queue.process_graph_info(self.extension.client, info)
         self.update()
 

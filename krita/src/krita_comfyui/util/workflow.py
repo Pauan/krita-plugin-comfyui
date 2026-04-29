@@ -21,6 +21,10 @@ def zip_inputs(*inputs):
         yield output
 
 
+class WorkflowError(RuntimeError):
+    pass
+
+
 class Workflow:
     def __init__(self, document, json, seed, ui_values):
         self.document = document
@@ -61,7 +65,7 @@ class Workflow:
         try:
             return self.ui_values[id]
         except KeyError:
-            raise RuntimeError("UI {} not found", id)
+            raise WorkflowError("UI id {} not found".format(id))
 
 
     def replace_outputs(self, id, outputs):
@@ -177,7 +181,7 @@ class Workflow:
             layer = self.document.find_layer_by_id(layer_id)
 
             if layer is None:
-                raise RuntimeError("Could not find layer {}".format(layer_id))
+                raise WorkflowError("Could not find layer {}".format(layer_id))
 
             def add_image(layer):
                 (image, mask) = self.get_layer_image(layer)
@@ -198,7 +202,7 @@ class Workflow:
                     add_image(layer)
 
             else:
-                raise RuntimeError("mode must be individual or flatten")
+                raise WorkflowError("mode must be individual or flatten")
 
             layers = (images, masks, names)
             self.layers[(layer_id, mode)] = layers
@@ -235,15 +239,15 @@ class Workflow:
 
                 for (layer_id, mode) in zip_inputs(layer_id, mode):
                     if not isinstance(layer_id, str):
-                        raise RuntimeError("[#{} Krita Layers] layer_id must be a string constant".format(id))
+                        raise WorkflowError("[#{} Krita Layers]\nlayer_id must be a string constant".format(id))
 
                     if not isinstance(mode, str):
-                        raise RuntimeError("[#{} Krita Layers] mode must be a string constant".format(id))
+                        raise WorkflowError("[#{} Krita Layers]\nmode must be a string constant".format(id))
 
                     # If the layer name is empty, throw an error
                     if layer_id == "":
                         if error is None:
-                            error = self.graph.error("[#{} Krita Layers] layer_id is empty".format(id))
+                            error = self.graph.error("[#{} Krita Layers]\nlayer_id is empty".format(id))
                         images.append(error)
                         masks.append(error)
                         names.append(error)
