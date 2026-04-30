@@ -11,9 +11,12 @@ class ComfyUIExtension(Extension):
 
         util.clear_logs()
 
-        self.client = ComfyUIClient(self, url="127.0.0.1:8188", reconnect_delay=10000)
-
         self.settings = Settings(self)
+
+        self.client = ComfyUIClient(self, self.settings, url="127.0.0.1:8188", reconnect_delay=10000)
+
+        # We immediately connect to ComfyUI so we can update the node metadata
+        self.client.connect()
 
         notifier = parent.notifier()
         notifier.setActive(True)

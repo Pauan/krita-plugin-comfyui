@@ -21,7 +21,8 @@ from PyQt6.QtWidgets import (
 from ..extension import ComfyUIExtension
 from ..server import GraphInfo, GraphState
 from ..ui.workflow import UiInputs
-from ..ui.workflow.widgets import UiLayerId, UiInt, UiFloat, UiString, UiStringMultiline, UiGroup, UiRow
+from ..ui.workflow.widgets import UiLayerId, UiCombo, UiInt, UiFloat, UiString, UiStringMultiline, UiGroup, UiRow
+from ..util import number_of_decimals
 from ..util.krita import Document, Layer, Image, Bounds, DocumentManager, get_extension
 from ..util.graph import Graph
 from ..util.qt import LayoutManager, MessageBox, BlockSignals
@@ -188,6 +189,7 @@ class WorkflowWidget(QWidget):
         super().__init__()
 
         self.extension = extension
+        self.extension.settings.node_metadata_changed.connect(self.update_widgets)
 
         self.document = DocumentManager(self)
         self.document.document_changed.connect(self.on_document_changed)
@@ -198,8 +200,9 @@ class WorkflowWidget(QWidget):
         self.ui_layout = {
             "children": [
                 {
-                    "type": "string_multiline",
+                    "type": "string",
                     "id": "prompt",
+                    "multiline": True,
                     "tooltip": "Prompt",
                     "placeholder": "Prompt...",
                 },
@@ -219,15 +222,17 @@ class WorkflowWidget(QWidget):
                             "type": "row",
                             "children": [
                                 {
-                                    "type": "string_multiline",
+                                    "type": "string",
                                     "id": "positive",
+                                    "multiline": True,
                                     "tooltip": "Positive",
                                     "placeholder": "Positive...",
                                     "background_color": "#093800",
                                 },
                                 {
-                                    "type": "string_multiline",
+                                    "type": "string",
                                     "id": "negative",
+                                    "multiline": True,
                                     "tooltip": "Negative",
                                     "placeholder": "Negative...",
                                     "background_color": "#380000",
@@ -256,10 +261,11 @@ class WorkflowWidget(QWidget):
                 {
                     "type": "percentage",
                     "id": "image_weight",
-                    "tooltip": "How strongly the image affects the final result.",
-                    "default": 0.0,
+                    "link_to": {
+                        "node_id": "prompt_helpers: EZImage",
+                        "input_name": "image_weight",
+                    },
                     "step": 0.05,
-                    "slider": True,
                 },
 
                 {
@@ -268,7 +274,46 @@ class WorkflowWidget(QWidget):
                     "title": "Advanced",
                     "default": False,
                     "children": [
+                        {
+                            "type": "row",
+                            "children": [
+                                {
+                                    "type": "combo",
+                                    "id": "checkpoint",
+                                    "link_to": {
+                                        "node_id": "prompt_helpers: EZCheckpoint",
+                                        "input_name": "checkpoint",
+                                    },
+                                },
 
+                                {
+                                    "type": "int",
+                                    "id": "clip_skip",
+                                    "link_to": {
+                                        "node_id": "prompt_helpers: EZCheckpoint",
+                                        "input_name": "clip_skip",
+                                    },
+                                },
+                            ],
+                        },
+
+                        {
+                            "type": "combo",
+                            "id": "sampler_name",
+                            "link_to": {
+                                "node_id": "prompt_helpers: EZSampler",
+                                "input_name": "sampler_name",
+                            },
+                        },
+
+                        {
+                            "type": "combo",
+                            "id": "scheduler",
+                            "link_to": {
+                                "node_id": "prompt_helpers: EZSampler",
+                                "input_name": "scheduler",
+                            },
+                        },
 
                         {
                             "type": "int",
@@ -326,10 +371,52 @@ class WorkflowWidget(QWidget):
                 scroll.setWidget(widget)
 
         self.update_widgets()
-        self.update_inputs()
+
+
+    # If the widget has a link_to, we need to fetch the
+    # node metadata and merge it into the widget info.
+    def get_node_metadata(self, info):
+        link_to = info.get("link_to", None)
+
+        if link_to is None:
+            return info
+
+        else:
+            new_info = {}
+
+            metadata = self.extension.settings.get_node_metadata(link_to["node_id"]).input(link_to["input_name"])
+
+            # Combo values
+            try:
+                new_info["values"] = metadata.info["options"]
+            except KeyError:
+                pass
+
+            # decimals
+            try:
+                decimals = number_of_decimals(metadata.info["round"], None)
+                if decimals is not None:
+                    new_info["decimals"] = decimals
+            except KeyError:
+                pass
+
+            # Copy metadata over as-is
+            for name in ("default", "min", "max", "step", "tooltip", "multiline", "placeholder"):
+                try:
+                    new_info[name] = metadata.info[name]
+                except KeyError:
+                    pass
+
+            # Widget info always overrides node metadata
+            for key, value in info.items():
+                new_info[key] = value
+
+            return new_info
 
 
     def add_widget(self, parent, info, index):
+        info = self.get_node_metadata(info)
+
         match info["type"]:
             case "layer_id":
                 widget = UiLayerId(
@@ -341,26 +428,39 @@ class WorkflowWidget(QWidget):
                     self.layer_inputs.append(widget)
 
 
-            case "string":
-                widget = UiString(
+            case "combo":
+                widget = UiCombo(
                     self.ui_inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
-                    placeholder=info.get("placeholder", None),
+                    default=info.get("default", ""),
+                    values=info.get("values", []),
                 )
 
                 with parent.widget(widget) as widget:
                     self.normal_inputs.append(widget)
 
 
-            case "string_multiline":
-                widget = UiStringMultiline(
-                    self.ui_inputs.input(info["id"], index),
-                    tooltip=info.get("tooltip", None),
-                    placeholder=info.get("placeholder", None),
-                    background_color=info.get("background_color", None),
-                    min_lines=info.get("min_lines", 2),
-                    max_lines=info.get("max_lines", 6),
-                )
+            case "string":
+                multiline = info.get("multiline", False)
+
+                if multiline:
+                    widget = UiStringMultiline(
+                        self.ui_inputs.input(info["id"], index),
+                        tooltip=info.get("tooltip", None),
+                        default=info.get("default", ""),
+                        placeholder=info.get("placeholder", None),
+                        background_color=info.get("background_color", None),
+                        min_lines=info.get("min_lines", 2),
+                        max_lines=info.get("max_lines", 6),
+                    )
+
+                else:
+                    widget = UiString(
+                        self.ui_inputs.input(info["id"], index),
+                        tooltip=info.get("tooltip", None),
+                        default=info.get("default", ""),
+                        placeholder=info.get("placeholder", None),
+                    )
 
                 with parent.widget(widget) as widget:
                     self.normal_inputs.append(widget)
@@ -371,9 +471,10 @@ class WorkflowWidget(QWidget):
                     self.ui_inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
-                    default=info["default"],
-                    min=info["min"],
-                    max=info["max"],
+                    default=info.get("default", 0),
+                    # 32-bit signed integer
+                    min=info.get("min", -2147483648),
+                    max=info.get("max", 2147483647),
                     step=info.get("step", 1),
                     suffix=info.get("suffix", None),
                 )
@@ -387,10 +488,10 @@ class WorkflowWidget(QWidget):
                     self.ui_inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
-                    default=info["default"],
-                    min=info["min"],
-                    max=info["max"],
-                    step=info["step"],
+                    default=info.get("default", 0.0),
+                    min=info.get("min", 0.0),
+                    max=info.get("max", 1.0),
+                    step=info.get("step", 0.01),
                     multiplier=info.get("multiplier", None),
                     suffix=info.get("suffix", None),
                     decimals=info.get("decimals", 2),
@@ -405,13 +506,13 @@ class WorkflowWidget(QWidget):
                     self.ui_inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", True),
-                    default=info["default"],
+                    default=info.get("default", 0.0),
                     min=0.0,
                     max=1.0,
-                    step=info["step"],
+                    step=info.get("step", 0.01),
                     multiplier=100.0,
                     suffix="%",
-                    decimals=0,
+                    decimals=info.get("decimals", 0),
                 )
 
                 with parent.widget(widget) as widget:
@@ -421,7 +522,7 @@ class WorkflowWidget(QWidget):
             case "group":
                 widget = UiGroup(
                     self.ui_inputs.input(info["id"], index),
-                    title=info["title"],
+                    title=info.get("title", ""),
                     default=info.get("default", True),
                 )
 
@@ -451,6 +552,7 @@ class WorkflowWidget(QWidget):
             self.add_widget(self.widgets, widget, 0)
 
         self.widgets.stretch()
+        self.update_inputs()
 
 
     def update_layer_inputs(self):
@@ -460,16 +562,7 @@ class WorkflowWidget(QWidget):
 
         for input in self.layer_inputs:
             with BlockSignals(input):
-                input.clear()
-
-                input.add(text="", data="")
-
-                for layer in layers:
-                    if layer is None:
-                        input.separator()
-                    else:
-                        input.add(icon=layer.type.icon(), text=layer.name, data=layer.id)
-
+                input.set_layers(layers)
                 input.reset()
 
 

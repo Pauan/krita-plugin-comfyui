@@ -4,11 +4,59 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
 
 
+class InputMetadata:
+    def __init__(self):
+        self.info = {}
+
+    def update(self, node_type, info):
+        self.info = info
+
+        if not "options" in self.info:
+            # Old school combo nodes
+            if isinstance(node_type, list):
+                self.info["options"] = node_type
+
+
+class NodeMetadata:
+    def __init__(self, node_id):
+        self.exists = False
+        self.node_id = node_id
+        self.inputs = {}
+
+    def update(self, node):
+        self.exists = True
+
+        inputs = node["input"]
+
+        for name, input in inputs.get("required", {}).items():
+            self.inputs[name] = InputMetadata()
+            self.inputs[name].update(input[0], input[1])
+
+        for name, input in inputs.get("optional", {}).items():
+            self.inputs[name] = InputMetadata()
+            self.inputs[name].update(input[0], input[1])
+
+    def input(self, name):
+        if self.exists:
+            try:
+                return self.inputs[name]
+            except KeyError:
+                raise RuntimeError(f"Input does not exist [{self.node_id}]: {name}")
+        else:
+            return InputMetadata()
+
+
 class Settings(QObject):
+    node_metadata_changed = pyqtSignal()
+
+
     def __init__(self, parent):
         super().__init__(parent)
 
         self.dir = Path(Krita.getAppDataLocation()) / "krita_comfyui"
+
+        self.node_metadata = None
+        self.cached_node_metadata = {}
 
         self.workflows_dir = self.dir / "workflows"
 
@@ -19,6 +67,49 @@ class Settings(QObject):
         print(self.all_workflows)
 
         self.workflows = {}
+
+        self.load_node_metadata()
+
+
+    def get_node_metadata(self, node_id):
+        metadata = self.cached_node_metadata.get(node_id)
+
+        if metadata is None:
+            metadata = NodeMetadata(node_id)
+
+            if self.node_metadata is not None:
+                try:
+                    info = self.node_metadata[node_id]
+                except KeyError:
+                    raise RuntimeError(f"Could not find node [{node_id}]")
+
+                metadata.update(info)
+
+            self.cached_node_metadata[node_id] = metadata
+
+        return metadata
+
+
+    def load_node_metadata(self):
+        assert self.node_metadata is None
+
+        try:
+            with open(self.dir / "node_metadata.json", "r") as file:
+                self.node_metadata = load(file)
+        except FileNotFoundError:
+            pass
+
+        self.cached_node_metadata = {}
+
+
+    def save_node_metadata(self, metadata):
+        self.node_metadata = metadata
+        self.cached_node_metadata = {}
+
+        with open(self.dir / "node_metadata.json", "w") as file:
+            dump(metadata, file, indent=2)
+
+        self.node_metadata_changed.emit()
 
 
     def workflow_path(self, name):

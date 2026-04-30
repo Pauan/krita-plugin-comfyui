@@ -354,17 +354,14 @@ class WebsocketClient(QObject):
 class ComfyUIClient(QObject):
     graph_changed = pyqtSignal(GraphInfo)
 
-    node_metadata_changed = pyqtSignal(dict)
 
-
-    def __init__(self, parent, url, reconnect_delay):
+    def __init__(self, parent, settings, url, reconnect_delay):
         super().__init__(parent)
-
-        self.node_metadata = None
 
         self.client_id = str(uuid.uuid4())
         self.graph_id = 0
 
+        self.settings = settings
         self.url = url
         self.queue = []
 
@@ -602,8 +599,8 @@ class ComfyUIClient(QObject):
 
             case "object_info":
                 if error is None:
-                    self.node_metadata = json.loads(reply.readAll().data().decode("utf-8"))
-                    self.node_metadata_changed.emit(self.node_metadata)
+                    node_metadata = json.loads(reply.readAll().data().decode("utf-8"))
+                    self.settings.save_node_metadata(node_metadata)
 
         reply.deleteLater()
 
@@ -686,8 +683,5 @@ class ComfyUIClient(QObject):
         graph_info = prompt.graph_info()
 
         self.graph_changed.emit(graph_info)
-
-        # We lazily connect to the WebSocket only when a graph is executed
-        self.connect()
 
         return graph_info

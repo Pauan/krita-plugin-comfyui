@@ -11,6 +11,15 @@ def number_of_lines(text):
     return sum(1 for _ in re.finditer(NEWLINE, text)) + 1
 
 
+def number_of_decimals(number, default=None):
+    decimals = str(number)[::-1].find(".")
+
+    if decimals == -1:
+        return default
+    else:
+        return decimals
+
+
 def clamp(value, minimum, maximum):
     return max(minimum, min(value, maximum))
 

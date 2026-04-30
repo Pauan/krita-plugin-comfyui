@@ -20,6 +20,8 @@ class UiLayerId(ComboBox):
 
         self.input = input
 
+        self.addItem("", "")
+
         #self.setEditable(True)
         self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.setDuplicatesEnabled(True)
@@ -39,11 +41,16 @@ class UiLayerId(ComboBox):
         self.input.set(selected)
 
 
-    def add(self, text, data, icon=None):
-        if icon is None:
-            self.addItem(text, data)
-        else:
-            self.addItem(icon, text, data)
+    def set_layers(self, layers):
+        self.clear()
+
+        self.addItem("", "")
+
+        for layer in layers:
+            if layer is None:
+                self.separator()
+            else:
+                self.addItem(layer.type.icon(), layer.name, layer.id)
 
 
     def reset(self):
@@ -67,11 +74,58 @@ class UiLayerId(ComboBox):
         return self.currentData()
 
 
-class UiString(QLineEdit):
-    def __init__(self, input, placeholder, tooltip):
+class UiCombo(ComboBox):
+    def __init__(self, input, tooltip, default, values):
         super().__init__()
 
         self.input = input
+        self.default = default
+
+        #self.setEditable(True)
+        self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.setDuplicatesEnabled(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.activated.connect(self.on_changed)
+
+        self.setToolTip(self.input.format_tooltip(tooltip))
+
+        self.addItem("")
+
+        for value in values:
+            self.addItem(value)
+
+
+    def on_changed(self):
+        selected = self.currentText()
+        assert selected is not None
+        self.input.set(selected)
+
+
+    def reset(self):
+        with BlockSignals(self):
+            value = self.input.get()
+
+            if value is None:
+                value = self.default
+
+            if value == "":
+                index = 0
+            else:
+                index = self.findText(value, flags=Qt.MatchFlag.MatchExactly)
+
+            if self.currentIndex() != index:
+                self.setCurrentIndex(index)
+
+
+class UiString(QLineEdit):
+    def __init__(self, input, default, placeholder, tooltip):
+        super().__init__()
+
+        self.input = input
+        self.default = default
+
+        self.setText(default)
 
         self.textEdited.connect(self.on_changed)
 
@@ -88,18 +142,21 @@ class UiString(QLineEdit):
             text = self.input.get()
 
             if text is None:
-                text = ""
+                text = self.default
 
             self.setText(text)
 
 
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, input, background_color, placeholder, tooltip, min_lines, max_lines):
+    def __init__(self, input, default, background_color, placeholder, tooltip, min_lines, max_lines):
         super().__init__()
 
         self.input = input
+        self.default = default
         self.min_lines = min_lines
         self.max_lines = max_lines
+
+        self.set_text(default)
 
         self.textChanged.connect(self.on_changed)
 
@@ -146,15 +203,18 @@ class UiStringMultiline(QPlainTextEdit):
         self.resize(text)
         self.input.set(text)
 
+    def set_text(self, text):
+        self.resize(text)
+        self.setPlainText(text)
+
     def reset(self):
         with BlockSignals(self):
             text = self.input.get()
 
             if text is None:
-                text = ""
+                text = self.default
 
-            self.resize(text)
-            self.setPlainText(text)
+            self.set_text(text)
 
     def wheelEvent(self, event):
         super().wheelEvent(event)
