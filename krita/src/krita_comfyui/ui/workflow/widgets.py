@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QSlider,
 )
 from ...util.qt import BlockSignals, LayoutManager, ComboBox
-from ...util import number_of_lines, lerp, normalize
+from ...util import number_of_lines, lerp, normalize, clamp
 
 
 class UiLayerId(ComboBox):
@@ -278,6 +278,7 @@ class UiFloat(QWidget):
                     widget.setRange(0, self.steps)
                     widget.setSingleStep(1000000)
                     widget.setPageStep(1000000)
+                    widget.setValue(self.value_to_slider(default))
                     #widget.setTickInterval(1000000)
                     #widget.setTickPosition(QSlider.TickPosition.TicksAbove)
                     #widget.setMinimumHeight(self._slider.minimumSizeHint().height() + 4)
@@ -286,6 +287,9 @@ class UiFloat(QWidget):
 
                 row.spacer(4)
 
+            else:
+                self.slider_widget = None
+
             with row.float() as widget:
                 if suffix is not None:
                     widget.setSuffix(suffix)
@@ -293,13 +297,9 @@ class UiFloat(QWidget):
                 widget.setRange(min * self.multiplier, max * self.multiplier)
                 widget.setSingleStep(step * self.multiplier)
                 widget.setDecimals(decimals)
+                widget.setValue(default * self.multiplier)
                 widget.valueChanged.connect(self.on_value_changed)
                 self.value_widget = widget
-
-
-    # Disables mouse wheel
-    def wheelEvent(self, event):
-        event.ignore()
 
 
     def slider_to_value(self, value):
@@ -322,8 +322,11 @@ class UiFloat(QWidget):
 
 
     def on_slider_changed(self, value):
+        assert self.slider_widget is not None
+
         # Rounds to the nearest step
         new_value = round(float(value) / 1000000.0) * 1000000
+        new_value = clamp(new_value, 0, self.steps)
 
         if value != new_value:
             value = new_value
@@ -331,6 +334,7 @@ class UiFloat(QWidget):
                 self.slider_widget.setValue(value)
 
         value = self.slider_to_value(value)
+        value = clamp(value, self.min, self.max)
 
         with BlockSignals(self.value_widget):
             self.value_widget.setValue(value * self.multiplier)
@@ -340,19 +344,107 @@ class UiFloat(QWidget):
 
     def on_value_changed(self, value):
         value = value / self.multiplier
+        value = clamp(value, self.min, self.max)
 
-        with BlockSignals(self.slider_widget):
-            self.slider_widget.setValue(self.value_to_slider(value))
+        if self.slider_widget is not None:
+            with BlockSignals(self.slider_widget):
+                self.slider_widget.setValue(self.value_to_slider(value))
 
         self.input.set(value)
 
 
     def reset(self):
-        with BlockSignals(self.value_widget), BlockSignals(self.slider_widget):
-            value = self.input.get()
+        value = self.input.get()
 
-            if value is None:
-                value = self.default
+        if value is None:
+            value = self.default
 
+        with BlockSignals(self.value_widget):
             self.value_widget.setValue(value * self.multiplier)
-            self.slider_widget.setValue(self.value_to_slider(value))
+
+        if self.slider_widget is not None:
+            with BlockSignals(self.slider_widget):
+                self.slider_widget.setValue(self.value_to_slider(value))
+
+
+class UiInt(QWidget):
+    def __init__(self, input, slider, tooltip, default, min, max, step, suffix):
+        super().__init__()
+
+        self.input = input
+        self.default = default
+        self.min = min
+        self.max = max
+        self.step = step
+
+        self.setToolTip(self.input.format_tooltip(tooltip))
+
+        self.layout_manager = LayoutManager(self)
+
+        with self.layout_manager.row() as row:
+            if slider:
+                with row.slider() as widget:
+                    widget.setOrientation(Qt.Orientation.Horizontal)
+                    widget.setRange(min, max)
+                    widget.setSingleStep(step)
+                    widget.setPageStep(step)
+                    widget.setValue(default)
+                    widget.valueChanged.connect(self.on_slider_changed)
+                    self.slider_widget = widget
+
+                row.spacer(4)
+
+            else:
+                self.slider_widget = None
+
+            with row.int() as widget:
+                if suffix is not None:
+                    widget.setSuffix(suffix)
+
+                widget.setRange(min, max)
+                widget.setSingleStep(step)
+                widget.setValue(default)
+                widget.valueChanged.connect(self.on_value_changed)
+                self.value_widget = widget
+
+
+    def on_slider_changed(self, value):
+        assert self.slider_widget is not None
+
+        # Rounds to the nearest step
+        new_value = round(float(value) / self.step) * self.step
+        new_value = clamp(new_value, self.min, self.max)
+
+        if value != new_value:
+            value = new_value
+            with BlockSignals(self.slider_widget):
+                self.slider_widget.setValue(value)
+
+        with BlockSignals(self.value_widget):
+            self.value_widget.setValue(value)
+
+        self.input.set(value)
+
+
+    def on_value_changed(self, value):
+        value = clamp(value, self.min, self.max)
+
+        if self.slider_widget is not None:
+            with BlockSignals(self.slider_widget):
+                self.slider_widget.setValue(value)
+
+        self.input.set(value)
+
+
+    def reset(self):
+        value = self.input.get()
+
+        if value is None:
+            value = self.default
+
+        with BlockSignals(self.value_widget):
+            self.value_widget.setValue(value)
+
+        if self.slider_widget is not None:
+            with BlockSignals(self.slider_widget):
+                self.slider_widget.setValue(value)

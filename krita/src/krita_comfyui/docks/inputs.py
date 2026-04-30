@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
 from ..extension import ComfyUIExtension
 from ..server import GraphInfo, GraphState
 from ..ui.workflow import UiInputs
-from ..ui.workflow.widgets import UiLayerId, UiFloat, UiString, UiStringMultiline, UiGroup, UiRow
+from ..ui.workflow.widgets import UiLayerId, UiInt, UiFloat, UiString, UiStringMultiline, UiGroup, UiRow
 from ..util.krita import Document, Layer, Image, Bounds, DocumentManager, get_extension
 from ..util.graph import Graph
 from ..util.qt import LayoutManager, MessageBox, BlockSignals
@@ -263,6 +263,25 @@ class WorkflowWidget(QWidget):
                 },
 
                 {
+                    "type": "group",
+                    "id": "advanced",
+                    "title": "Advanced",
+                    "default": False,
+                    "children": [
+
+
+                        {
+                            "type": "int",
+                            "id": "steps",
+                            "link_to": {
+                                "node_id": "prompt_helpers: EZSampler",
+                                "input_name": "steps",
+                            },
+                        },
+                    ],
+                },
+
+                {
                     "type": "layer_id",
                     "id": "layer",
                     "tooltip": "Layer",
@@ -341,6 +360,22 @@ class WorkflowWidget(QWidget):
                     background_color=info.get("background_color", None),
                     min_lines=info.get("min_lines", 2),
                     max_lines=info.get("max_lines", 6),
+                )
+
+                with parent.widget(widget) as widget:
+                    self.normal_inputs.append(widget)
+
+
+            case "int":
+                widget = UiInt(
+                    self.ui_inputs.input(info["id"], index),
+                    tooltip=info.get("tooltip", None),
+                    slider=info.get("slider", False),
+                    default=info["default"],
+                    min=info["min"],
+                    max=info["max"],
+                    step=info.get("step", 1),
+                    suffix=info.get("suffix", None),
                 )
 
                 with parent.widget(widget) as widget:

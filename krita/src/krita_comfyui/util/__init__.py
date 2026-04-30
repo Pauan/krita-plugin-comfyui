@@ -11,6 +11,10 @@ def number_of_lines(text):
     return sum(1 for _ in re.finditer(NEWLINE, text)) + 1
 
 
+def clamp(value, minimum, maximum):
+    return max(minimum, min(value, maximum))
+
+
 # https://en.wikipedia.org/wiki/Linear_interpolation#Programming_language_support
 def lerp(percent, min, max):
     return ((1.0 - percent) * min) + (percent * max)
