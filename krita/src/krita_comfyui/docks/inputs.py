@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 from ..extension import ComfyUIExtension
 from ..server import GraphInfo, GraphState
 from ..ui.workflow import UiInputs
-from ..ui.workflow.widgets import UiLayerId, UiString, UiStringMultiline, UiGroup
+from ..ui.workflow.widgets import UiLayerId, UiString, UiStringMultiline, UiGroup, UiRow
 from ..util.krita import Document, Layer, Image, Bounds, DocumentManager, get_extension
 from ..util.graph import Graph
 from ..util.qt import LayoutManager, MessageBox, BlockSignals
@@ -195,6 +195,72 @@ class WorkflowWidget(QWidget):
 
         self.layout = LayoutManager(self)
 
+        self.ui_layout = {
+            "children": [
+                {
+                    "type": "string_multiline",
+                    "id": "prompt",
+                    "tooltip": "Prompt",
+                    "placeholder": "Prompt...",
+                },
+
+                {
+                    "type": "layer_id",
+                    "id": "layer",
+                    "tooltip": "Layer",
+                },
+
+                {
+                    "type": "group",
+                    "id": "prompt_group",
+                    "title": "Prompt",
+                    "children": [
+                        {
+                            "type": "row",
+                            "children": [
+                                {
+                                    "type": "string_multiline",
+                                    "id": "positive",
+                                    "tooltip": "Positive",
+                                    "placeholder": "Positive...",
+                                    "background_color": "#093800",
+                                },
+                                {
+                                    "type": "string_multiline",
+                                    "id": "negative",
+                                    "tooltip": "Negative",
+                                    "placeholder": "Negative...",
+                                    "background_color": "#380000",
+                                },
+                            ],
+                        },
+
+                        {
+                            "type": "row",
+                            "children": [
+                                {
+                                    "type": "layer_id",
+                                    "id": "layer",
+                                    "tooltip": "Layer",
+                                },
+                                {
+                                    "type": "layer_id",
+                                    "id": "layer",
+                                    "tooltip": "Layer",
+                                },
+                            ],
+                        },
+                    ],
+                },
+
+                {
+                    "type": "layer_id",
+                    "id": "layer",
+                    "tooltip": "Layer",
+                },
+            ],
+        }
+
         self.ui_inputs = UiInputs()
         self.ui_inputs.setParent(self)
         self.ui_inputs.load_document(self.document.current())
@@ -234,54 +300,76 @@ class WorkflowWidget(QWidget):
         self.update_inputs()
 
 
+    def add_widget(self, parent, info, index):
+        match info["type"]:
+            case "layer_id":
+                widget = UiLayerId(
+                    self.ui_inputs.input(info["id"], index),
+                    tooltip=info.get("tooltip", None),
+                )
+
+                with parent.widget(widget) as widget:
+                    self.layer_inputs.append(widget)
+
+
+            case "string":
+                widget = UiString(
+                    self.ui_inputs.input(info["id"], index),
+                    tooltip=info.get("tooltip", None),
+                    placeholder=info.get("placeholder", None),
+                )
+
+                with parent.widget(widget) as widget:
+                    self.normal_inputs.append(widget)
+
+
+            case "string_multiline":
+                widget = UiStringMultiline(
+                    self.ui_inputs.input(info["id"], index),
+                    tooltip=info.get("tooltip", None),
+                    placeholder=info.get("placeholder", None),
+                    background_color=info.get("background_color", None),
+                    min_lines=info.get("min_lines", 2),
+                    max_lines=info.get("max_lines", 6),
+                )
+
+                with parent.widget(widget) as widget:
+                    self.normal_inputs.append(widget)
+
+
+            case "group":
+                widget = UiGroup(
+                    self.ui_inputs.input(info["id"], index),
+                    title=info["title"],
+                    default=info.get("default", True),
+                )
+
+                with parent.widget(widget) as widget:
+                    self.normal_inputs.append(widget)
+
+                    for child in info["children"]:
+                        self.add_widget(widget.layout, child, index)
+
+
+            case "row":
+                with parent.widget(UiRow()) as widget:
+                    for child in info["children"]:
+                        self.add_widget(widget.layout, child, index)
+
+
+            case _:
+                raise RuntimeError(f"Unknown widget type {info["type"]}")
+
+
     def update_widgets(self):
         self.widgets.clear()
+        self.layer_inputs = []
+        self.normal_inputs = []
 
-        with self.widgets.widget(UiLayerId(self.ui_inputs.input("layer", 0), tooltip="Layer")) as widget:
-            self.layer_inputs.append(widget)
-
-        #self.widgets.spacer(4)
-
-        with self.widgets.widget(UiGroup(self.ui_inputs.input("prompt_group", 0), title="Prompt")) as group:
-            self.normal_inputs.append(group)
-
-            with group.layout.widget(UiStringMultiline(self.ui_inputs.input("prompt", 0), tooltip="Positive", placeholder="Positive...", background_color="#093800")) as widget:
-                self.normal_inputs.append(widget)
-
-            with group.layout.widget(UiStringMultiline(self.ui_inputs.input("prompt", 0), tooltip="Negative", placeholder="Negative...", background_color="#380000")) as widget:
-                self.normal_inputs.append(widget)
-
-        #self.widgets.spacer(4)
-
-        with self.widgets.widget(UiLayerId(self.ui_inputs.input("layer", 0), tooltip="Layer")) as widget:
-            self.layer_inputs.append(widget)
+        for widget in self.ui_layout["children"]:
+            self.add_widget(self.widgets, widget, 0)
 
         self.widgets.stretch()
-
-        return
-
-        with self.widgets.column() as column:
-            #column.set_padding(left=2, right=2)
-
-            with column.label(text="Prompt") as label:
-                label.setStyleSheet("QLabel { padding-top: 4px; padding-bottom: 2px; }")
-
-            with column.widget(UiStringMultiline(self.ui_inputs.input("prompt", 0), tooltip="Prompt", placeholder="Prompt...")) as widget:
-                self.normal_inputs.append(widget)
-
-        with self.widgets.column() as column:
-            #column.set_padding(left=2, right=2)
-
-            with column.label(text="Prompt") as label:
-                label.setStyleSheet("QLabel { padding-top: 4px; padding-bottom: 2px; }")
-
-            with column.widget(UiStringMultiline(self.ui_inputs.input("prompt", 0), tooltip="Prompt", placeholder="Prompt...")) as widget:
-                self.normal_inputs.append(widget)
-
-
-
-        #with self.widgets.widget(UiString(self.ui_inputs.input("prompt", 0), tooltip="Prompt", placeholder="Prompt...")) as widget:
-            #self.normal_inputs.append(widget)
 
 
     def update_layer_inputs(self):

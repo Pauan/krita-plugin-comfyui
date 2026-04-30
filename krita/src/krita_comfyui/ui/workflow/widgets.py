@@ -14,7 +14,7 @@ from ...util import number_of_lines
 
 
 class UiLayerId(QComboBox):
-    def __init__(self, input, tooltip=None):
+    def __init__(self, input, tooltip):
         super().__init__()
 
         self.input = input
@@ -67,7 +67,7 @@ class UiLayerId(QComboBox):
 
 
 class UiString(QLineEdit):
-    def __init__(self, input, placeholder=None, tooltip=None):
+    def __init__(self, input, placeholder, tooltip):
         super().__init__()
 
         self.input = input
@@ -85,11 +85,16 @@ class UiString(QLineEdit):
 
     def reset(self):
         with BlockSignals(self):
-            self.setText(self.input.get())
+            text = self.input.get()
+
+            if text is None:
+                text = ""
+
+            self.setText(text)
 
 
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, input, background_color=None, placeholder=None, tooltip=None, min_lines=2, max_lines=6):
+    def __init__(self, input, background_color, placeholder, tooltip, min_lines, max_lines):
         super().__init__()
 
         self.input = input
@@ -160,10 +165,11 @@ class UiStringMultiline(QPlainTextEdit):
 
 
 class UiGroup(QWidget):
-    def __init__(self, input, title, default=True):
+    def __init__(self, input, title, default):
         super().__init__()
 
         self.input = input
+        self.default = default
 
         self.layout_manager = LayoutManager(self)
 
@@ -202,10 +208,12 @@ class UiGroup(QWidget):
     def update(self):
         if self.toggle_button.isChecked():
             self.toggle_button.setArrowType(Qt.ArrowType.DownArrow)
+            self.toggle_button.setToolTip("Close group...")
             self.container.show()
 
         else:
             self.toggle_button.setArrowType(Qt.ArrowType.RightArrow)
+            self.toggle_button.setToolTip("Open group...")
             self.container.hide()
 
 
@@ -219,8 +227,18 @@ class UiGroup(QWidget):
             opened = self.input.get()
 
             if opened is None:
-                opened = True
+                opened = self.default
 
             if self.toggle_button.isChecked() != opened:
                 self.toggle_button.setChecked(opened)
                 self.update()
+
+
+class UiRow(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.layout_manager = LayoutManager(self)
+
+        with self.layout_manager.row() as row:
+            self.layout = row
