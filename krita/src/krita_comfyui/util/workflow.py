@@ -26,7 +26,7 @@ class WorkflowError(RuntimeError):
 
 
 class Link:
-    def __init__(self, is_const, values, ui_id):
+    def __init__(self, values, ui_id=None, is_const=True):
         assert isinstance(values, list)
 
         # True if the link was constant-evaluated
@@ -37,10 +37,6 @@ class Link:
 
         # The UI ID, or None
         self.ui_id = ui_id
-
-    @staticmethod
-    def const(values, ui_id):
-        return Link(True, values, ui_id)
 
 
 class Workflow:
@@ -101,8 +97,8 @@ class Workflow:
         values = self.get_ui_values(ui_id)
         assert isinstance(values, list)
         return (
-            Link.const(values, ui_id),
-            Link.const([x != "" for x in values], ui_id),
+            Link(values, ui_id=ui_id),
+            Link([x != "" for x in values], ui_id=ui_id),
         )
 
 
@@ -117,13 +113,13 @@ class Workflow:
                 f = self.const_nodes[name]
             except KeyError:
                 # If the node isn't constant, return the link as-is
-                return Link(False, [value], None)
+                return Link([value], is_const=False)
 
             outputs = f(node)
             return outputs[value[1]]
 
         else:
-            return Link(False, [value], None)
+            return Link([value], is_const=False)
 
 
     def get_canvas(self):
