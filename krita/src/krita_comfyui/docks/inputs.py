@@ -693,6 +693,7 @@ class InputsWidget(QWidget):
 
         self.extension = get_extension(ComfyUIExtension)
         self.extension.client.graph_changed.connect(self.on_graph_changed)
+        self.extension.client.connection_changed.connect(self.update_run_button)
 
         self.layout = LayoutManager(self)
 
@@ -732,6 +733,8 @@ class InputsWidget(QWidget):
                     button.setMenu(self.queue_menu)
                     button.clicked.connect(self.workflow.run_workflow)
 
+        self.update_run_button()
+
 
     def on_graph_changed(self, info):
         if info.state.is_error():
@@ -745,7 +748,7 @@ class InputsWidget(QWidget):
 
 
     def update_run_button(self):
-        self.run_button.setEnabled(self.workflow.can_run_workflow())
+        self.run_button.setEnabled(self.extension.client.is_connected and self.workflow.can_run_workflow())
 
 
     def update(self):

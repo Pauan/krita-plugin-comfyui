@@ -353,6 +353,7 @@ class WebsocketClient(QObject):
 
 class ComfyUIClient(QObject):
     graph_changed = pyqtSignal(GraphInfo)
+    connection_changed = pyqtSignal()
 
 
     def __init__(self, parent, settings, url, reconnect_delay):
@@ -364,6 +365,7 @@ class ComfyUIClient(QObject):
         self.settings = settings
         self.url = url
         self.queue = []
+        self.is_connected = False
 
         self.http = QNetworkAccessManager(self)
         self.http.setAutoDeleteReplies(True)
@@ -442,6 +444,8 @@ class ComfyUIClient(QObject):
         elif state == ConnectState.Connected:
             self.update_node_metadata()
             self.execute_queue()
+
+        self.update_is_connected()
 
 
     def on_prompt_executing(self, prompt_id):
@@ -605,13 +609,23 @@ class ComfyUIClient(QObject):
         reply.deleteLater()
 
 
+    def update_is_connected(self):
+        is_ready = self.websocket.is_ready()
+
+        if self.is_connected != is_ready:
+            self.is_connected = is_ready
+            self.connection_changed.emit()
+
+
     def connect(self):
         self.websocket.connect()
         self.execute_queue()
+        self.update_is_connected()
 
 
     def disconnect(self):
         self.websocket.disconnect()
+        self.update_is_connected()
 
 
     # Stop executing a specific graph
