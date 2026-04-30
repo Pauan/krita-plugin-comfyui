@@ -14,8 +14,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from ..extension import ComfyUIExtension
-from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, get_extension
-from ..util.qt import LayoutManager
+from ..util.krita import Document, Layer, Image, Bounds, get_extension
+from ..util.qt import LayoutManager, BlockSignals
 
 
 class TextWidget(QWidget):
@@ -49,7 +49,7 @@ class TextWidget(QWidget):
                     layout = LayoutManager(group)
 
                     with layout.column() as column:
-                        column.set_padding(left=8, top=0, right=8, bottom=6)
+                        column.set_padding(left=8, right=8, bottom=6)
                         column.label(text=text["text"], selectable=True)
 
             self.setVisible(True)

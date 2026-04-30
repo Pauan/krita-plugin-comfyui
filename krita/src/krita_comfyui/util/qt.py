@@ -1,7 +1,9 @@
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QObject, Qt
 from PyQt6.QtWidgets import (
     QToolButton,
     QPushButton,
+    QMessageBox,
+    QTextEdit,
     QHBoxLayout,
     QVBoxLayout,
     QProgressBar,
@@ -9,7 +11,33 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QGroupBox,
     QScrollArea,
+    QSizePolicy,
 )
+
+
+# Resizes to fit the detail text better
+# https://stackoverflow.com/a/9969700/449477
+class MessageBox(QMessageBox):
+    def resizeEvent(self, event):
+        result = super().resizeEvent(event)
+
+        details_box = self.findChild(QTextEdit)
+        if details_box is not None:
+            details_box.setFixedSize(details_box.sizeHint())
+
+        return result
+
+
+class BlockSignals:
+    def __init__(self, obj: QObject):
+        self.obj = obj
+
+    def __enter__(self):
+        self.obj.blockSignals(True)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.obj.blockSignals(False)
+        return False
 
 
 class Scope:
@@ -89,7 +117,7 @@ class Layout:
     def set_child_spacing(self, amount):
         self.qlayout.setSpacing(amount)
 
-    def set_padding(self, left, top, right, bottom):
+    def set_padding(self, left=0, top=0, right=0, bottom=0):
         self.qlayout.setContentsMargins(left, top, right, bottom)
 
 

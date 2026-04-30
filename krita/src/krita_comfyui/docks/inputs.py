@@ -22,10 +22,10 @@ from PyQt6.QtWidgets import (
 from ..extension import ComfyUIExtension
 from ..server import GraphInfo, GraphState
 from ..ui.workflow import UiInputs
-from ..ui.workflow.widgets import UiLayerId
-from ..util.krita import Document, Layer, Image, Bounds, BlockSignals, DocumentManager, get_extension
+from ..ui.workflow.widgets import UiLayerId, UiString, UiStringMultiline, UiGroup
+from ..util.krita import Document, Layer, Image, Bounds, DocumentManager, get_extension
 from ..util.graph import Graph
-from ..util.qt import LayoutManager
+from ..util.qt import LayoutManager, MessageBox, BlockSignals
 from ..util.workflow import Workflow, WorkflowError
 
 
@@ -199,13 +199,16 @@ class WorkflowWidget(QWidget):
         self.ui_inputs.setParent(self)
         self.ui_inputs.load_document(self.document.current())
 
-        self.error = QMessageBox(QMessageBox.Icon.Critical, "Workflow error", "", parent=self)
+        self.error = MessageBox(QMessageBox.Icon.Critical, "Workflow error", "", parent=self)
         self.error.setTextFormat(Qt.TextFormat.PlainText)
 
+        self.normal_inputs = []
         self.layer_inputs = []
 
         with self.layout.column() as column:
             with column.row() as row:
+                row.set_padding(left=2, right=2, bottom=4)
+
                 with row.combo_box(tooltip="Workflow") as combo:
                     self.workflow_name = combo
 
@@ -217,10 +220,68 @@ class WorkflowWidget(QWidget):
                 with row.tool_button(icon=Krita.icon("properties"), tooltip="Open settings") as button:
                     button.clicked.connect(self.open_settings)
 
-            with column.widget(UiLayerId(self.ui_inputs.input("layer", 0), tooltip="Layer")) as layer_id:
-                self.layer_inputs.append(layer_id)
+            with column.scroll() as scroll:
+                widget = QWidget()
+                layout = LayoutManager(widget)
 
-        self.update_layer_inputs()
+                with layout.column() as column:
+                    column.set_padding(left=8, right=8)
+                    self.widgets = column
+
+                scroll.setWidget(widget)
+
+        self.update_widgets()
+        self.update_inputs()
+
+
+    def update_widgets(self):
+        self.widgets.clear()
+
+        with self.widgets.widget(UiLayerId(self.ui_inputs.input("layer", 0), tooltip="Layer")) as widget:
+            self.layer_inputs.append(widget)
+
+        #self.widgets.spacer(4)
+
+        with self.widgets.widget(UiGroup(self.ui_inputs.input("prompt_group", 0), title="Prompt")) as group:
+            self.normal_inputs.append(group)
+
+            with group.layout.widget(UiStringMultiline(self.ui_inputs.input("prompt", 0), tooltip="Positive", placeholder="Positive...", background_color="#093800")) as widget:
+                self.normal_inputs.append(widget)
+
+            with group.layout.widget(UiStringMultiline(self.ui_inputs.input("prompt", 0), tooltip="Negative", placeholder="Negative...", background_color="#380000")) as widget:
+                self.normal_inputs.append(widget)
+
+        #self.widgets.spacer(4)
+
+        with self.widgets.widget(UiLayerId(self.ui_inputs.input("layer", 0), tooltip="Layer")) as widget:
+            self.layer_inputs.append(widget)
+
+        self.widgets.stretch()
+
+        return
+
+        with self.widgets.column() as column:
+            #column.set_padding(left=2, right=2)
+
+            with column.label(text="Prompt") as label:
+                label.setStyleSheet("QLabel { padding-top: 4px; padding-bottom: 2px; }")
+
+            with column.widget(UiStringMultiline(self.ui_inputs.input("prompt", 0), tooltip="Prompt", placeholder="Prompt...")) as widget:
+                self.normal_inputs.append(widget)
+
+        with self.widgets.column() as column:
+            #column.set_padding(left=2, right=2)
+
+            with column.label(text="Prompt") as label:
+                label.setStyleSheet("QLabel { padding-top: 4px; padding-bottom: 2px; }")
+
+            with column.widget(UiStringMultiline(self.ui_inputs.input("prompt", 0), tooltip="Prompt", placeholder="Prompt...")) as widget:
+                self.normal_inputs.append(widget)
+
+
+
+        #with self.widgets.widget(UiString(self.ui_inputs.input("prompt", 0), tooltip="Prompt", placeholder="Prompt...")) as widget:
+            #self.normal_inputs.append(widget)
 
 
     def update_layer_inputs(self):
@@ -243,6 +304,13 @@ class WorkflowWidget(QWidget):
                 input.reset()
 
 
+    def update_inputs(self):
+        self.update_layer_inputs()
+
+        for input in self.normal_inputs:
+            input.reset()
+
+
     def on_workflow_changed(self, text):
         print("WORKFLOW NAME", text)
 
@@ -255,7 +323,7 @@ class WorkflowWidget(QWidget):
 
         print(self.ui_inputs.current())
 
-        self.update_layer_inputs()
+        self.update_inputs()
 
 
     def test_graph():
@@ -375,10 +443,8 @@ class InputsWidget(QWidget):
             #with self.layout.column() as inputs:
                 #column.addLayout(inputs)
 
-            column.stretch()
-
             with column.row() as row:
-                row.set_padding(left=8, top=0, right=4, bottom=2)
+                row.set_padding(left=10, right=2, bottom=2)
 
                 with row.progress_bar(minimum=0, maximum=1000000, tooltip="Progress") as progress:
                     self.progress_bar = progress

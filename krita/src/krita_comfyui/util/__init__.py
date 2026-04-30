@@ -1,6 +1,14 @@
 import os
 import json
 import time
+import re
+
+
+NEWLINE = re.compile(r"(?:\r\n|\r|\n)")
+
+def number_of_lines(text):
+    # TODO crazy hack to get the length of an iterator
+    return sum(1 for _ in re.finditer(NEWLINE, text)) + 1
 
 
 def clear_logs():

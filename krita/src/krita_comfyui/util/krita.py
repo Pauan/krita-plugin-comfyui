@@ -114,18 +114,6 @@ class DocumentManager(QObject):
             self.document_changed.emit()
 
 
-class BlockSignals:
-    def __init__(self, obj: QObject):
-        self.obj = obj
-
-    def __enter__(self):
-        self.obj.blockSignals(True)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.obj.blockSignals(False)
-        return False
-
-
 class Bounds(NamedTuple):
     x: int
     y: int
