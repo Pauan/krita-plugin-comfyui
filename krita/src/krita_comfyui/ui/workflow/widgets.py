@@ -158,11 +158,15 @@ class UiStringMultiline(QPlainTextEdit):
             self.resize(text)
             self.setPlainText(text)
 
-    # This prevents the mouse wheel from scrolling the parent,
-    # now it will only scroll the text box.
     def wheelEvent(self, event):
         super().wheelEvent(event)
-        event.accept()
+
+        scrollbar = self.verticalScrollBar()
+
+        # If we have a vertical scrollbar, then this prevents the mouse wheel
+        # from scrolling the parent, now it will only scroll the text box.
+        if scrollbar is not None and scrollbar.isVisible():
+            event.accept()
 
 
 class UiGroup(QWidget):
