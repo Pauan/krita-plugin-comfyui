@@ -12,7 +12,6 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
     QToolButton,
-    QPushButton,
     QHBoxLayout,
     QVBoxLayout,
     QWidgetAction,
@@ -276,6 +275,7 @@ class WorkflowWidget(QWidget):
         self.ui_inputs.load_document(self.document.current())
 
         self.error = MessageBox(QMessageBox.Icon.Critical, "Workflow error", "", parent=self)
+        self.error.setSizeGripEnabled(True)
         self.error.setTextFormat(Qt.TextFormat.PlainText)
 
         self.normal_inputs = []

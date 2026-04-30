@@ -8,6 +8,13 @@ class UiInput:
         self.index = index
 
 
+    def format_tooltip(self, tooltip):
+        if tooltip is None:
+            return f"[{self.id}]"
+        else:
+            return f"[{self.id}]: {tooltip}"
+
+
     def get(self):
         value = self.inputs.values.get(self.id, None)
 

@@ -23,11 +23,11 @@ class UiLayerId(ComboBox):
         #self.setEditable(True)
         self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.setDuplicatesEnabled(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self.activated.connect(self.on_changed)
 
-        if tooltip is not None:
-            self.setToolTip(tooltip)
+        self.setToolTip(self.input.format_tooltip(tooltip))
 
 
     def on_changed(self):
@@ -78,8 +78,7 @@ class UiString(QLineEdit):
         if placeholder is not None:
             self.setPlaceholderText(placeholder)
 
-        if tooltip is not None:
-            self.setToolTip(tooltip)
+        self.setToolTip(self.input.format_tooltip(tooltip))
 
     def on_changed(self):
         self.input.set(self.text())
@@ -132,8 +131,7 @@ class UiStringMultiline(QPlainTextEdit):
         if placeholder is not None:
             self.setPlaceholderText(placeholder)
 
-        if tooltip is not None:
-            self.setToolTip(tooltip)
+        self.setToolTip(self.input.format_tooltip(tooltip))
 
     def get_pixel_height(self, lines):
         metrics = QFontMetricsF(self.document().defaultFont())
@@ -269,8 +267,7 @@ class UiFloat(QWidget):
 
         self.steps = step_size(min, max, step)
 
-        if tooltip is not None:
-            self.setToolTip(tooltip)
+        self.setToolTip(self.input.format_tooltip(tooltip))
 
         self.layout_manager = LayoutManager(self)
 

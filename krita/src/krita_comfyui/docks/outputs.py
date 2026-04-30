@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
     QMenu,
     QMessageBox,
     QSizePolicy,
-    QToolButton,
     QWidget,
 )
 from ..extension import ComfyUIExtension

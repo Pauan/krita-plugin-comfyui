@@ -25,6 +25,24 @@ class WorkflowError(RuntimeError):
     pass
 
 
+class Link:
+    def __init__(self, is_const, values, ui_id):
+        assert isinstance(values, list)
+
+        # True if the link was constant-evaluated
+        self.is_const = is_const
+
+        # List of values
+        self.values = values
+
+        # The UI ID, or None
+        self.ui_id = ui_id
+
+    @staticmethod
+    def const(values, ui_id):
+        return Link(True, values, ui_id)
+
+
 class Workflow:
     def __init__(self, document, json, seed, ui_values):
         self.document = document
@@ -82,15 +100,13 @@ class Workflow:
         ui_id = node["inputs"]["id"]
         values = self.get_ui_values(ui_id)
         assert isinstance(values, list)
-        return (values, [x != "" for x in values])
+        return (
+            Link.const(values, ui_id),
+            Link.const([x != "" for x in values], ui_id),
+        )
 
 
     # Evaluates the link if the connected node has a constant value.
-    #
-    # Returns a tuple:
-    #
-    #   1. True if it was constant.
-    #   2. List of values.
     def evaluate_link(self, value):
         # If it's a node link, then follow the link.
         if is_link(value):
@@ -101,15 +117,13 @@ class Workflow:
                 f = self.const_nodes[name]
             except KeyError:
                 # If the node isn't constant, return the link as-is
-                return (False, [value])
+                return Link(False, [value], None)
 
             outputs = f(node)
-            value = outputs[value[1]]
-            assert isinstance(value, list)
-            return (True, value)
+            return outputs[value[1]]
 
         else:
-            return (False, [value])
+            return Link(False, [value], None)
 
 
     def get_canvas(self):
@@ -232,12 +246,12 @@ class Workflow:
                 masks = []
                 names = []
 
-                (_, layer_id) = self.evaluate_link(inputs["layer_id"])
-                (_, mode) = self.evaluate_link(inputs["mode"])
+                layer_id_link = self.evaluate_link(inputs["layer_id"])
+                mode_link = self.evaluate_link(inputs["mode"])
 
                 error = None
 
-                for (layer_id, mode) in zip_inputs(layer_id, mode):
+                for (layer_id, mode) in zip_inputs(layer_id_link.values, mode_link.values):
                     if not isinstance(layer_id, str):
                         raise WorkflowError(f"[#{id} Krita Layers]\nlayer_id must be a string constant")
 
@@ -247,7 +261,10 @@ class Workflow:
                     # If the layer name is empty, throw an error
                     if layer_id == "":
                         if error is None:
-                            error = self.graph.error(f"[#{id} Krita Layers]\nlayer_id is empty")
+                            if layer_id_link.ui_id is None:
+                                error = self.graph.error(f"[#{id} Krita Layers]\nlayer_id is empty")
+                            else:
+                                error = self.graph.error(f"Layer selector [{layer_id_link.ui_id}] is empty")
                         images.append(error)
                         masks.append(error)
                         names.append(error)
@@ -270,10 +287,10 @@ class Workflow:
 
 
     def replace_input(self, value):
-        (is_const, const_value) = self.evaluate_link(value)
+        link = self.evaluate_link(value)
 
-        if is_const:
-            return self.graph.list(const_value)
+        if link.is_const:
+            return self.graph.list(link.values)
 
         if is_link(value):
             try:

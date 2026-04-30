@@ -45,14 +45,16 @@ class DoubleSpinBox(QDoubleSpinBox):
 # Resizes to fit the detail text better
 # https://stackoverflow.com/a/9969700/449477
 class MessageBox(QMessageBox):
-    def resizeEvent(self, event):
-        result = super().resizeEvent(event)
+    pass
 
-        details_box = self.findChild(QTextEdit)
-        if details_box is not None:
-            details_box.setFixedSize(details_box.sizeHint())
+    #def resizeEvent(self, event):
+        #result = super().resizeEvent(event)
 
-        return result
+        #details_box = self.findChild(QTextEdit)
+        #if details_box is not None:
+            #details_box.setFixedSize(details_box.sizeHint())
+
+        #return result
 
 
 class BlockSignals:
