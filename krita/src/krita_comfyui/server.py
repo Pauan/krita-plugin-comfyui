@@ -70,7 +70,7 @@ class GraphError:
         details = info["error"]["details"]
 
         if details != "":
-            message = "{} ({})".format(message, details)
+            message = f"{message} ({details})"
 
         error.message = message
         return error
@@ -372,7 +372,7 @@ class ComfyUIClient(QObject):
         self.http.setAutoDeleteReplies(True)
         self.http.finished.connect(self.on_http_finished)
 
-        self.websocket = WebsocketClient(self, "ws://{}/ws?clientId={}".format(self.url, self.client_id), reconnect_delay)
+        self.websocket = WebsocketClient(self, f"ws://{self.url}/ws?clientId={self.client_id}", reconnect_delay)
         self.websocket.messages.connect(self.on_websocket_message)
         self.websocket.state_changed.connect(self.on_websocket_state_changed)
 
@@ -385,7 +385,7 @@ class ComfyUIClient(QObject):
 
     def post_prompt(self, prompt):
         if self.websocket.is_ready():
-            url = "http://{}/prompt".format(self.url)
+            url = f"http://{self.url}/prompt"
             request = QNetworkRequest(QUrl(url))
             request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
             request.setAttribute(QNetworkRequest.Attribute.User, "prompt")
@@ -395,7 +395,7 @@ class ComfyUIClient(QObject):
 
     def interrupt_prompt(self, prompt):
         if self.websocket.is_ready():
-            url = "http://{}/interrupt".format(self.url)
+            url = f"http://{self.url}/interrupt"
 
             message = {
                 "prompt_id": prompt.prompt_id,
@@ -579,7 +579,7 @@ class ComfyUIClient(QObject):
             assert reply.error() == QNetworkReply.NetworkError.NoError
 
         if error is not None:
-            print("HTTP Error: {}".format(error.format()))
+            print(f"HTTP Error: {error.format()}")
 
         match reply.request().attribute(QNetworkRequest.Attribute.User):
             case "prompt":
@@ -669,7 +669,7 @@ class ComfyUIClient(QObject):
 
     def update_node_metadata(self):
         if self.websocket.is_ready():
-            request = QNetworkRequest(QUrl("http://{}/object_info".format(self.url)))
+            request = QNetworkRequest(QUrl(f"http://{self.url}/object_info"))
             request.setAttribute(QNetworkRequest.Attribute.User, "object_info")
             self.http.get(request)
 

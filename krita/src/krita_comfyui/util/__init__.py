@@ -43,7 +43,8 @@ class Perf:
 
     def done(self):
         end = time.perf_counter_ns()
-        print("{} took {} ms".format(self.name, float(end - self.start) / 1000000.0))
+        diff = float(end - self.start) / 1000000.0
+        print(f"{self.name} took {diff} ms")
 
     def __enter__(self):
         self.start = time.perf_counter_ns()

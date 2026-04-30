@@ -626,7 +626,7 @@ class InputsWidget(QWidget):
         if len == 0:
             self.run_button.setText("Run")
         else:
-            self.run_button.setText("Run [{}]".format(len))
+            self.run_button.setText(f"Run [{len}]")
 
 
         current_job = self.queue.get_first_job()

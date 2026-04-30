@@ -65,7 +65,7 @@ class Workflow:
         try:
             return self.ui_values[id]
         except KeyError:
-            raise WorkflowError("UI id {} not found".format(id))
+            raise WorkflowError(f"UI id {id} not found")
 
 
     def replace_outputs(self, id, outputs):
@@ -181,7 +181,7 @@ class Workflow:
             layer = self.document.find_layer_by_id(layer_id)
 
             if layer is None:
-                raise WorkflowError("Could not find layer {}".format(layer_id))
+                raise WorkflowError(f"Could not find layer {layer_id}")
 
             def add_image(layer):
                 (image, mask) = self.get_layer_image(layer)
@@ -239,15 +239,15 @@ class Workflow:
 
                 for (layer_id, mode) in zip_inputs(layer_id, mode):
                     if not isinstance(layer_id, str):
-                        raise WorkflowError("[#{} Krita Layers]\nlayer_id must be a string constant".format(id))
+                        raise WorkflowError(f"[#{id} Krita Layers]\nlayer_id must be a string constant")
 
                     if not isinstance(mode, str):
-                        raise WorkflowError("[#{} Krita Layers]\nmode must be a string constant".format(id))
+                        raise WorkflowError(f"[#{id} Krita Layers]\nmode must be a string constant")
 
                     # If the layer name is empty, throw an error
                     if layer_id == "":
                         if error is None:
-                            error = self.graph.error("[#{} Krita Layers]\nlayer_id is empty".format(id))
+                            error = self.graph.error(f"[#{id} Krita Layers]\nlayer_id is empty")
                         images.append(error)
                         masks.append(error)
                         names.append(error)

@@ -31,7 +31,7 @@ class UiInput:
         if old_value[self.index] != value:
             old_value[self.index] = value
 
-            print("Saving {} {} {}".format(self.id, self.index, value))
+            print(f"Saving {self.id} {self.index} {value}")
 
             self.inputs.save()
             self.inputs.changed.emit()
