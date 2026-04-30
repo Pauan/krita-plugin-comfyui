@@ -11,6 +11,16 @@ def number_of_lines(text):
     return sum(1 for _ in re.finditer(NEWLINE, text)) + 1
 
 
+# https://en.wikipedia.org/wiki/Linear_interpolation#Programming_language_support
+def lerp(percent, min, max):
+    return ((1.0 - percent) * min) + (percent * max)
+
+
+# Inverse lerp, finds the percentage from the value
+def normalize(value, min, max):
+    return (value - min) / (max - min)
+
+
 def clear_logs():
     # Deletes the log file
     with open("/tmp/krita.log", "w") as file:

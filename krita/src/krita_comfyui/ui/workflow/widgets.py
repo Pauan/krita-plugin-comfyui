@@ -8,12 +8,13 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QCheckBox,
+    QSlider,
 )
-from ...util.qt import BlockSignals, LayoutManager
-from ...util import number_of_lines
+from ...util.qt import BlockSignals, LayoutManager, ComboBox
+from ...util import number_of_lines, lerp, normalize
 
 
-class UiLayerId(QComboBox):
+class UiLayerId(ComboBox):
     def __init__(self, input, tooltip):
         super().__init__()
 
@@ -242,3 +243,115 @@ class UiRow(QWidget):
 
         with self.layout_manager.row() as row:
             self.layout = row
+
+
+# @TODO don't hardcode the amount of steps
+def step_size(minimum, maximum, step):
+    return int(max(abs(maximum - minimum) / step, 1.0) * 1000000.0)
+
+class UiFloat(QWidget):
+    def __init__(self, input, slider, tooltip, default, min, max, step, decimals, multiplier, suffix):
+        super().__init__()
+
+        self.input = input
+        self.default = default
+        self.min = min
+        self.max = max
+        self.decimals = decimals
+        self.multiplier = multiplier
+
+        if self.multiplier is None:
+            self.multiplier = 1.0
+
+        self.steps = step_size(min, max, step)
+
+        if tooltip is not None:
+            self.setToolTip(tooltip)
+
+        self.layout_manager = LayoutManager(self)
+
+        with self.layout_manager.row() as row:
+            if slider:
+                with row.slider() as widget:
+                    widget.setOrientation(Qt.Orientation.Horizontal)
+                    widget.setRange(0, self.steps)
+                    widget.setSingleStep(1000000)
+                    widget.setPageStep(1000000)
+                    #widget.setTickInterval(1000000)
+                    #widget.setTickPosition(QSlider.TickPosition.TicksAbove)
+                    #widget.setMinimumHeight(self._slider.minimumSizeHint().height() + 4)
+                    widget.valueChanged.connect(self.on_slider_changed)
+                    self.slider_widget = widget
+
+                row.spacer(4)
+
+            with row.float() as widget:
+                if suffix is not None:
+                    widget.setSuffix(suffix)
+
+                widget.setRange(min * self.multiplier, max * self.multiplier)
+                widget.setSingleStep(step * self.multiplier)
+                widget.setDecimals(decimals)
+                widget.valueChanged.connect(self.on_value_changed)
+                self.value_widget = widget
+
+
+    # Disables mouse wheel
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+    def slider_to_value(self, value):
+        if value == self.steps:
+            return self.max
+        elif value == 0:
+            return self.min
+        else:
+            value = lerp(float(value) / float(self.steps), self.min, self.max)
+            return round(value * self.multiplier, self.decimals) / self.multiplier
+
+
+    def value_to_slider(self, value):
+        if value == self.max:
+            return self.steps
+        elif value == self.min:
+            return 0
+        else:
+            return int(normalize(value, self.min, self.max) * float(self.steps))
+
+
+    def on_slider_changed(self, value):
+        # Rounds to the nearest step
+        new_value = round(float(value) / 1000000.0) * 1000000
+
+        if value != new_value:
+            value = new_value
+            with BlockSignals(self.slider_widget):
+                self.slider_widget.setValue(value)
+
+        value = self.slider_to_value(value)
+
+        with BlockSignals(self.value_widget):
+            self.value_widget.setValue(value * self.multiplier)
+
+        self.input.set(value)
+
+
+    def on_value_changed(self, value):
+        value = value / self.multiplier
+
+        with BlockSignals(self.slider_widget):
+            self.slider_widget.setValue(self.value_to_slider(value))
+
+        self.input.set(value)
+
+
+    def reset(self):
+        with BlockSignals(self.value_widget), BlockSignals(self.slider_widget):
+            value = self.input.get()
+
+            if value is None:
+                value = self.default
+
+            self.value_widget.setValue(value * self.multiplier)
+            self.slider_widget.setValue(self.value_to_slider(value))

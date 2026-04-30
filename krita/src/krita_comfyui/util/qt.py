@@ -10,9 +10,36 @@ from PyQt6.QtWidgets import (
     QLabel,
     QComboBox,
     QGroupBox,
+    QSlider,
+    QSpinBox,
+    QDoubleSpinBox,
     QScrollArea,
     QSizePolicy,
 )
+
+
+class ComboBox(QComboBox):
+    # Disables mouse wheel
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class Slider(QSlider):
+    # Disables mouse wheel
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class SpinBox(QSpinBox):
+    # Disables mouse wheel
+    def wheelEvent(self, event):
+        event.ignore()
+
+
+class DoubleSpinBox(QDoubleSpinBox):
+    # Disables mouse wheel
+    def wheelEvent(self, event):
+        event.ignore()
 
 
 # Resizes to fit the detail text better
@@ -217,13 +244,40 @@ class Layout:
 
 
     def combo_box(self, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
-        widget = QComboBox()
+        widget = ComboBox()
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
         if cursor is not None:
             widget.setCursor(cursor)
+
+        return self.widget(widget)
+
+
+    def slider(self, tooltip=None):
+        widget = Slider()
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def int(self, tooltip=None):
+        widget = SpinBox()
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def float(self, tooltip=None):
+        widget = DoubleSpinBox()
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
 
         return self.widget(widget)
 

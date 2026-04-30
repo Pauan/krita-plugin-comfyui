@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 from ..extension import ComfyUIExtension
 from ..server import GraphInfo, GraphState
 from ..ui.workflow import UiInputs
-from ..ui.workflow.widgets import UiLayerId, UiString, UiStringMultiline, UiGroup, UiRow
+from ..ui.workflow.widgets import UiLayerId, UiFloat, UiString, UiStringMultiline, UiGroup, UiRow
 from ..util.krita import Document, Layer, Image, Bounds, DocumentManager, get_extension
 from ..util.graph import Graph
 from ..util.qt import LayoutManager, MessageBox, BlockSignals
@@ -54,6 +54,7 @@ class JobWidget(QWidget):
 
 
     def update_progress_bar(self, progress_bar):
+        # @TODO don't hardcode the maximum
         progress_bar.setValue(int(self.info.progress * 1000000.0))
 
 
@@ -254,6 +255,15 @@ class WorkflowWidget(QWidget):
                 },
 
                 {
+                    "type": "percentage",
+                    "id": "image_weight",
+                    "tooltip": "How strongly the image affects the final result.",
+                    "default": 0.0,
+                    "step": 0.05,
+                    "slider": True,
+                },
+
+                {
                     "type": "layer_id",
                     "id": "layer",
                     "tooltip": "Layer",
@@ -331,6 +341,42 @@ class WorkflowWidget(QWidget):
                     background_color=info.get("background_color", None),
                     min_lines=info.get("min_lines", 2),
                     max_lines=info.get("max_lines", 6),
+                )
+
+                with parent.widget(widget) as widget:
+                    self.normal_inputs.append(widget)
+
+
+            case "float":
+                widget = UiFloat(
+                    self.ui_inputs.input(info["id"], index),
+                    tooltip=info.get("tooltip", None),
+                    slider=info.get("slider", False),
+                    default=info["default"],
+                    min=info["min"],
+                    max=info["max"],
+                    step=info["step"],
+                    multiplier=info.get("multiplier", None),
+                    suffix=info.get("suffix", None),
+                    decimals=info.get("decimals", 2),
+                )
+
+                with parent.widget(widget) as widget:
+                    self.normal_inputs.append(widget)
+
+
+            case "percentage":
+                widget = UiFloat(
+                    self.ui_inputs.input(info["id"], index),
+                    tooltip=info.get("tooltip", None),
+                    slider=info.get("slider", True),
+                    default=info["default"],
+                    min=0.0,
+                    max=1.0,
+                    step=info["step"],
+                    multiplier=100.0,
+                    suffix="%",
+                    decimals=0,
                 )
 
                 with parent.widget(widget) as widget:
