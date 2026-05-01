@@ -37,16 +37,23 @@ class NodeMetadata:
         self.node_id = node_id
         self.inputs = {}
 
+    def update_inputs(self, inputs):
+        if inputs is not None:
+            for name, input in inputs.items():
+                metadata = InputMetadata()
+
+                if len(input) > 1:
+                    info = input[1]
+                else:
+                    info = {}
+
+                metadata.update(input[0], info)
+                self.inputs[name] = metadata
+
     def update(self, inputs):
         self.exists = True
-
-        for name, input in inputs.get("required", {}).items():
-            self.inputs[name] = InputMetadata()
-            self.inputs[name].update(input[0], input[1])
-
-        for name, input in inputs.get("optional", {}).items():
-            self.inputs[name] = InputMetadata()
-            self.inputs[name].update(input[0], input[1])
+        self.update_inputs(inputs.get("required", None))
+        self.update_inputs(inputs.get("optional", None))
 
     def input(self, name):
         if self.exists:

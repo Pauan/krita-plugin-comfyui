@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
 from ..extension import ComfyUIExtension
 from ..server import GraphInfo, GraphState
 from ..ui.workflow import UiInputs
-from ..ui.workflow.widgets import UiLayerId, UiCombo, UiInt, UiFloat, UiString, UiStringMultiline, UiGroup, UiRow
+from ..ui.workflow.widgets import UiLayerId, UiCombo, UiInt, UiFloat, UiString, UiStringMultiline, UiGroup, UiRow, UiList
 from ..util import number_of_decimals
 from ..util.krita import Document, Layer, Image, Bounds, DocumentManager, get_extension
 from ..util.graph import Graph
@@ -476,13 +476,13 @@ class WorkflowWidget(QWidget):
             return new_info
 
 
-    def add_widget(self, parent, info, index):
+    def add_widget(self, inputs, parent, info, index):
         info = self.get_node_metadata(info)
 
         match info["type"]:
             case "layer_id":
                 widget = UiLayerId(
-                    self.ui_inputs.input(info["id"], index),
+                    inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
                 )
 
@@ -492,7 +492,7 @@ class WorkflowWidget(QWidget):
 
             case "combo":
                 widget = UiCombo(
-                    self.ui_inputs.input(info["id"], index),
+                    inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
                     default=info.get("default", ""),
                     values=info.get("values", []),
@@ -507,7 +507,7 @@ class WorkflowWidget(QWidget):
 
                 if multiline:
                     widget = UiStringMultiline(
-                        self.ui_inputs.input(info["id"], index),
+                        inputs.input(info["id"], index),
                         tooltip=info.get("tooltip", None),
                         default=info.get("default", ""),
                         placeholder=info.get("placeholder", None),
@@ -518,7 +518,7 @@ class WorkflowWidget(QWidget):
 
                 else:
                     widget = UiString(
-                        self.ui_inputs.input(info["id"], index),
+                        inputs.input(info["id"], index),
                         tooltip=info.get("tooltip", None),
                         default=info.get("default", ""),
                         placeholder=info.get("placeholder", None),
@@ -530,7 +530,7 @@ class WorkflowWidget(QWidget):
 
             case "int":
                 widget = UiInt(
-                    self.ui_inputs.input(info["id"], index),
+                    inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
                     default=info.get("default", 0),
@@ -547,7 +547,7 @@ class WorkflowWidget(QWidget):
 
             case "float":
                 widget = UiFloat(
-                    self.ui_inputs.input(info["id"], index),
+                    inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
                     default=info.get("default", 0.0),
@@ -565,7 +565,7 @@ class WorkflowWidget(QWidget):
 
             case "percentage":
                 widget = UiFloat(
-                    self.ui_inputs.input(info["id"], index),
+                    inputs.input(info["id"], index),
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", True),
                     default=info.get("default", 0.0),
@@ -583,7 +583,7 @@ class WorkflowWidget(QWidget):
 
             case "group":
                 widget = UiGroup(
-                    self.ui_inputs.input(info["id"], index),
+                    inputs.input(info["id"], index),
                     title=info.get("title", ""),
                     default=info.get("default", True),
                 )
@@ -592,28 +592,28 @@ class WorkflowWidget(QWidget):
                     self.normal_inputs.append(widget)
 
                     for child in info["children"]:
-                        self.add_widget(widget.layout, child, index)
+                        self.add_widget(inputs, widget.layout, child, index)
 
 
             case "row":
                 with parent.widget(UiRow()) as widget:
                     for child in info["children"]:
-                        self.add_widget(widget.layout, child, index)
+                        self.add_widget(inputs, widget.layout, child, index)
 
 
-            # TODO handle nested lists
             case "list":
-                input = self.ui_inputs.input(info["id"], index)
+                widget = UiList(
+                    inputs.input(info["id"], index),
+                    inputs=inputs,
+                    start_index=index,
+                    trigger_refresh=self.update_widgets,
+                )
 
-                length = input.get()
-                if length is None:
-                    length = 0
+                for (inputs, layout, index) in widget.make_children():
+                    for child in info["children"]:
+                        self.add_widget(inputs, layout, child, index)
 
-                with parent.column() as column:
-                    for index in range(0, length):
-                        for child in info["children"]:
-                            self.add_widget(column, child, index)
-
+                parent.widget(widget)
 
             case _:
                 raise RuntimeError(f"Unknown widget type {info["type"]}")
@@ -625,7 +625,7 @@ class WorkflowWidget(QWidget):
         self.normal_inputs = []
 
         for widget in self.ui_layout["children"]:
-            self.add_widget(self.widgets, widget, 0)
+            self.add_widget(self.ui_inputs, self.widgets, widget, 0)
 
         self.widgets.stretch()
         self.update_inputs()
@@ -661,7 +661,7 @@ class WorkflowWidget(QWidget):
 
         print(self.ui_inputs.current())
 
-        self.update_inputs()
+        self.update_widgets()
 
 
     def test_graph():

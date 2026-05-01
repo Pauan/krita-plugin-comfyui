@@ -52,9 +52,9 @@ class UiLayerId(ComboBox):
 
     def reset(self):
         with BlockSignals(self):
-            value = self.input.get()
+            value = self.input.get("")
 
-            if value is None or value == "":
+            if value == "":
                 index = 0
             else:
                 index = self.findData(value, flags=Qt.MatchFlag.MatchExactly)
@@ -98,10 +98,7 @@ class UiCombo(ComboBox):
 
     def reset(self):
         with BlockSignals(self):
-            value = self.input.get()
-
-            if value is None:
-                value = self.default
+            value = self.input.get(self.default)
 
             if value == "":
                 index = 0
@@ -133,12 +130,7 @@ class UiString(QLineEdit):
 
     def reset(self):
         with BlockSignals(self):
-            text = self.input.get()
-
-            if text is None:
-                text = self.default
-
-            self.setText(text)
+            self.setText(self.input.get(self.default))
 
 
 class UiStringMultiline(QPlainTextEdit):
@@ -203,12 +195,7 @@ class UiStringMultiline(QPlainTextEdit):
 
     def reset(self):
         with BlockSignals(self):
-            text = self.input.get()
-
-            if text is None:
-                text = self.default
-
-            self.set_text(text)
+            self.set_text(self.input.get(self.default))
 
     def wheelEvent(self, event):
         super().wheelEvent(event)
@@ -281,10 +268,7 @@ class UiGroup(QWidget):
 
     def reset(self):
         with BlockSignals(self):
-            opened = self.input.get()
-
-            if opened is None:
-                opened = self.default
+            opened = self.input.get(self.default)
 
             if self.toggle_button.isChecked() != opened:
                 self.toggle_button.setChecked(opened)
@@ -408,10 +392,7 @@ class UiFloat(QWidget):
 
 
     def reset(self):
-        value = self.input.get()
-
-        if value is None:
-            value = self.default
+        value = self.input.get(self.default)
 
         with BlockSignals(self.value_widget):
             self.value_widget.setValue(value * self.multiplier)
@@ -491,10 +472,7 @@ class UiInt(QWidget):
 
 
     def reset(self):
-        value = self.input.get()
-
-        if value is None:
-            value = self.default
+        value = self.input.get(self.default)
 
         with BlockSignals(self.value_widget):
             self.value_widget.setValue(value)
@@ -502,3 +480,68 @@ class UiInt(QWidget):
         if self.slider_widget is not None:
             with BlockSignals(self.slider_widget):
                 self.slider_widget.setValue(value)
+
+
+class UiListChild(QWidget):
+    def __init__(self, list, index):
+        super().__init__()
+
+        self.list = list
+        self.index = index
+        self.inputs = self.list.inputs.sub_inputs()
+
+        self.layout_manager = LayoutManager(self)
+
+        with self.layout_manager.row() as row:
+            with row.button() as button:
+                button.setText("-")
+                button.clicked.connect(self.remove)
+
+            with row.column() as column:
+                self.layout = column
+
+
+    def remove(self):
+        self.inputs.remove_all()
+        self.list.subtract_length()
+        self.list.trigger_refresh()
+
+
+class UiList(QWidget):
+    def __init__(self, input, inputs, start_index, trigger_refresh):
+        super().__init__()
+
+        self.input = input
+        self.inputs = inputs
+        self.start_index = start_index
+        self.trigger_refresh = trigger_refresh
+
+        self.layout_manager = LayoutManager(self)
+
+        with self.layout_manager.column() as column:
+            self.layout = column
+
+
+    def length(self):
+        return self.input.get(0)
+
+    def add_length(self, amount=1):
+        self.input.set(self.length() + amount)
+
+    def subtract_length(self, amount=1):
+        self.input.set(max(0, self.length() - amount))
+
+
+    def add_child(self):
+        self.add_length()
+        self.trigger_refresh()
+
+
+    def make_children(self):
+        for index in range(self.start_index, self.start_index + self.length()):
+            with self.layout.widget(UiListChild(self, index)) as child:
+                yield (child.inputs, child.layout, index)
+
+        with self.layout.button() as button:
+            button.setText("+")
+            button.clicked.connect(self.add_child)
