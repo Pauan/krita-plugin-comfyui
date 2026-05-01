@@ -1,5 +1,6 @@
+import re
 import math
-from PyQt6.QtCore import QObject, Qt
+from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, Qt
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import (
     QToolButton,
@@ -17,37 +18,67 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QScrollArea,
     QSizePolicy,
+    QCompleter,
 )
 
 
+RE_SPACE = re.compile(r" +")
+
+"""
+    Custom QCompleter that allows for matching substrings.
+
+    The string `foo bar qux` will match substring of `foo` followed by substring of `bar` followed by substring of `qux`.
+"""
+class Completer(QCompleter):
+    def splitPath(self, path):
+        self.model().setFilterRegularExpression(r".*\b.*".join(QRegularExpression.escape(x) for x in re.split(RE_SPACE, path.strip())))
+        return []
+
+
 class ComboBox(QComboBox):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+        self.setEditable(True)
+        self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.setDuplicatesEnabled(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        model = QSortFilterProxyModel(self)
+        model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        model.setSourceModel(self.completer().model())
+
+        completer = Completer(model, self)
+        completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+
+        self.setCompleter(completer)
+
+
     # Disables mouse wheel
     def wheelEvent(self, event):
         event.ignore()
 
-    # Resizes the dropdown so it fits all of the items
-    def resize_dropdown(self, extra_padding=10):
-        font_metrics = QFontMetricsF(self.font())
 
+    # Resizes the dropdown so it fits all of the items
+    def resize_dropdown(self):
+        view = self.view()
+
+        icon_size = max(0, self.iconSize().width())
         has_icon = False
-        max_width = 0.0
 
         for i in range(self.count()):
-            max_width = max(max_width, font_metrics.horizontalAdvance(self.itemText(i)))
-
             icon = self.itemIcon(i)
             if icon is not None and not icon.isNull():
                 has_icon = True
 
-        if has_icon:
-            icon_size = self.iconSize().width()
+        if not has_icon:
+            icon_size = 0
 
-            # TODO don't hardcode 33
-            self.view().setMinimumWidth(icon_size + 33 + math.ceil(max_width) + extra_padding)
+        column_width = max(0, view.sizeHintForColumn(0))
 
-        else:
-            # TODO don't hardcode 2
-            self.view().setMinimumWidth(math.ceil(max_width) - 2 + extra_padding)
+        scrollbar_width = max(0, view.verticalScrollBar().sizeHint().width())
+
+        view.setMinimumWidth(icon_size + column_width + scrollbar_width)
 
 
 class Slider(QSlider):

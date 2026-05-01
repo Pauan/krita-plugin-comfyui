@@ -361,7 +361,7 @@ class WorkflowWidget(QWidget):
                                         "node_id": "prompt_helpers: EZPrompt",
                                         "input": "weight",
                                     },
-                                    "suffix": " cfg (prompt weight)",
+                                    "suffix": " cfg",
                                     "default": 5.0,
                                 },
 

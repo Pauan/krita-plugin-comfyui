@@ -4,7 +4,6 @@ from PyQt6.QtGui import QTextOption, QFontMetricsF
 from PyQt6.QtWidgets import (
     QWidget,
     QFrame,
-    QComboBox,
     QLineEdit,
     QPlainTextEdit,
     QCheckBox,
@@ -19,11 +18,6 @@ class UiLayerId(ComboBox):
         super().__init__()
 
         self.input = input
-
-        #self.setEditable(True)
-        self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self.setDuplicatesEnabled(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self.activated.connect(self.on_changed)
 
@@ -83,11 +77,6 @@ class UiCombo(ComboBox):
 
         self.input = input
         self.default = default
-
-        #self.setEditable(True)
-        self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self.setDuplicatesEnabled(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self.activated.connect(self.on_changed)
 

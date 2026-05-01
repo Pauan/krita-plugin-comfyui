@@ -698,4 +698,6 @@ class ComfyUIClient(QObject):
 
         self.graph_changed.emit(graph_info)
 
+        self.execute_queue()
+
         return graph_info

@@ -32,6 +32,8 @@
 
 * Double click no longer applies the output, instead use right click.
 
+* Auto-completion within combo boxes is improved.
+
 * Minor improvements to error messages.
 
 
