@@ -1,4 +1,14 @@
+import contextlib
 from PyQt6.QtCore import QObject, pyqtSignal
+
+
+# Removes None from the end of the list
+def prune(values):
+    for index in reversed(range(0, len(values))):
+        if values[index] is None:
+            values.pop()
+        else:
+            break
 
 
 class UiInput:
@@ -15,13 +25,62 @@ class UiInput:
             return f"[{self.id}]: {tooltip}"
 
 
+    # This does not adjust the index of other inputs.
+    def move_up(self):
+        assert self.index > 0
+
+        if self.root is not None:
+            values = self.root.values.get(self.id, None)
+
+            if values is not None:
+                if len(values) > (self.index - 1):
+                    while len(values) <= self.index:
+                        values.append(None)
+
+                    value = values.pop(self.index)
+                    self.index -= 1
+                    values.insert(self.index, value)
+
+                    prune(values)
+
+                    self.root.save()
+                    return True
+
+        return False
+
+
+    # This does not adjust the index of other inputs.
+    def move_down(self):
+        if self.root is not None:
+            values = self.root.values.get(self.id, None)
+
+            if values is not None:
+                if len(values) > self.index:
+                    while len(values) <= (self.index + 1):
+                        values.append(None)
+
+                    value = values.pop(self.index)
+                    self.index += 1
+                    values.insert(self.index, value)
+
+                    prune(values)
+
+                    self.root.save()
+                    return True
+
+        return False
+
+
+    # This does not adjust the index of other inputs.
     def remove(self):
         if self.root is not None:
-            value = self.root.values.get(self.id, None)
+            values = self.root.values.get(self.id, None)
 
-            if value is not None:
-                if len(value) > self.index:
-                    del value[self.index]
+            if values is not None:
+                if len(values) > self.index:
+                    del values[self.index]
+
+                    prune(values)
 
                     root = self.root
                     self.root = None
@@ -52,18 +111,20 @@ class UiInput:
 
 
     def set(self, value):
+        assert value is not None
+
         if self.root is not None:
-            old_value = self.root.values.get(self.id, None)
+            old_values = self.root.values.get(self.id, None)
 
-            if old_value is None:
-                old_value = []
-                self.root.values[self.id] = old_value
+            if old_values is None:
+                old_values = []
+                self.root.values[self.id] = old_values
 
-            while len(old_value) <= self.index:
-                old_value.append(None)
+            while len(old_values) <= self.index:
+                old_values.append(None)
 
-            if old_value[self.index] != value:
-                old_value[self.index] = value
+            if old_values[self.index] != value:
+                old_values[self.index] = value
 
                 print(f"Saving {self.id} {self.index} {value}")
 
@@ -80,29 +141,57 @@ class UiSubInputs:
         self.inputs = []
 
 
-    def remove_all(self):
+    @contextlib.contextmanager
+    def process_inputs(self, lowest_first):
         if len(self.inputs) > 0:
-            # We sort the inputs so that the largest index is first,
-            # so that way the indexes will remain intact when removing.
-            self.inputs.sort(key=lambda x: x.index, reverse=True)
+            # We sort the inputs by index, so that way if there are multiple inputs
+            # with the same id, they will be processed in the correct order.
+            self.inputs.sort(key=lambda x: x.index, reverse=not lowest_first)
 
-            print([x.index for x in self.inputs])
+            with self.root.disable_save():
+                yield self.inputs
 
-            changed = False
-            enable_save = self.root.enable_save
 
-            try:
-                self.root.enable_save = False
+    # This does not adjust the index of other inputs.
+    def move_all_up(self):
+        changed = False
 
-                for input in self.inputs:
-                    if input.remove():
-                        changed = True
+        # We move the inputs with the lowest index first, so that way it doesn't harm the other indexes.
+        with self.process_inputs(lowest_first=True) as inputs:
+            for input in inputs:
+                if input.move_up():
+                    changed = True
 
-            finally:
-                self.root.enable_save = enable_save
+        if changed:
+            self.root.save()
 
-            if changed:
-                self.root.save()
+
+    # This does not adjust the index of other inputs.
+    def move_all_down(self):
+        changed = False
+
+        # We move the inputs with the highest index first, so that way it doesn't harm the other indexes.
+        with self.process_inputs(lowest_first=False) as inputs:
+            for input in inputs:
+                if input.move_down():
+                    changed = True
+
+        if changed:
+            self.root.save()
+
+
+    # This does not adjust the index of other inputs.
+    def remove_all(self):
+        changed = False
+
+        # We remove the inputs with the highest index first, so that way it doesn't harm the other indexes.
+        with self.process_inputs(lowest_first=False) as inputs:
+            for input in inputs:
+                if input.remove():
+                    changed = True
+
+        if changed:
+            self.root.save()
 
 
     def sub_inputs(self):
@@ -143,6 +232,17 @@ class UiInputs(QObject):
         if not bool(self.values):
             self.values = {}
             self.save()
+
+
+    @contextlib.contextmanager
+    def disable_save(self):
+        enable_save = self.enable_save
+
+        try:
+            self.enable_save = False
+            yield
+        finally:
+            self.enable_save = enable_save
 
 
     def save(self):

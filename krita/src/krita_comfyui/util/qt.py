@@ -1,6 +1,6 @@
 import re
 import math
-from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, Qt
+from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, QSize, Qt
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import (
     QToolButton,
@@ -152,6 +152,39 @@ def make_row():
     return Layout(qlayout)
 
 
+class Toolbar:
+    def __init__(self, qtoolbar):
+        self.qtoolbar = qtoolbar
+
+
+    def widget(self, widget):
+        self.qtoolbar.addWidget(widget)
+        return Scope(widget)
+
+
+    # TODO code duplication with Layout
+    def tool_button(self, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
+        widget = QToolButton()
+
+        if icon is not None:
+            widget.setIcon(icon)
+
+        if text is not None:
+            widget.setText(text)
+
+        if cursor is not None:
+            widget.setCursor(cursor)
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def separator(self):
+        return Scope(self.qtoolbar.addSeparator())
+
+
 class Layout:
     def __init__(self, qlayout):
         self.qlayout = qlayout
@@ -252,13 +285,20 @@ class Layout:
         return self.widget(widget)
 
 
-    def toolbar(self, tooltip=None):
+    def toolbar(self, orientation=Qt.Orientation.Horizontal, tooltip=None):
         widget = QToolBar()
+
+        widget.setOrientation(orientation)
+        widget.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        widget.setIconSize(QSize(16, 16))
+
+        widget.setContentsMargins(0, 0, 0, 0)
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        return self.widget(widget)
+        with self.widget(widget) as widget:
+            return Scope(Toolbar(widget))
 
 
     def tool_button(self, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):

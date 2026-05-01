@@ -1,5 +1,5 @@
 import math
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QTextOption, QFontMetricsF
 from PyQt6.QtWidgets import (
     QWidget,
@@ -483,47 +483,49 @@ class UiInt(QWidget):
                 self.slider_widget.setValue(value)
 
 
-class UiListChild(QWidget):
-    def __init__(self, list, index):
+class UiListChild(QFrame):
+    def __init__(self, list, index, first_index, last_index):
         super().__init__()
 
         self.list = list
         self.index = index
+        self.first_index = first_index
+        self.last_index = last_index
         self.inputs = self.list.inputs.sub_inputs()
+
+        self.setFrameShape(QFrame.Shape.Panel)
+        self.setFrameShadow(QFrame.Shadow.Raised)
 
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.row() as row:
-            #with row.widget(QFrame()) as frame:
-            with row.toolbar() as toolbar:
-                toolbar.setOrientation(Qt.Orientation.Vertical)
-                toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-                toolbar.setIconSize(QSize(16, 16))
+            with row.toolbar(orientation=Qt.Orientation.Vertical) as toolbar:
+                with toolbar.tool_button(icon=Krita.icon("arrow-up"), tooltip="Move Up") as button:
+                    if self.index <= self.first_index:
+                        button.setEnabled(False)
+                    button.clicked.connect(self.move_up)
 
-                action = QAction(Krita.icon("arrow-up"), "Move Up", toolbar)
-                action.triggered.connect(self.move_up)
-                toolbar.addAction(action)
+                with toolbar.tool_button(icon=Krita.icon("arrow-down"), tooltip="Move Down") as button:
+                    if self.index >= (self.last_index - 1):
+                        button.setEnabled(False)
+                    button.clicked.connect(self.move_down)
 
-                action = QAction(Krita.icon("arrow-down"), "Move Down", toolbar)
-                action.triggered.connect(self.move_down)
-                toolbar.addAction(action)
+                toolbar.separator()
 
-                toolbar.addSeparator()
-
-                action = QAction(Krita.icon("window-close"), "Delete", toolbar)
-                action.triggered.connect(self.remove)
-                toolbar.addAction(action)
+                with toolbar.tool_button(icon=Krita.icon("window-close"), tooltip="Delete") as button:
+                    button.clicked.connect(self.remove)
 
             with row.column() as column:
                 self.layout = column
 
 
     def move_up(self):
-        pass
-
+        self.inputs.move_all_up()
+        self.list.trigger_refresh()
 
     def move_down(self):
-        pass
+        self.inputs.move_all_down()
+        self.list.trigger_refresh()
 
 
     def remove(self):
@@ -570,9 +572,22 @@ class UiList(QWidget):
 
 
     def make_children(self):
-        for index in range(self.start_index, self.start_index + self.length()):
-            with self.layout.widget(UiListChild(self, index)) as child:
+        is_first = True
+
+        first_index = self.start_index
+        last_index = self.start_index + self.length()
+
+        for index in range(first_index, last_index):
+            if index == first_index:
+                self.layout.spacer(2)
+            else:
+                self.layout.spacer(4)
+
+            with self.layout.widget(UiListChild(self, index, first_index, last_index)) as child:
                 yield (child.inputs, child.layout, index)
+
+        if first_index != last_index:
+            self.layout.spacer(2)
 
         with self.layout.tool_button(icon=Krita.icon("addlayer"), text="Add...", tooltip="Add new item...") as button:
             button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)

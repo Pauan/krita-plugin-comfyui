@@ -201,7 +201,7 @@ class WorkflowWidget(QWidget):
             "children": [
                 {
                     "type": "percentage",
-                    "id": "image_weight",
+                    "id": "image_strength",
                     "link_to": {
                         "node_id": "prompt_helpers: EZImage",
                         "input": "image_weight",
@@ -248,6 +248,7 @@ class WorkflowWidget(QWidget):
                                                 "node_id": "ControlNetLoader",
                                                 "input": "control_net_name",
                                             },
+                                            "default": "xinsir-controlnet-union-sdxl-1.0-promax.safetensors",
                                         },
                                         {
                                             "type": "combo",
@@ -256,7 +257,7 @@ class WorkflowWidget(QWidget):
                                                 "node_id": "SetUnionControlNetType",
                                                 "input": "type",
                                             },
-                                            "default": "auto",
+                                            "default": "hed/pidi/scribble/ted",
                                         },
                                     ],
                                 },
@@ -264,7 +265,6 @@ class WorkflowWidget(QWidget):
                                 {
                                     "type": "percentage",
                                     "id": "controlnet_start",
-                                    "tooltip": "Start Percentage",
                                     "default": 0.0,
                                     "step": 0.05,
                                 },
@@ -272,15 +272,13 @@ class WorkflowWidget(QWidget):
                                 {
                                     "type": "percentage",
                                     "id": "controlnet_end",
-                                    "tooltip": "End Percentage",
                                     "default": 0.3,
                                     "step": 0.05,
                                 },
 
                                 {
                                     "type": "percentage",
-                                    "id": "controlnet_weight",
-                                    "tooltip": "Weight",
+                                    "id": "controlnet_strength",
                                     "default": 0.5,
                                     "step": 0.05,
                                 },
@@ -305,6 +303,7 @@ class WorkflowWidget(QWidget):
                                         "node_id": "prompt_helpers: EZCheckpoint",
                                         "input": "checkpoint",
                                     },
+                                    "default": "illustrious/2.0/novaCartoonXL_v60.safetensors",
                                 },
 
                                 {
@@ -328,6 +327,7 @@ class WorkflowWidget(QWidget):
                                         "node_id": "prompt_helpers: EZSampler",
                                         "input": "sampler_name",
                                     },
+                                    "default": "gradient_estimation",
                                 },
 
                                 {
@@ -337,6 +337,7 @@ class WorkflowWidget(QWidget):
                                         "node_id": "prompt_helpers: EZSampler",
                                         "input": "scheduler",
                                     },
+                                    "default": "simple",
                                 },
 
                                 {
@@ -419,7 +420,7 @@ class WorkflowWidget(QWidget):
                 widget.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred))
 
                 with layout.column() as column:
-                    column.set_padding(left=8, right=8)
+                    column.set_padding(left=2, right=2)
                     self.widgets = column
 
                 scroll.setWidget(widget)
@@ -606,6 +607,12 @@ class WorkflowWidget(QWidget):
                     inputs.input(info["id"], index),
                     inputs=inputs,
                     start_index=index,
+
+                    # When an item is added, removed, or moved, it clears out all the
+                    # existing widgets and remakes them from scratch.
+                    #
+                    # This is a performance cost, but it guarantees that the internal
+                    # state will always be correct.
                     trigger_refresh=self.update_widgets,
                 )
 

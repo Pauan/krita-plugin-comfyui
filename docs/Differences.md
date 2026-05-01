@@ -34,6 +34,8 @@
 
 * Auto-completion within combo boxes is improved.
 
+* Scrolling with the mouse wheel will no longer accidentally change values.
+
 * Minor improvements to error messages.
 
 
@@ -42,6 +44,10 @@
 * Every feature is accessible as a node in ComfyUI, which means everything can be used in custom workflows:
 
    * Mask regions are now accessible in custom workflows.
+
+   * Control nets are now accessible in custom workflows.
+
+   * Layer groups (containing multiple images) are now accessible in custom workflows.
 
    * The selection bounds are now accessible in custom workflows, which means you can now do custom cropping / padding / feathering.
 
