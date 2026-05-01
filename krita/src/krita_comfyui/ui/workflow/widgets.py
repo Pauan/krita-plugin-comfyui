@@ -20,8 +20,6 @@ class UiLayerId(ComboBox):
 
         self.input = input
 
-        self.addItem("", "")
-
         #self.setEditable(True)
         self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.setDuplicatesEnabled(True)
@@ -30,6 +28,9 @@ class UiLayerId(ComboBox):
         self.activated.connect(self.on_changed)
 
         self.setToolTip(self.input.format_tooltip(tooltip))
+
+        self.addItem("", "")
+        self.resize_dropdown()
 
 
     def on_changed(self):
@@ -51,6 +52,8 @@ class UiLayerId(ComboBox):
                 self.separator()
             else:
                 self.addItem(layer.type.icon(), layer.name, layer.id)
+
+        self.resize_dropdown()
 
 
     def reset(self):
@@ -94,6 +97,8 @@ class UiCombo(ComboBox):
 
         for value in values:
             self.addItem(value)
+
+        self.resize_dropdown()
 
 
     def on_changed(self):

@@ -1,4 +1,6 @@
+import math
 from PyQt6.QtCore import QObject, Qt
+from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import (
     QToolButton,
     QPushButton,
@@ -22,6 +24,30 @@ class ComboBox(QComboBox):
     # Disables mouse wheel
     def wheelEvent(self, event):
         event.ignore()
+
+    # Resizes the dropdown so it fits all of the items
+    def resize_dropdown(self, extra_padding=10):
+        font_metrics = QFontMetricsF(self.font())
+
+        has_icon = False
+        max_width = 0.0
+
+        for i in range(self.count()):
+            max_width = max(max_width, font_metrics.horizontalAdvance(self.itemText(i)))
+
+            icon = self.itemIcon(i)
+            if icon is not None and not icon.isNull():
+                has_icon = True
+
+        if has_icon:
+            icon_size = self.iconSize().width()
+
+            # TODO don't hardcode 33
+            self.view().setMinimumWidth(icon_size + 33 + math.ceil(max_width) + extra_padding)
+
+        else:
+            # TODO don't hardcode 2
+            self.view().setMinimumWidth(math.ceil(max_width) - 2 + extra_padding)
 
 
 class Slider(QSlider):

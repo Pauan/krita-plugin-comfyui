@@ -7,6 +7,13 @@ from PyQt6.QtCore import QObject, pyqtSignal
 class InputMetadata:
     def __init__(self):
         self.info = {}
+        self.sub_options = {}
+
+    def input(self, name):
+        try:
+            return self.sub_options[name]
+        except KeyError:
+            raise RuntimeError(f"Dynamic option {name} does not exist")
 
     def update(self, node_type, info):
         self.info = info
@@ -16,6 +23,13 @@ class InputMetadata:
             if isinstance(node_type, list):
                 self.info["options"] = node_type
 
+        if node_type == "COMFY_DYNAMICCOMBO_V3":
+            for option in info["options"]:
+                key = option["key"]
+                metadata = NodeMetadata(key)
+                metadata.update(option["inputs"])
+                self.sub_options[key] = metadata
+
 
 class NodeMetadata:
     def __init__(self, node_id):
@@ -23,10 +37,8 @@ class NodeMetadata:
         self.node_id = node_id
         self.inputs = {}
 
-    def update(self, node):
+    def update(self, inputs):
         self.exists = True
-
-        inputs = node["input"]
 
         for name, input in inputs.get("required", {}).items():
             self.inputs[name] = InputMetadata()
@@ -83,7 +95,7 @@ class Settings(QObject):
                 except KeyError:
                     raise RuntimeError(f"Could not find node [{node_id}]")
 
-                metadata.update(info)
+                metadata.update(info["input"])
 
             self.cached_node_metadata[node_id] = metadata
 

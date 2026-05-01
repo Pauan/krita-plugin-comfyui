@@ -200,6 +200,16 @@ class WorkflowWidget(QWidget):
         self.ui_layout = {
             "children": [
                 {
+                    "type": "percentage",
+                    "id": "image_weight",
+                    "link_to": {
+                        "node_id": "prompt_helpers: EZImage",
+                        "input": "image_weight",
+                    },
+                    "step": 0.05,
+                },
+
+                {
                     "type": "string",
                     "id": "prompt",
                     "multiline": True,
@@ -210,62 +220,73 @@ class WorkflowWidget(QWidget):
                 {
                     "type": "layer_id",
                     "id": "layer",
-                    "tooltip": "Layer",
                 },
 
                 {
                     "type": "group",
-                    "id": "prompt_group",
-                    "title": "Prompt",
+                    "id": "controlnet_group",
+                    "title": "Control Nets",
+                    "default": False,
                     "children": [
                         {
-                            "type": "row",
+                            "type": "list",
+                            "id": "controlnet_list",
                             "children": [
                                 {
-                                    "type": "string",
-                                    "id": "positive",
-                                    "multiline": True,
-                                    "tooltip": "Positive",
-                                    "placeholder": "Positive...",
-                                    "background_color": "#093800",
+                                    "type": "layer_id",
+                                    "id": "controlnet_layer",
+                                    "tooltip": "Control Net Layer",
                                 },
-                                {
-                                    "type": "string",
-                                    "id": "negative",
-                                    "multiline": True,
-                                    "tooltip": "Negative",
-                                    "placeholder": "Negative...",
-                                    "background_color": "#380000",
-                                },
-                            ],
-                        },
 
-                        {
-                            "type": "row",
-                            "children": [
                                 {
-                                    "type": "layer_id",
-                                    "id": "layer",
-                                    "tooltip": "Layer",
+                                    "type": "row",
+                                    "children": [
+                                        {
+                                            "type": "combo",
+                                            "id": "controlnet_model",
+                                            "link_to": {
+                                                "node_id": "ControlNetLoader",
+                                                "input": "control_net_name",
+                                            },
+                                        },
+                                        {
+                                            "type": "combo",
+                                            "id": "controlnet_type",
+                                            "link_to": {
+                                                "node_id": "SetUnionControlNetType",
+                                                "input": "type",
+                                            },
+                                            "default": "auto",
+                                        },
+                                    ],
                                 },
+
                                 {
-                                    "type": "layer_id",
-                                    "id": "layer",
-                                    "tooltip": "Layer",
+                                    "type": "percentage",
+                                    "id": "controlnet_start",
+                                    "tooltip": "Start Percentage",
+                                    "default": 0.0,
+                                    "step": 0.05,
+                                },
+
+                                {
+                                    "type": "percentage",
+                                    "id": "controlnet_end",
+                                    "tooltip": "End Percentage",
+                                    "default": 0.3,
+                                    "step": 0.05,
+                                },
+
+                                {
+                                    "type": "percentage",
+                                    "id": "controlnet_weight",
+                                    "tooltip": "Weight",
+                                    "default": 0.5,
+                                    "step": 0.05,
                                 },
                             ],
                         },
                     ],
-                },
-
-                {
-                    "type": "percentage",
-                    "id": "image_weight",
-                    "link_to": {
-                        "node_id": "prompt_helpers: EZImage",
-                        "input_name": "image_weight",
-                    },
-                    "step": 0.05,
                 },
 
                 {
@@ -282,7 +303,7 @@ class WorkflowWidget(QWidget):
                                     "id": "checkpoint",
                                     "link_to": {
                                         "node_id": "prompt_helpers: EZCheckpoint",
-                                        "input_name": "checkpoint",
+                                        "input": "checkpoint",
                                     },
                                 },
 
@@ -291,45 +312,75 @@ class WorkflowWidget(QWidget):
                                     "id": "clip_skip",
                                     "link_to": {
                                         "node_id": "prompt_helpers: EZCheckpoint",
-                                        "input_name": "clip_skip",
+                                        "input": "clip_skip",
                                     },
                                 },
                             ],
                         },
 
                         {
-                            "type": "combo",
-                            "id": "sampler_name",
-                            "link_to": {
-                                "node_id": "prompt_helpers: EZSampler",
-                                "input_name": "sampler_name",
-                            },
+                            "type": "row",
+                            "children": [
+                                {
+                                    "type": "combo",
+                                    "id": "sampler_name",
+                                    "link_to": {
+                                        "node_id": "prompt_helpers: EZSampler",
+                                        "input": "sampler_name",
+                                    },
+                                },
+
+                                {
+                                    "type": "combo",
+                                    "id": "scheduler",
+                                    "link_to": {
+                                        "node_id": "prompt_helpers: EZSampler",
+                                        "input": "scheduler",
+                                    },
+                                },
+
+                                {
+                                    "type": "int",
+                                    "id": "steps",
+                                    "link_to": {
+                                        "node_id": "prompt_helpers: EZSampler",
+                                        "input": "steps",
+                                    },
+                                    "suffix": " steps",
+                                },
+                            ],
                         },
 
                         {
-                            "type": "combo",
-                            "id": "scheduler",
-                            "link_to": {
-                                "node_id": "prompt_helpers: EZSampler",
-                                "input_name": "scheduler",
-                            },
-                        },
+                            "type": "row",
+                            "children": [
+                                {
+                                    "type": "float",
+                                    "id": "prompt_weight",
+                                    "link_to": {
+                                        "node_id": "prompt_helpers: EZPrompt",
+                                        "input": "weight",
+                                    },
+                                    "suffix": " cfg (prompt weight)",
+                                    "default": 5.0,
+                                },
 
-                        {
-                            "type": "int",
-                            "id": "steps",
-                            "link_to": {
-                                "node_id": "prompt_helpers: EZSampler",
-                                "input_name": "steps",
-                            },
+                                {
+                                    "type": "float",
+                                    "id": "detail_megapixels",
+                                    "link_to": {
+                                        "node_id": "prompt_helpers: EZDetail",
+                                        "input": [
+                                            "resize_type",
+                                            "scale total pixels",
+                                            "megapixels",
+                                        ],
+                                    },
+                                    "suffix": " megapixels",
+                                },
+                            ],
                         },
                     ],
-                },
-
-                {
-                    "type": "layer_id",
-                    "id": "layer",
-                    "tooltip": "Layer",
                 },
             ],
         }
@@ -364,6 +415,9 @@ class WorkflowWidget(QWidget):
                 widget = QWidget()
                 layout = LayoutManager(widget)
 
+                # Causes the children to shrink horizontally, to avoid a horizontal scrollbar
+                widget.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred))
+
                 with layout.column() as column:
                     column.set_padding(left=8, right=8)
                     self.widgets = column
@@ -384,7 +438,15 @@ class WorkflowWidget(QWidget):
         else:
             new_info = {}
 
-            metadata = self.extension.settings.get_node_metadata(link_to["node_id"]).input(link_to["input_name"])
+            metadata = self.extension.settings.get_node_metadata(link_to["node_id"])
+
+            input = link_to["input"]
+
+            if isinstance(input, str):
+                metadata = metadata.input(input)
+            else:
+                for name in input:
+                    metadata = metadata.input(name)
 
             # Combo values
             try:
@@ -537,6 +599,20 @@ class WorkflowWidget(QWidget):
                 with parent.widget(UiRow()) as widget:
                     for child in info["children"]:
                         self.add_widget(widget.layout, child, index)
+
+
+            # TODO handle nested lists
+            case "list":
+                input = self.ui_inputs.input(info["id"], index)
+
+                length = input.get()
+                if length is None:
+                    length = 0
+
+                with parent.column() as column:
+                    for index in range(0, length):
+                        for child in info["children"]:
+                            self.add_widget(column, child, index)
 
 
             case _:
