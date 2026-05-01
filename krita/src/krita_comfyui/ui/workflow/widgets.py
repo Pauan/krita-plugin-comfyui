@@ -1,6 +1,6 @@
 import math
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QTextOption, QFontMetricsF
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QAction, QTextOption, QFontMetricsF
 from PyQt6.QtWidgets import (
     QWidget,
     QFrame,
@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QCheckBox,
     QSlider,
+    QMessageBox,
 )
 from ...util.qt import BlockSignals, LayoutManager, ComboBox
 from ...util import number_of_lines, lerp, normalize, clamp
@@ -493,18 +494,49 @@ class UiListChild(QWidget):
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.row() as row:
-            with row.button() as button:
-                button.setText("-")
-                button.clicked.connect(self.remove)
+            #with row.widget(QFrame()) as frame:
+            with row.toolbar() as toolbar:
+                toolbar.setOrientation(Qt.Orientation.Vertical)
+                toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+                toolbar.setIconSize(QSize(16, 16))
+
+                action = QAction(Krita.icon("arrow-up"), "Move Up", toolbar)
+                action.triggered.connect(self.move_up)
+                toolbar.addAction(action)
+
+                action = QAction(Krita.icon("arrow-down"), "Move Down", toolbar)
+                action.triggered.connect(self.move_down)
+                toolbar.addAction(action)
+
+                toolbar.addSeparator()
+
+                action = QAction(Krita.icon("window-close"), "Delete", toolbar)
+                action.triggered.connect(self.remove)
+                toolbar.addAction(action)
 
             with row.column() as column:
                 self.layout = column
 
 
+    def move_up(self):
+        pass
+
+
+    def move_down(self):
+        pass
+
+
     def remove(self):
-        self.inputs.remove_all()
-        self.list.subtract_length()
-        self.list.trigger_refresh()
+        reply = QMessageBox.question(
+            self,
+            "Delete",
+            "Are you sure you want to delete?",
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.inputs.remove_all()
+            self.list.subtract_length()
+            self.list.trigger_refresh()
 
 
 class UiList(QWidget):
@@ -542,6 +574,6 @@ class UiList(QWidget):
             with self.layout.widget(UiListChild(self, index)) as child:
                 yield (child.inputs, child.layout, index)
 
-        with self.layout.button() as button:
-            button.setText("+")
+        with self.layout.tool_button(icon=Krita.icon("addlayer"), text="Add...", tooltip="Add new item...") as button:
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
             button.clicked.connect(self.add_child)

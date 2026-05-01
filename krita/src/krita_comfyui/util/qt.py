@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
     QProgressBar,
+    QToolBar,
     QLabel,
     QComboBox,
     QGroupBox,
@@ -244,6 +245,15 @@ class Layout:
 
         if cursor is not None:
             widget.setCursor(cursor)
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget)
+
+
+    def toolbar(self, tooltip=None):
+        widget = QToolBar()
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
