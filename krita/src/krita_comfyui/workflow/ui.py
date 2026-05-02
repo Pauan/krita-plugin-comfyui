@@ -10,12 +10,12 @@ from PyQt6.QtWidgets import (
     QSlider,
     QMessageBox,
 )
-from ...util.qt import BlockSignals, LayoutManager, ComboBox
-from ...util import number_of_lines, lerp, normalize, clamp
+from ..util.qt import BlockSignals, LayoutManager, ComboBox
+from ..util import number_of_lines, lerp, normalize, clamp
 
 
 class UiLayerId(ComboBox):
-    def __init__(self, input, tooltip):
+    def __init__(self, input, layers, tooltip):
         super().__init__()
 
         self.input = input
@@ -24,12 +24,11 @@ class UiLayerId(ComboBox):
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        self.addItem("", "")
-        self.resize_dropdown()
+        self.set_layers(layers)
 
 
     def on_changed(self):
-        selected = self.selected()
+        selected = self.currentData()
 
         if selected is None:
             selected = ""
@@ -38,57 +37,41 @@ class UiLayerId(ComboBox):
 
 
     def set_layers(self, layers):
-        self.clear()
-
-        self.addItem("", "")
-
-        for layer in layers:
-            if layer is None:
-                self.separator()
-            else:
-                self.addItem(layer.type.icon(), layer.name, layer.id)
-
-        self.resize_dropdown()
-
-
-    def reset(self):
         with BlockSignals(self):
-            value = self.input.get("")
+            self.clear()
 
-            if value == "":
+            self.addItem("", "")
+
+            for layer in layers:
+                if layer is None:
+                    self.insertSeparator(self.count())
+                else:
+                    self.addItem(layer.type.icon(), layer.name, layer.id)
+
+            selected_id = self.input.get()
+
+            if selected_id == "":
                 index = 0
             else:
-                index = self.findData(value, flags=Qt.MatchFlag.MatchExactly)
+                index = self.findData(selected_id, flags=Qt.MatchFlag.MatchExactly)
 
             if self.currentIndex() != index:
                 self.setCurrentIndex(index)
 
-
-    def separator(self):
-        self.insertSeparator(self.count())
-
-
-    def selected(self):
-        return self.currentData()
+            self.resize_dropdown()
 
 
 class UiCombo(ComboBox):
-    def __init__(self, input, tooltip, default, values):
+    def __init__(self, input, tooltip, values):
         super().__init__()
 
         self.input = input
-        self.default = default
 
         self.activated.connect(self.on_changed)
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        self.addItem("")
-
-        for value in values:
-            self.addItem(value)
-
-        self.resize_dropdown()
+        self.set_values(values)
 
 
     def on_changed(self):
@@ -97,27 +80,35 @@ class UiCombo(ComboBox):
         self.input.set(selected)
 
 
-    def reset(self):
+    def set_values(self, values):
         with BlockSignals(self):
-            value = self.input.get(self.default)
+            self.clear()
 
-            if value == "":
+            self.addItem("")
+
+            for value in values:
+                self.addItem(value)
+
+            selected_value = self.input.get()
+
+            if selected_value == "":
                 index = 0
             else:
-                index = self.findText(value, flags=Qt.MatchFlag.MatchExactly)
+                index = self.findText(selected_value, flags=Qt.MatchFlag.MatchExactly)
 
             if self.currentIndex() != index:
                 self.setCurrentIndex(index)
 
+            self.resize_dropdown()
+
 
 class UiString(QLineEdit):
-    def __init__(self, input, default, placeholder, tooltip):
+    def __init__(self, input, placeholder, tooltip):
         super().__init__()
 
         self.input = input
-        self.default = default
 
-        self.setText(default)
+        self.setText(self.input.get())
 
         self.textEdited.connect(self.on_changed)
 
@@ -129,21 +120,16 @@ class UiString(QLineEdit):
     def on_changed(self):
         self.input.set(self.text())
 
-    def reset(self):
-        with BlockSignals(self):
-            self.setText(self.input.get(self.default))
-
 
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, input, default, background_color, placeholder, tooltip, min_lines, max_lines):
+    def __init__(self, input, background_color, placeholder, tooltip, min_lines, max_lines):
         super().__init__()
 
         self.input = input
-        self.default = default
         self.min_lines = min_lines
         self.max_lines = max_lines
 
-        self.set_text(default)
+        self.set_text(self.input.get())
 
         self.textChanged.connect(self.on_changed)
 
@@ -194,10 +180,6 @@ class UiStringMultiline(QPlainTextEdit):
         self.resize(text)
         self.setPlainText(text)
 
-    def reset(self):
-        with BlockSignals(self):
-            self.set_text(self.input.get(self.default))
-
     def wheelEvent(self, event):
         super().wheelEvent(event)
 
@@ -210,11 +192,10 @@ class UiStringMultiline(QPlainTextEdit):
 
 
 class UiGroup(QWidget):
-    def __init__(self, input, title, default):
+    def __init__(self, input, title):
         super().__init__()
 
         self.input = input
-        self.default = default
 
         self.layout_manager = LayoutManager(self)
 
@@ -232,7 +213,7 @@ class UiGroup(QWidget):
                 """)
                 #button.setAutoRaise(True)
                 button.setCheckable(True)
-                button.setChecked(default)
+                button.setChecked(self.input.get())
                 button.setText(title)
                 button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
                 button.toggled.connect(self.on_toggled)
@@ -263,17 +244,12 @@ class UiGroup(QWidget):
 
 
     def on_toggled(self, checked):
-        self.input.set(checked)
+        if self.input.default == checked:
+            self.input.reset_to_default()
+        else:
+            self.input.set(checked)
+
         self.update()
-
-
-    def reset(self):
-        with BlockSignals(self):
-            opened = self.input.get(self.default)
-
-            if self.toggle_button.isChecked() != opened:
-                self.toggle_button.setChecked(opened)
-                self.update()
 
 
 class UiRow(QWidget):
@@ -291,11 +267,10 @@ def step_size(minimum, maximum, step):
     return int(max(abs(maximum - minimum) / step, 1.0) * 1000000.0)
 
 class UiFloat(QWidget):
-    def __init__(self, input, slider, tooltip, default, min, max, step, decimals, multiplier, suffix):
+    def __init__(self, input, slider, tooltip, min, max, step, decimals, multiplier, suffix):
         super().__init__()
 
         self.input = input
-        self.default = default
         self.min = min
         self.max = max
         self.decimals = decimals
@@ -317,7 +292,7 @@ class UiFloat(QWidget):
                     widget.setRange(0, self.steps)
                     widget.setSingleStep(1000000)
                     widget.setPageStep(1000000)
-                    widget.setValue(self.value_to_slider(default))
+                    widget.setValue(self.value_to_slider(self.input.get()))
                     #widget.setTickInterval(1000000)
                     #widget.setTickPosition(QSlider.TickPosition.TicksAbove)
                     #widget.setMinimumHeight(self._slider.minimumSizeHint().height() + 4)
@@ -336,7 +311,7 @@ class UiFloat(QWidget):
                 widget.setRange(min * self.multiplier, max * self.multiplier)
                 widget.setSingleStep(step * self.multiplier)
                 widget.setDecimals(decimals)
-                widget.setValue(default * self.multiplier)
+                widget.setValue(self.input.get() * self.multiplier)
                 widget.valueChanged.connect(self.on_value_changed)
                 self.value_widget = widget
 
@@ -392,23 +367,11 @@ class UiFloat(QWidget):
         self.input.set(value)
 
 
-    def reset(self):
-        value = self.input.get(self.default)
-
-        with BlockSignals(self.value_widget):
-            self.value_widget.setValue(value * self.multiplier)
-
-        if self.slider_widget is not None:
-            with BlockSignals(self.slider_widget):
-                self.slider_widget.setValue(self.value_to_slider(value))
-
-
 class UiInt(QWidget):
-    def __init__(self, input, slider, tooltip, default, min, max, step, suffix):
+    def __init__(self, input, slider, tooltip, min, max, step, suffix):
         super().__init__()
 
         self.input = input
-        self.default = default
         self.min = min
         self.max = max
         self.step = step
@@ -424,7 +387,7 @@ class UiInt(QWidget):
                     widget.setRange(min, max)
                     widget.setSingleStep(step)
                     widget.setPageStep(step)
-                    widget.setValue(default)
+                    widget.setValue(self.input.get())
                     widget.valueChanged.connect(self.on_slider_changed)
                     self.slider_widget = widget
 
@@ -439,7 +402,7 @@ class UiInt(QWidget):
 
                 widget.setRange(min, max)
                 widget.setSingleStep(step)
-                widget.setValue(default)
+                widget.setValue(self.input.get())
                 widget.valueChanged.connect(self.on_value_changed)
                 self.value_widget = widget
 
@@ -470,17 +433,6 @@ class UiInt(QWidget):
                 self.slider_widget.setValue(value)
 
         self.input.set(value)
-
-
-    def reset(self):
-        value = self.input.get(self.default)
-
-        with BlockSignals(self.value_widget):
-            self.value_widget.setValue(value)
-
-        if self.slider_widget is not None:
-            with BlockSignals(self.slider_widget):
-                self.slider_widget.setValue(value)
 
 
 class UiListChild(QFrame):
@@ -557,7 +509,7 @@ class UiList(QWidget):
 
 
     def length(self):
-        return self.input.get(0)
+        return self.input.get()
 
     def add_length(self, amount=1):
         self.input.set(self.length() + amount)

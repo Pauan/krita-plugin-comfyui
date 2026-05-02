@@ -1,7 +1,7 @@
 import random
 import sys
-from .graph import Graph
-from .krita import Mask
+from ..util.graph import Graph
+from ..util.krita import Mask
 
 
 def is_link(value):
@@ -39,7 +39,7 @@ class Link:
         self.ui_id = ui_id
 
 
-class Workflow:
+class WorkflowGraph:
     def __init__(self, document, json, seed, ui_values):
         self.document = document
         self.json = json
@@ -79,7 +79,7 @@ class Workflow:
         try:
             return self.ui_values[id]
         except KeyError:
-            raise WorkflowError(f"UI id {id} not found")
+            raise WorkflowError(f"UI widget [{id}] not found")
 
 
     def replace_outputs(self, id, outputs):
@@ -303,7 +303,7 @@ class Workflow:
         return value
 
 
-    def to_graph(self):
+    def evaluate(self):
         for id, node in self.json.items():
             # We skip const nodes completely, they're evaluated by `evaluate_link`
             if not node["class_type"] in self.const_nodes:

@@ -227,28 +227,31 @@ class Document:
         self._document.removeAnnotation(key)
 
 
-    def get_key_bytes(self, key):
+    def get_key_bytes(self, key, default=None):
         value = self._document.annotation(key)
         if value.size() > 0:
             return value
+        return default
 
     def set_key_bytes(self, key, description, value: bytes):
         self._document.setAnnotation(key, description, QByteArray(value))
 
 
-    def get_key_str(self, key):
+    def get_key_str(self, key, default=None):
         value = self.get_key_bytes(key)
         if value is not None:
             return value.data().decode("utf-8")
+        return default
 
     def set_key_str(self, key, description, value: str):
         self.set_key_bytes(key, description, value.encode("utf-8"))
 
 
-    def get_key_json(self, key):
+    def get_key_json(self, key, default=None):
         value = self.get_key_str(key)
         if value is not None:
             return loads(value)
+        return default
 
     def set_key_json(self, key, description, json):
         self.set_key_str(key, description, dumps(json))

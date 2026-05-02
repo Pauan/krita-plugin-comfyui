@@ -56,13 +56,24 @@ class NodeMetadata:
         self.update_inputs(inputs.get("optional", None))
 
     def input(self, name):
-        if self.exists:
-            try:
-                return self.inputs[name]
-            except KeyError:
-                raise RuntimeError(f"Input does not exist [{self.node_id}]: {name}")
+        if isinstance(name, str):
+            if self.exists:
+                try:
+                    return self.inputs[name]
+                except KeyError:
+                    raise RuntimeError(f"Input does not exist [{self.node_id}]: {name}")
+            else:
+                return InputMetadata()
+
         else:
-            return InputMetadata()
+            metadata = self
+
+            # If input is a list, then the metadata is a dynamic combo,
+            # so we search for the input inside of the dynamic combo.
+            for name in name:
+                metadata = metadata.input(name)
+
+            return metadata
 
 
 class Settings(QObject):
@@ -80,10 +91,6 @@ class Settings(QObject):
         self.workflows_dir = self.dir / "workflows"
 
         os.makedirs(self.workflows_dir, exist_ok=True)
-
-        self.all_workflows = set(Path(path).stem for path in os.listdir(self.workflows_dir))
-
-        print(self.all_workflows)
 
         self.workflows = {}
 
@@ -131,29 +138,34 @@ class Settings(QObject):
         self.node_metadata_changed.emit()
 
 
-    def workflow_path(self, name):
-        return self.workflows_dir / (name + ".json")
+    def workflow_path(self, id):
+        return self.workflows_dir / (id + ".json")
 
 
-    def load_workflow(self, name):
-        workflow = self.workflows.get(name, None)
+    def load_workflow(self, id):
+        workflow = self.workflows.get(id, None)
 
         if workflow is None:
-            with open(self.workflow_path(name), "r") as file:
+            with open(self.workflow_path(id), "r") as file:
                 workflow = load(file)
 
-            self.workflows[name] = workflow
+            self.workflows[id] = workflow
 
         return workflow
 
 
-    def load_workflows(self):
-        for name in self.all_workflows:
-            self.load_workflow(name)
+    def load_all_workflows(self):
+        for id in os.listdir(self.workflows_dir):
+            self.load_workflow(Path(id).stem)
+
+        def sort_workflow(x):
+            return (x.get("order", 0), x["name"].casefold(), x["id"])
+
+        return sorted(self.workflows.values(), key=sort_workflow)
 
 
-    def save_workflow(self, name, json):
-        with open(self.workflow_path(name), "w") as file:
+    def save_workflow(self, id, json):
+        with open(self.workflow_path(id), "w") as file:
             dump(json, file, indent=2)
 
-        self.all_workflows.add(name)
+        self.all_workflows.add(id)
