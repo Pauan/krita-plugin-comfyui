@@ -60,12 +60,12 @@ class WorkflowWidget(QWidget):
 
         self.workflow = Workflow(self.extension.settings)
         self.workflow.setParent(self)
-        self.workflow.change_document(self.document.current())
 
         self.error = MessageBox(QMessageBox.Icon.Critical, "Workflow error", "", parent=self)
         self.error.setSizeGripEnabled(True)
         self.error.setTextFormat(Qt.TextFormat.PlainText)
 
+        self.ui_inputs = []
         self.layer_inputs = []
 
         with self.layout.column() as column:
@@ -96,7 +96,8 @@ class WorkflowWidget(QWidget):
 
                 scroll.setWidget(widget)
 
-        self.update_widgets()
+        if self.workflow.change_document(self.document.current()):
+            self.update_widgets()
 
 
     # If the widget has a link_to, we need to fetch the
@@ -140,13 +141,16 @@ class WorkflowWidget(QWidget):
             return new_info
 
 
-    def add_widget(self, inputs, parent, info, index):
+    def add_widget(self, workflow, parent, info):
         info = self.get_node_metadata(info)
 
         match info["type"]:
             case "layer_id":
+                input = workflow.input(info["id"])
+                self.ui_inputs.append(input)
+
                 widget = UiLayerId(
-                    inputs.input(info["id"], index),
+                    input,
                     tooltip=info.get("tooltip", None),
                     layers=self.document.layers,
                 )
@@ -157,19 +161,25 @@ class WorkflowWidget(QWidget):
 
 
             case "combo":
+                input = workflow.input(info["id"])
+                self.ui_inputs.append(input)
+
                 parent.widget(UiCombo(
-                    inputs.input(info["id"], index),
+                    input,
                     tooltip=info.get("tooltip", None),
                     values=info.get("values", []),
                 ))
 
 
             case "string":
+                input = workflow.input(info["id"])
+                self.ui_inputs.append(input)
+
                 multiline = info.get("multiline", False)
 
                 if multiline:
                     widget = UiStringMultiline(
-                        inputs.input(info["id"], index),
+                        input,
                         tooltip=info.get("tooltip", None),
                         placeholder=info.get("placeholder", None),
                         background_color=info.get("background_color", None),
@@ -179,7 +189,7 @@ class WorkflowWidget(QWidget):
 
                 else:
                     widget = UiString(
-                        inputs.input(info["id"], index),
+                        input,
                         tooltip=info.get("tooltip", None),
                         placeholder=info.get("placeholder", None),
                     )
@@ -188,8 +198,11 @@ class WorkflowWidget(QWidget):
 
 
             case "int":
+                input = workflow.input(info["id"])
+                self.ui_inputs.append(input)
+
                 parent.widget(UiInt(
-                    inputs.input(info["id"], index),
+                    input,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
                     # 32-bit signed integer
@@ -201,8 +214,11 @@ class WorkflowWidget(QWidget):
 
 
             case "float":
+                input = workflow.input(info["id"])
+                self.ui_inputs.append(input)
+
                 parent.widget(widget = UiFloat(
-                    inputs.input(info["id"], index),
+                    input,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
                     min=info.get("min", 0.0),
@@ -215,8 +231,11 @@ class WorkflowWidget(QWidget):
 
 
             case "percentage":
+                input = workflow.input(info["id"])
+                self.ui_inputs.append(input)
+
                 parent.widget(UiFloat(
-                    inputs.input(info["id"], index),
+                    input,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", True),
                     min=0.0,
@@ -230,12 +249,12 @@ class WorkflowWidget(QWidget):
 
             case "group":
                 widget = UiGroup(
-                    inputs.input(info["id"], index),
+                    workflow.input(info["id"]),
                     title=info.get("title", ""),
                 )
 
                 for child in info["children"]:
-                    self.add_widget(inputs, widget.layout, child, index)
+                    self.add_widget(workflow, widget.layout, child)
 
                 parent.widget(widget)
 
@@ -244,16 +263,14 @@ class WorkflowWidget(QWidget):
                 widget = UiRow()
 
                 for child in info["children"]:
-                    self.add_widget(inputs, widget.layout, child, index)
+                    self.add_widget(workflow, widget.layout, child)
 
                 parent.widget(widget)
 
 
             case "list":
                 widget = UiList(
-                    inputs.input(info["id"], index),
-                    inputs=inputs,
-                    start_index=index,
+                    workflow.input_list(info["id"]),
 
                     # When an item is added, removed, or moved, it clears out all the
                     # existing widgets and remakes them from scratch.
@@ -263,9 +280,9 @@ class WorkflowWidget(QWidget):
                     trigger_refresh=self.update_widgets,
                 )
 
-                for (inputs, layout, index) in widget.make_children():
+                for (workflow, layout) in widget.make_children():
                     for child in info["children"]:
-                        self.add_widget(inputs, layout, child, index)
+                        self.add_widget(workflow, layout, child)
 
                 parent.widget(widget)
 
@@ -275,11 +292,12 @@ class WorkflowWidget(QWidget):
 
     def update_widgets(self):
         self.widgets.clear()
+        self.ui_inputs = []
         self.layer_inputs = []
 
         if self.workflow.layout is not None:
             for widget in self.workflow.layout:
-                self.add_widget(self.workflow, self.widgets, widget, 0)
+                self.add_widget(self.workflow, self.widgets, widget)
 
         self.widgets.stretch()
 
@@ -328,8 +346,20 @@ class WorkflowWidget(QWidget):
 
 
     def run_workflow(self):
+        ui_values = {}
+
+        # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
+        for input in self.ui_inputs:
+            values = ui_values.get(input.id, None)
+
+            if values is None:
+                values = []
+                ui_values[input.id] = values
+
+            values.append(input.value)
+
         try:
-            graph = self.workflow.to_graph()
+            graph = self.workflow.to_graph(ui_values)
 
         except WorkflowError as e:
             self.show_error(message=str(e))

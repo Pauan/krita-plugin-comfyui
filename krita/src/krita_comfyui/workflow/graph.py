@@ -26,7 +26,7 @@ class WorkflowError(RuntimeError):
 
 
 class Link:
-    def __init__(self, values, ui_id=None, is_const=True):
+    def __init__(self, values, is_const):
         assert isinstance(values, list)
 
         # True if the link was constant-evaluated
@@ -35,8 +35,36 @@ class Link:
         # List of values
         self.values = values
 
-        # The UI ID, or None
-        self.ui_id = ui_id
+
+class UiLink(Link):
+    def __init__(self, values, id):
+        super().__init__(values, True)
+        self.id = id
+
+
+# Evaluates a UI widget to a constant value
+class UiConstNode:
+    def __init__(self, ui_values, type):
+        self.ui_values = ui_values
+        self.type = type
+
+
+    def get_values(self, id):
+        id = f"{self.type}/{id}"
+        try:
+            return self.ui_values[id]
+        except KeyError:
+            raise WorkflowError(f"UI widget [{id}] not found")
+
+
+    def get_outputs(self, node):
+        id = node["inputs"]["id"]
+        values = self.get_values(id)
+
+        return (
+            UiLink(values, id),
+            UiLink([x != "" for x in values], id),
+        )
 
 
 class WorkflowGraph:
@@ -44,7 +72,6 @@ class WorkflowGraph:
         self.document = document
         self.json = json
         self.seed = seed
-        self.ui_values = ui_values
 
         self.graph = Graph()
 
@@ -59,12 +86,12 @@ class WorkflowGraph:
         self.layer_image = {}
 
         self.const_nodes = {
-            "krita_comfyui: KritaUiFloat": self.evaluate_ui,
-            "krita_comfyui: KritaUiInt": self.evaluate_ui,
-            "krita_comfyui: KritaUiBoolean": self.evaluate_ui,
-            "krita_comfyui: KritaUiString": self.evaluate_ui,
-            "krita_comfyui: KritaUiLayerId": self.evaluate_ui,
-            "krita_comfyui: KritaUiCombo": self.evaluate_ui,
+            "krita_comfyui: KritaUiFloat": UiConstNode(ui_values, "float"),
+            "krita_comfyui: KritaUiInt": UiConstNode(ui_values, "int"),
+            "krita_comfyui: KritaUiBoolean": UiConstNode(ui_values, "boolean"),
+            "krita_comfyui: KritaUiString": UiConstNode(ui_values, "string"),
+            "krita_comfyui: KritaUiLayerId": UiConstNode(ui_values, "layer_id"),
+            "krita_comfyui: KritaUiCombo": UiConstNode(ui_values, "combo"),
         }
 
 
@@ -73,13 +100,6 @@ class WorkflowGraph:
         # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1570
         # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_primitive.py#L52
         return random.randint(0, sys.maxsize)
-
-
-    def get_ui_values(self, id):
-        try:
-            return self.ui_values[id]
-        except KeyError:
-            raise WorkflowError(f"UI widget [{id}] not found")
 
 
     def replace_outputs(self, id, outputs):
@@ -92,16 +112,6 @@ class WorkflowGraph:
         self.replaced_ids[old_id] = node.id
 
 
-    def evaluate_ui(self, node):
-        ui_id = node["inputs"]["id"]
-        values = self.get_ui_values(ui_id)
-        assert isinstance(values, list)
-        return (
-            Link(values, ui_id=ui_id),
-            Link([x != "" for x in values], ui_id=ui_id),
-        )
-
-
     # Evaluates the link if the connected node has a constant value.
     def evaluate_link(self, value):
         # If it's a node link, then follow the link.
@@ -110,12 +120,12 @@ class WorkflowGraph:
             name = node["class_type"]
 
             try:
-                f = self.const_nodes[name]
+                const_node = self.const_nodes[name]
             except KeyError:
                 # If the node isn't constant, return the link as-is
                 return Link([value], is_const=False)
 
-            outputs = f(node)
+            outputs = const_node.get_outputs(node)
             return outputs[value[1]]
 
         else:
@@ -257,10 +267,11 @@ class WorkflowGraph:
                     # If the layer name is empty, throw an error
                     if layer_id == "":
                         if error is None:
-                            if layer_id_link.ui_id is None:
-                                error = self.graph.error(f"[#{id} Krita Layers]\nlayer_id is empty")
+                            if isinstance(layer_id_link, UiLink):
+                                error = self.graph.error(f"Layer selector [{layer_id_link.id}] is empty")
                             else:
-                                error = self.graph.error(f"Layer selector [{layer_id_link.ui_id}] is empty")
+                                error = self.graph.error(f"[#{id} Krita Layers]\nlayer_id is empty")
+
                         images.append(error)
                         masks.append(error)
                         names.append(error)

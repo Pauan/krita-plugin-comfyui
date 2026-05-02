@@ -436,14 +436,11 @@ class UiInt(QWidget):
 
 
 class UiListChild(QFrame):
-    def __init__(self, list, index, first_index, last_index):
+    def __init__(self, list, index):
         super().__init__()
 
         self.list = list
         self.index = index
-        self.first_index = first_index
-        self.last_index = last_index
-        self.inputs = self.list.inputs.sub_inputs()
 
         self.setFrameShape(QFrame.Shape.Panel)
         self.setFrameShadow(QFrame.Shadow.Raised)
@@ -453,13 +450,11 @@ class UiListChild(QFrame):
         with self.layout_manager.row() as row:
             with row.toolbar(orientation=Qt.Orientation.Vertical) as toolbar:
                 with toolbar.tool_button(icon=Krita.icon("arrow-up"), tooltip="Move Up") as button:
-                    if self.index <= self.first_index:
-                        button.setEnabled(False)
+                    self.move_up_button = button
                     button.clicked.connect(self.move_up)
 
                 with toolbar.tool_button(icon=Krita.icon("arrow-down"), tooltip="Move Down") as button:
-                    if self.index >= (self.last_index - 1):
-                        button.setEnabled(False)
+                    self.move_down_button = button
                     button.clicked.connect(self.move_down)
 
                 toolbar.separator()
@@ -471,13 +466,16 @@ class UiListChild(QFrame):
                 self.layout = column
 
 
+    def update_buttons(self):
+        self.move_up_button.setEnabled(self.index > 0)
+        self.move_down_button.setEnabled(self.index < (len(self.list.children) - 1))
+
+
     def move_up(self):
-        self.inputs.move_all_up()
-        self.list.trigger_refresh()
+        self.list.move_child_up(self.index)
 
     def move_down(self):
-        self.inputs.move_all_down()
-        self.list.trigger_refresh()
+        self.list.move_child_down(self.index)
 
 
     def remove(self):
@@ -488,19 +486,17 @@ class UiListChild(QFrame):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            self.inputs.remove_all()
-            self.list.subtract_length()
-            self.list.trigger_refresh()
+            self.list.remove_child(self.index)
 
 
 class UiList(QWidget):
-    def __init__(self, input, inputs, start_index, trigger_refresh):
+    def __init__(self, input, trigger_refresh):
         super().__init__()
 
         self.input = input
-        self.inputs = inputs
-        self.start_index = start_index
         self.trigger_refresh = trigger_refresh
+
+        self.children = []
 
         self.layout_manager = LayoutManager(self)
 
@@ -508,37 +504,38 @@ class UiList(QWidget):
             self.layout = column
 
 
-    def length(self):
-        return self.input.get()
+    def move_child_up(self, index):
+        self.input.move(index, index - 1)
+        self.trigger_refresh()
 
-    def add_length(self, amount=1):
-        self.input.set(self.length() + amount)
+    def move_child_down(self, index):
+        self.input.move(index, index + 1)
+        self.trigger_refresh()
 
-    def subtract_length(self, amount=1):
-        self.input.set(max(0, self.length() - amount))
-
+    def remove_child(self, index):
+        self.input.remove(index)
+        self.trigger_refresh()
 
     def add_child(self):
-        self.add_length()
+        self.input.add()
         self.trigger_refresh()
 
 
     def make_children(self):
-        is_first = True
-
-        first_index = self.start_index
-        last_index = self.start_index + self.length()
-
-        for index in range(first_index, last_index):
-            if index == first_index:
+        for index, workflow in enumerate(self.input.iter_children()):
+            if index == 0:
                 self.layout.spacer(2)
             else:
                 self.layout.spacer(4)
 
-            with self.layout.widget(UiListChild(self, index, first_index, last_index)) as child:
-                yield (child.inputs, child.layout, index)
+            with self.layout.widget(UiListChild(self, index)) as child:
+                self.children.append(child)
+                yield (workflow, child.layout)
 
-        if first_index != last_index:
+        for child in self.children:
+            child.update_buttons()
+
+        if len(self.children) > 0:
             self.layout.spacer(2)
 
         with self.layout.tool_button(icon=Krita.icon("addlayer"), text="Add...", tooltip="Add new item...") as button:

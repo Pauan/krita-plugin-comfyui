@@ -1,8 +1,8 @@
-import contextlib
 from PyQt6.QtCore import QObject, pyqtSignal
 from .graph import WorkflowGraph, WorkflowError
 
 
+# Loops recursively over all the children in a layout
 def all_children(children):
     for child in children:
         yield child
@@ -12,20 +12,21 @@ def all_children(children):
             yield from all_children(children)
 
 
-# Removes None from the end of the list
-def remove_none(values):
-    for index in reversed(range(0, len(values))):
-        if values[index] is None:
-            values.pop()
-        else:
-            break
+class Input:
+    def __init__(self, root, serialized, id):
+        metadata = root.metadata[id]
+        assert metadata.type != "list"
+        id = metadata.get_full_id(id)
 
+        default = metadata.default
+        value = serialized.get(id, metadata.default)
 
-class UiInput:
-    def __init__(self, root, id, index, default, value):
+        assert default is not None
+        assert value is not None
+
         self.root = root
+        self.serialized = serialized
         self.id = id
-        self.index = index
         self.default = default
         self.value = value
 
@@ -37,86 +38,6 @@ class UiInput:
             return f"[{self.id}]: {tooltip}"
 
 
-    # This does not adjust the index of other inputs.
-    def move_up(self):
-        assert self.index > 0
-
-        if self.root is not None:
-            # Move the value in the inputs
-            values = self.root.inputs[self.id]
-            values.insert(self.index - 1, values.pop(self.index))
-
-            # Move the value in the serialized
-            values = self.root.serialized.get(self.id, None)
-
-            if values is not None:
-                if len(values) > (self.index - 1):
-                    while len(values) <= self.index:
-                        values.append(None)
-
-                    values.insert(self.index - 1, values.pop(self.index))
-
-                    remove_none(values)
-
-                    if len(values) == 0:
-                        del self.root.serialized[self.id]
-
-                    self.root.save()
-
-            self.index -= 1
-
-
-    # This does not adjust the index of other inputs.
-    def move_down(self):
-        if self.root is not None:
-            # Move the value in the inputs
-            values = self.root.inputs[self.id]
-            values.insert(self.index + 1, values.pop(self.index))
-
-            # Move the value in the serialized
-            values = self.root.serialized.get(self.id, None)
-
-            if values is not None:
-                if len(values) > self.index:
-                    while len(values) <= (self.index + 1):
-                        values.append(None)
-
-                    values.insert(self.index + 1, values.pop(self.index))
-
-                    remove_none(values)
-
-                    if len(values) == 0:
-                        del self.root.serialized[self.id]
-
-                    self.root.save()
-
-            self.index += 1
-
-
-    # This does not adjust the index of other inputs.
-    def remove(self):
-        if self.root is not None:
-            # Remove the value in the inputs
-            values = self.root.inputs[self.id]
-            del values[self.index]
-
-            # Remove the value in the serialized
-            values = self.root.serialized.get(self.id, None)
-
-            if values is not None:
-                if len(values) > self.index:
-                    del values[self.index]
-
-                    remove_none(values)
-
-                    if len(values) == 0:
-                        del self.root.serialized[self.id]
-
-                    self.root.save()
-
-            self.root = None
-
-
     def get(self):
         return self.value
 
@@ -124,112 +45,94 @@ class UiInput:
     def set(self, value):
         assert value is not None
 
-        if self.value != value:
-            self.value = value
+        self.value = value
 
-            if self.root is not None:
-                # Set the value in the inputs
-                values = self.root.inputs[self.id]
-                values[self.index] = self.value
+        try:
+            # We only save if the new value is different from the old value.
+            should_save = self.serialized[self.id] != value
+        except KeyError:
+            should_save = True
 
-                # Set the value in the serialized
-                values = self.root.serialized.get(self.id, None)
-
-                if values is None:
-                    values = []
-                    self.root.serialized[self.id] = values
-
-                while len(values) <= self.index:
-                    values.append(None)
-
-                values[self.index] = self.value
-
-                print(f"Saving {self.id} {self.index} {self.value}")
-
-                self.root.save()
+        if should_save:
+            self.serialized[self.id] = value
+            self.root.save()
 
 
     def reset_to_default(self):
         self.value = self.default
 
-        if self.root is not None:
-            # Set the value in the inputs
-            values = self.root.inputs[self.id]
-            values[self.index] = self.value
+        try:
+            del self.serialized[self.id]
+        except KeyError:
+            # Don't save if the key doesn't exist.
+            return
 
-            # Set the value in the serialized
-            values = self.root.serialized.get(self.id, None)
-
-            if values is not None:
-                if len(values) > self.index:
-                    values[self.index] = None
-
-                    remove_none(values)
-
-                    if len(values) == 0:
-                        del self.root.serialized[self.id]
-
-                    self.root.save()
+        self.root.save()
 
 
-class UiSubInputs:
-    def __init__(self, root, parent):
+class InputListChild:
+    def __init__(self, root, serialized):
         self.root = root
-        self.parent = parent
-        self.inputs = []
+        self.serialized = serialized
+
+    def input(self, id):
+        return Input(self.root, self.serialized, id)
+
+    def input_list(self, id):
+        return InputList(self.root, self.serialized, id)
 
 
-    @contextlib.contextmanager
-    def process_inputs(self, lowest_first):
-        if len(self.inputs) > 0:
-            # We sort the inputs by index, so that way if there are multiple inputs
-            # with the same id, they will be processed in the correct order.
-            self.inputs.sort(key=lambda x: x.index, reverse=not lowest_first)
+class InputList:
+    def __init__(self, root, serialized, id):
+        metadata = root.metadata[id]
+        assert metadata.type == "list"
+        id = metadata.get_full_id(id)
 
-            with self.root.batch_save():
-                yield self.inputs
-
-
-    # This does not adjust the index of other inputs.
-    def move_all_up(self):
-        # We move the inputs with the lowest index first, so that way it doesn't harm the other indexes.
-        with self.process_inputs(lowest_first=True) as inputs:
-            for input in inputs:
-                input.move_up()
+        self.root = root
+        self.serialized = serialized
+        self.id = id
+        self.children = serialized.get(id, [])
 
 
-    # This does not adjust the index of other inputs.
-    def move_all_down(self):
-        # We move the inputs with the highest index first, so that way it doesn't harm the other indexes.
-        with self.process_inputs(lowest_first=False) as inputs:
-            for input in inputs:
-                input.move_down()
+    def iter_children(self):
+        for child in self.children:
+            yield InputListChild(self.root, child)
 
 
-    # This does not adjust the index of other inputs.
-    def remove_all(self):
-        # We remove the inputs with the highest index first, so that way it doesn't harm the other indexes.
-        with self.process_inputs(lowest_first=False) as inputs:
-            for input in inputs:
-                input.remove()
+    def move(self, old_index, new_index):
+        assert old_index != new_index
+        assert new_index >= 0
+        assert new_index < len(self.children)
+
+        self.children.insert(new_index, self.children.pop(old_index))
+        assert self.serialized[self.id] is self.children
+        self.root.save()
 
 
-    def sub_inputs(self):
-        return UiSubInputs(self.root, self)
+    def remove(self, index):
+        del self.children[index]
+
+        assert self.serialized[self.id] is self.children
+
+        if len(self.children) == 0:
+            del self.serialized[self.id]
+
+        self.root.save()
 
 
-    def input(self, id, index):
-        input = self.root.input(id, index)
+    def add(self):
+        self.children.append({})
+        self.serialized[self.id] = self.children
+        self.root.save()
 
-        self.inputs.append(input)
 
-        parent = self.parent
+class Metadata:
+    def __init__(self, default, type):
+        self.default = default
+        self.type = type
 
-        while parent is not None:
-            parent.inputs.append(input)
-            parent = parent.parent
-
-        return input
+    def get_full_id(self, id):
+        return f"{self.type}/{id}"
 
 
 class Workflow(QObject):
@@ -238,49 +141,26 @@ class Workflow(QObject):
 
         self.settings = settings
 
-        self.disable_save = None
-
         self.id = ""
         self.document = None
         self.graph = None
         self.layout = None
 
         self.serialized = {}
-        self.defaults = {}
-        self.inputs = {}
+        self.metadata = {}
 
 
-    def input(self, id, index):
-        default = self.defaults[id]
-
-        values = self.inputs[id]
-
-        while len(values) <= index:
-            values.append(default)
-
-        return UiInput(self, id, index, default, values[index])
+    # This doesn't reset any of the Inputs
+    def clear(self):
+        self.serialized = {}
+        self.save()
 
 
-    def sub_inputs(self):
-        return UiSubInputs(self, None)
+    def input(self, id):
+        return Input(self, self.serialized, id)
 
-
-    # Batches multiple save operations into a single save
-    @contextlib.contextmanager
-    def batch_save(self):
-        disable_save = self.disable_save
-
-        self.disable_save = 0
-
-        try:
-            yield
-        finally:
-            # A save happened
-            if self.disable_save > 0:
-                self.disable_save = None
-                self.save()
-
-            self.disable_save = disable_save
+    def input_list(self, id):
+        return InputList(self, self.serialized, id)
 
 
     def save_workflow_id(self):
@@ -290,15 +170,16 @@ class Workflow(QObject):
 
 
     def save(self):
-        if self.disable_save is None:
-            if self.id != "" and self.document is not None:
-                print("Saving")
-                print(self.serialized)
-                self.document.set_key_json(f"krita_comfyui/ui_inputs/{self.id}", "krita_comfyui: Stored UI Inputs", self.serialized)
-                self.save_workflow_id()
+        if self.id != "" and self.document is not None:
+            print("Saving")
+            print(self.serialized)
+            self.document.set_key_json(f"krita_comfyui/ui_inputs/{self.id}", "krita_comfyui: Stored UI Inputs", self.serialized)
 
-        else:
-            self.disable_save += 1
+            # This is for the case where you open a new document which doesn't have
+            # a workflow_id, so it reuses the old workflow_id.
+            #
+            # In that case we want to save the workflow_id to the new document.
+            self.save_workflow_id()
 
 
     def get_default_for_widget(self, widget):
@@ -319,17 +200,29 @@ class Workflow(QObject):
                 case "layer_id" | "combo" | "string": return ""
                 case "int": return 0
                 case "float" | "percentage": return 0.0
-                case "group": return True
-                case "list": return 0
+                case "boolean" | "group": return False
+                case "list": return []
                 case _: raise RuntimeError(f"Unknown widget type {widget["type"]}")
 
         assert default is not None
         return default
 
 
-    def update_inputs(self):
-        self.defaults = {}
-        self.inputs = {}
+    def get_type_for_widget(self, widget):
+        match widget["type"]:
+            case "layer_id": return "layer_id"
+            case "combo": return "combo"
+            case "string": return "string"
+            case "boolean": return "boolean"
+            case "int": return "int"
+            case "float" | "percentage": return "float"
+            case "list": return "list"
+            case "group": return "group"
+            case _: raise RuntimeError(f"Unknown widget type {widget["type"]}")
+
+
+    def update_metadata(self):
+        self.metadata = {}
 
         if self.layout is not None:
             # We look for every widget in the layout and get the default.
@@ -337,58 +230,62 @@ class Workflow(QObject):
                 id = widget.get("id", None)
 
                 if id is not None:
-                    # Make sure that the inputs always exists.
-                    self.inputs[id] = []
-                    self.defaults[id] = self.get_default_for_widget(widget)
-
-        # Load the serialized values.
-        for key, values in self.serialized.items():
-            default = self.defaults.get(key, None)
-
-            # If the serialized JSON has excess keys they are ignored.
-            if default is not None:
-                # Replace None with the default value.
-                self.inputs[key] = [(default if value is None else value) for value in values]
+                    self.metadata[id] = Metadata(
+                        self.get_default_for_widget(widget),
+                        self.get_type_for_widget(widget),
+                    )
 
 
-    def update_workflow(self):
+    def update_serialized(self):
+        assert self.id is not None
+
         if self.id == "":
             self.serialized = {}
-            self.graph = None
-            self.layout = None
+
+        elif self.document is None:
+            self.serialized = {}
 
         else:
-            if self.document is None:
-                self.serialized = {}
-            else:
-                self.serialized = self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {})
-
-            info = self.settings.load_workflow(self.id)
-            assert info["id"] == self.id
-
-            self.graph = info["graph"]
-            self.layout = info["layout"]
-
-        self.update_inputs()
+            self.serialized = self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {})
 
 
-    def change_metadata(self):
-        self.update_inputs()
-        return True
-
-
-    def change_workflow(self, id):
+    def update_workflow(self, id):
         assert id is not None
         assert isinstance(id, str)
 
         if self.id != id:
             self.id = id
 
-            self.update_workflow()
-            self.save_workflow_id()
+            if self.id == "":
+                self.graph = None
+                self.layout = None
+
+            else:
+                info = self.settings.load_workflow(self.id)
+                assert info["id"] == self.id
+
+                self.graph = info["graph"]
+                self.layout = info["layout"]
+
+            self.update_metadata()
             return True
 
         return False
+
+
+    def change_metadata(self):
+        self.update_metadata()
+        return True
+
+
+    def change_workflow(self, id):
+        if self.update_workflow(id):
+            self.update_serialized()
+            self.save_workflow_id()
+            return True
+        else:
+            self.save_workflow_id()
+            return False
 
 
     def change_document(self, document):
@@ -397,9 +294,11 @@ class Workflow(QObject):
 
             if True:
                 if self.document is None:
-                    self.id = ""
+                    id = ""
                 else:
-                    self.id = self.document.get_key_str("krita_comfyui/workflow_id", "")
+                    id = self.document.get_key_str("krita_comfyui/workflow_id", "")
+
+                self.update_workflow(id)
 
             else:
                 if self.document is not None:
@@ -408,9 +307,10 @@ class Workflow(QObject):
                     # If the document doesn't have a stored workflow_id,
                     # then we just keep using the existing workflow_id.
                     if id is not None:
-                        self.id = id
+                        self.update_workflow(id)
 
-            self.update_workflow()
+            # We always have to update serialized even if the ID is the same.
+            self.update_serialized()
             return True
 
         return False
@@ -420,7 +320,7 @@ class Workflow(QObject):
         return self.document is not None and self.id != "" and self.graph is not None
 
 
-    def to_graph(self):
+    def to_graph(self, ui_values):
         if self.document is None:
             raise WorkflowError("Krita does not have an opened image")
 
@@ -432,11 +332,11 @@ class Workflow(QObject):
         seed = WorkflowGraph.random_seed()
 
         print("Running graph")
-        print(self.inputs)
+        print(ui_values)
 
         return WorkflowGraph(
             document=self.document,
             json=self.graph,
             seed=seed,
-            ui_values=self.inputs,
+            ui_values=ui_values,
         ).evaluate()
