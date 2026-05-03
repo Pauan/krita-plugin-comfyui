@@ -505,7 +505,7 @@ class Image:
         height = int(round(self.height * scale))
 
         if self.width == width and self.height == height:
-            return self
+            return Image(self._qimage.copy())
 
         mode = Qt.AspectRatioMode.IgnoreAspectRatio
         quality = Qt.TransformationMode.SmoothTransformation

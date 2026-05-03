@@ -40,11 +40,31 @@ class ImageStorage(QObject):
         self.uuids = []
 
 
+    # Verifies that there aren't any dangling leftover images in the document.
+    def verify_storage_integrity(self, document):
+        seen_uuid = set()
+
+        for batch in self.uuids:
+            for uuid in batch:
+                seen_uuid.add(uuid)
+
+        for key in document.all_keys():
+            uuid = key.removeprefix("krita_comfyui/image_metadata/")
+            if uuid != key:
+                assert uuid in seen_uuid
+
+            uuid = key.removeprefix("krita_comfyui/image_bytes/")
+            if uuid != key:
+                assert uuid in seen_uuid
+
+
     def save_uuids(self, document):
         if len(self.uuids) == 0:
             document.remove_key("krita_comfyui/image_uuids")
         else:
             document.set_key_json("krita_comfyui/image_uuids", "krita_comfyui: Image UUIDs", self.uuids)
+
+        self.verify_storage_integrity(document)
 
 
     def load_uuid(self, document, uuid):
@@ -74,7 +94,6 @@ class ImageStorage(QObject):
             self.metadata[uuid] = metadata
 
 
-    # TODO use document.all_keys() to verify that there aren't any dangling leftover keys
     def load_all(self, document):
         self.images = {}
         self.metadata = {}
@@ -86,6 +105,8 @@ class ImageStorage(QObject):
             for batch in self.uuids:
                 for uuid in batch:
                     self.load_uuid(document, uuid)
+
+            self.verify_storage_integrity(document)
 
         for batch in self.uuids:
             yield [self.lookup_uuid(uuid) for uuid in batch]
@@ -199,6 +220,8 @@ class ImageStorage(QObject):
         self.images = {}
         self.metadata = {}
         self.uuids = []
+
+        self.verify_storage_integrity(document)
 
 
     def remove(self, document, uuids):
