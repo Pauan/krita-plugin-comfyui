@@ -70,4 +70,6 @@
 
 * Has a robust ComfyUI client implementation in PyQt. This handles connecting to ComfyUI, automatically reconnecting, sending prompts, cancelling prompts, etc.
 
+* Instead of storing a gigantic JSON blob of data inside of `.kra`, it stores only the minimum data that is needed.
+
 * Fully supports Krita 6 and PyQt 6.

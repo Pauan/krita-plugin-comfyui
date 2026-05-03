@@ -5,7 +5,7 @@ from typing import NamedTuple
 from json import (dumps, loads)
 import numpy as np
 
-from PyQt6.QtCore import QObject, QByteArray, QRect, QBuffer, QUuid, QTimer, Qt, pyqtSignal
+from PyQt6.QtCore import QObject, QByteArray, QSize, QRect, QBuffer, QUuid, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
 
 
@@ -223,6 +223,9 @@ class Document:
         return new_document
 
 
+    def all_keys(self):
+        return self._document.annotationTypes()
+
     def remove_key(self, key):
         self._document.removeAnnotation(key)
 
@@ -233,8 +236,8 @@ class Document:
             return value
         return default
 
-    def set_key_bytes(self, key, description, value: bytes):
-        self._document.setAnnotation(key, description, QByteArray(value))
+    def set_key_bytes(self, key, description, value: QByteArray):
+        self._document.setAnnotation(key, description, value)
 
 
     def get_key_str(self, key, default=None):
@@ -244,7 +247,7 @@ class Document:
         return default
 
     def set_key_str(self, key, description, value: str):
-        self.set_key_bytes(key, description, value.encode("utf-8"))
+        self.set_key_bytes(key, description, QByteArray(value.encode("utf-8")))
 
 
     def get_key_json(self, key, default=None):
@@ -418,6 +421,7 @@ class Mask:
         return np.all(array == value)
 
 
+    # TODO replace with base85
     def to_base64(self):
         return Image(self._qimage).to_base64()
 
@@ -442,10 +446,17 @@ class Image:
 
 
     @staticmethod
+    def from_qicon(qicon: QIcon, width, height, mode=QIcon.Mode.Normal, state=QIcon.State.Off):
+        qimage = qicon.pixmap(QSize(width, height), mode, state).toImage()
+        qimage.convertTo(QImage.Format.Format_ARGB32)
+        return Image(qimage)
+
+
+    # TODO replace with base85
+    @staticmethod
     def from_base64(data: str, width, height):
         bytes = QByteArray.fromBase64(data.encode("utf-8"))
-        # This swaps from RGB into BGR which is what Krita uses
-        return Image.from_packed_bytes(bytes, width, height)
+        return Image.from_packed_bytes(bytes, width, height, swap_rgb=True)
 
 
     @staticmethod
@@ -456,12 +467,17 @@ class Image:
 
 
     @staticmethod
-    def from_packed_bytes(data: QByteArray, width, height):
+    def from_packed_bytes(data: QByteArray, width, height, swap_rgb):
         assert data.size() == (width * height) * 4
 
         stride = width * 4
-        qimg = QImage(data, width, height, stride, QImage.Format.Format_ARGB32)
-        return Image.from_krita_qimage(qimg)
+        qimage = QImage(data, width, height, stride, QImage.Format.Format_ARGB32)
+
+        # Krita uses BGR so we have to swap it to RGB
+        if swap_rgb:
+            qimage.rgbSwap()
+
+        return Image(qimage)
 
 
     @property
@@ -518,6 +534,7 @@ class Image:
         return QIcon(pixmap)
 
 
+    # TODO replace with base85
     def to_base64(self):
         return self.bytes().toBase64().data().decode("utf-8")
 
@@ -691,7 +708,7 @@ class Layer:
 
         assert data is not None and data.size() >= bounds.area() * 4
 
-        return Image.from_packed_bytes(data, bounds.width, bounds.height)
+        return Image.from_packed_bytes(data, bounds.width, bounds.height, swap_rgb=True)
 
 
 # Many Pykrita functions return a `QList<QObject*>` where the objects are
