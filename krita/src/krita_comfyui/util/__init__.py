@@ -3,6 +3,8 @@ import json
 import time
 import re
 
+DEBUG_ENABLED = False
+
 
 NEWLINE = re.compile(r"(?:\r\n|\r|\n)")
 
@@ -35,19 +37,17 @@ def normalize(value, min, max):
 
 
 def clear_logs():
-    # Deletes the log file
-    with open("/tmp/krita.log", "w") as file:
-        pass
-    #try:
-        #os.remove("/tmp/krita.log")
-    #except:
-        #pass
+    if DEBUG_ENABLED:
+        # Deletes the log file
+        with open("/tmp/krita.log", "w") as file:
+            pass
 
 
 def log_debug_json(value):
-    with open("/tmp/krita.log", "a") as file:
-        json.dump(value, file, indent=2)
-        file.write("\n\n")
+    if DEBUG_ENABLED:
+        with open("/tmp/krita.log", "a") as file:
+            json.dump(value, file, indent=2)
+            file.write("\n\n")
 
 
 class Perf:

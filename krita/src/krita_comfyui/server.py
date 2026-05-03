@@ -162,7 +162,8 @@ class ProgressPercent:
 
 
     def update(self, value, max):
-        is_sample = isinstance(max, int)
+        # TODO figure out why some nodes like KritaOutput have an integer value of 1
+        is_sample = isinstance(max, int) and max > 1
 
         changed = (self.value != value or self.max != max or self.is_sample != is_sample)
         self.value = value
