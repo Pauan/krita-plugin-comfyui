@@ -59,7 +59,7 @@
 
 * Transferring images to / from ComfyUI is 100 times faster.
 
-* Sending text to Krita is a little bit nicer.
+* Sending text to Krita is nicer, and it auto-sorts based on the name.
 
 
 # Code quality

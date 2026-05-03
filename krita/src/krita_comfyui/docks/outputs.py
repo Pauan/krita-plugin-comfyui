@@ -246,6 +246,20 @@ class TextWidget(QWidget):
 
         self.layout = LayoutManager(self)
 
+        self.setStyleSheet("""
+            QGroupBox {
+                text-decoration: underline;
+                font-weight: bold;
+            }
+
+            QGroupBox::title {
+                subcontrol-position: top left;
+                subcontrol-origin: border;
+                margin-left: 8px;
+                margin-top: 6px;
+            }
+        """)
+
         with self.layout.column() as column:
             with column.scroll(max_height=200) as scroll:
                 widget = QWidget()
@@ -319,6 +333,7 @@ class ImageWidget(QListWidget):
         self.storage = ImageStorage(self, self.thumbnail_size)
 
         self.selected = []
+        self.clicked_on_selected = False
 
         self.image_menus = []
         self.all_menus = []
@@ -345,7 +360,8 @@ class ImageWidget(QListWidget):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
 
-        self.itemPressed.connect(self.item_clicked, type=Qt.ConnectionType.DirectConnection)
+        self.itemPressed.connect(self.item_pressed, type=Qt.ConnectionType.DirectConnection)
+        self.itemActivated.connect(self.item_clicked, type=Qt.ConnectionType.DirectConnection)
         self.itemDoubleClicked.connect(self.item_double_clicked, type=Qt.ConnectionType.DirectConnection)
         # This forces itemSelectionChanged to trigger after itemPressed
         self.itemSelectionChanged.connect(self.selection_changed, type=Qt.ConnectionType.QueuedConnection)
@@ -423,18 +439,41 @@ class ImageWidget(QListWidget):
         return selected
 
 
+    def item_pressed(self, item):
+        # This flag determines if we clicked on an item that is already selected. In that case we should deselect it.
+        #
+        # But we can't deselect it inside of itemPressed, because itemPressed triggers on right click, and we don't want that.
+        #
+        # So we just set the flag, and let itemActivated do the actual deselection.
+        self.clicked_on_selected = item.isSelected() and len(self.selected) == 1 and self.selected[0] is item
+
+
     def item_clicked(self, item):
+        # We need to use the itemActivated event because the itemPressed event triggers on right click,
+        # which we don't want.
+        #
+        # The itemActivated event is always triggered after itemSelectionChanged, but by then it's too late.
+        #
+        # The only event that runs before itemSelectionChanged is the itemPressed event.
+        #
+        # So inside of itemPressed we set a flag, and then read that flag here.
+        #
+        # That way we avoid running this code on right click, but we're able to read the selection data before
+        # the itemSelectionChanged event.
+        if self.clicked_on_selected:
+            self.clicked_on_selected = False
+            self.selected = []
+            item.setSelected(False)
+
+
+    # There is a delay when clicking rapidly, by using itemDoubleClicked we can avoid that delay and
+    # select / deselect the item immediately.
+    def item_double_clicked(self, item):
         if item.isSelected() and len(self.selected) == 1 and self.selected[0] is item:
             self.selected = []
             item.setSelected(False)
 
-
-    def item_double_clicked(self, item):
-        if item.isSelected():
-            self.selected = []
-            item.setSelected(False)
-
-        else:
+        elif not item.isSelected() and len(self.selected) == 0:
             self.selected = [item]
             item.setSelected(True)
 
