@@ -171,8 +171,6 @@ class Workflow(QObject):
 
     def save(self):
         if self.id != "" and self.document is not None:
-            print("Saving")
-            print(self.serialized)
             self.document.set_key_json(f"krita_comfyui/ui_inputs/{self.id}", "krita_comfyui: Stored UI Inputs", self.serialized)
 
             # This is for the case where you open a new document which doesn't have

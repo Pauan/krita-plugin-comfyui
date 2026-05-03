@@ -319,7 +319,7 @@ class ImageWidget(QListWidget):
 
     image_size = 96
     image_padding = 1
-    spacer_height = 2
+    spacer_height = 4
 
     def __init__(self, document):
         super().__init__()
@@ -356,6 +356,7 @@ class ImageWidget(QListWidget):
         self.setFrameStyle(QFrame.Shape.NoFrame)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setDragEnabled(False)
+        self.setMouseTracking(True)
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
@@ -367,6 +368,18 @@ class ImageWidget(QListWidget):
         self.itemSelectionChanged.connect(self.selection_changed, type=Qt.ConnectionType.QueuedConnection)
 
         self.load_document()
+
+
+    # TODO figure out a more efficient way of doing this
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+
+        item = self.itemAt(event.position().toPoint())
+
+        if item is not None and item.data(Qt.ItemDataRole.UserRole) is not None:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+        else:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
 
 
     def load_document(self):
