@@ -31,6 +31,8 @@ def delete_all(list, f):
 
 
 class ImageStorage(QObject):
+    total_bytes_changed = pyqtSignal()
+
     def __init__(self, parent, thumbnail_size):
         super().__init__(parent)
 
@@ -38,6 +40,7 @@ class ImageStorage(QObject):
         self.images = {}
         self.metadata = {}
         self.uuids = []
+        self.total_bytes = 0
 
 
     # Verifies that there aren't any dangling leftover images in the document.
@@ -90,7 +93,9 @@ class ImageStorage(QObject):
             }
 
         else:
-            self.images[uuid] = Image.from_packed_bytes(bytes, metadata["width"], metadata["height"], swap_rgb=False)
+            image = Image.from_packed_bytes(bytes, metadata["width"], metadata["height"], swap_rgb=False)
+            self.total_bytes += image.byte_size()
+            self.images[uuid] = image
             self.metadata[uuid] = metadata
 
 
@@ -98,6 +103,7 @@ class ImageStorage(QObject):
         self.images = {}
         self.metadata = {}
         self.uuids = []
+        self.total_bytes = 0
 
         if document is not None:
             self.uuids = document.get_key_json("krita_comfyui/image_uuids", [])
@@ -107,6 +113,8 @@ class ImageStorage(QObject):
                     self.load_uuid(document, uuid)
 
             self.verify_storage_integrity(document)
+
+        self.total_bytes_changed.emit()
 
         for batch in self.uuids:
             yield [self.lookup_uuid(uuid) for uuid in batch]
@@ -128,6 +136,12 @@ class ImageStorage(QObject):
 
     def delete_uuid(self, document, uuid):
         try:
+            image = self.images[uuid]
+            self.total_bytes -= image.byte_size()
+        except KeyError:
+            pass
+
+        try:
             del self.images[uuid]
         except KeyError:
             pass
@@ -148,6 +162,8 @@ class ImageStorage(QObject):
 
         image = Image.from_base64(info["bytes"], info["width"], info["height"])
         bytes = image.bytes()
+
+        self.total_bytes += image.byte_size()
 
         metadata = {
             "width": info["width"],
@@ -203,6 +219,8 @@ class ImageStorage(QObject):
     def save_batch(self, document, batch):
         uuids = [self.save(document, info) for info in batch]
 
+        self.total_bytes_changed.emit()
+
         if len(uuids) > 0:
             self.uuids.append(uuids)
             self.save_uuids(document)
@@ -220,13 +238,18 @@ class ImageStorage(QObject):
         self.images = {}
         self.metadata = {}
         self.uuids = []
+        self.total_bytes = 0
 
         self.verify_storage_integrity(document)
+
+        self.total_bytes_changed.emit()
 
 
     def remove(self, document, uuids):
         for uuid in uuids:
             self.delete_uuid(document, uuid)
+
+        self.total_bytes_changed.emit()
 
         def remove_batch(batch):
             delete_all(batch, lambda uuid: uuid in uuids)
@@ -697,7 +720,7 @@ class ImageWidget(QListWidget):
                         item.setSelected(True)
                         self.selected.append(item)
 
-                self.scrollToBottom()
+                #self.scrollToBottom()
 
 
     def new_images(self, images):
@@ -747,7 +770,37 @@ class ComfyUIOutputWidget(DockWidget):
 
         self._widget = OutputsWidget()
         self._widget.setParent(self)
+        self._widget.image.storage.total_bytes_changed.connect(self.update_title)
         self.setWidget(self._widget)
+
+        self.update_title()
+
+
+    def update_title(self):
+        bytes = self._widget.image.storage.total_bytes
+
+        if bytes == 0:
+            self.setWindowTitle("ComfyUI Outputs")
+
+        else:
+            bytes = float(bytes)
+            suffix = "bytes"
+
+            if bytes >= 1024.0:
+                bytes = bytes / 1024.0
+                suffix = "KB"
+
+            if bytes >= 1024.0:
+                bytes = bytes / 1024.0
+                suffix = "MB"
+
+            if bytes >= 1024.0:
+                bytes = bytes / 1024.0
+                suffix = "GB"
+
+            bytes = round(bytes, 2)
+
+            self.setWindowTitle(f"ComfyUI Outputs  ({bytes} {suffix})")
 
 
     def canvasChanged(self, canvas):

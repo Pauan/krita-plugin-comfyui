@@ -488,6 +488,9 @@ class Image:
     def height(self):
         return self._qimage.height()
 
+    def byte_size(self):
+        return self._qimage.sizeInBytes()
+
     def bytes(self):
         ptr = self._qimage.constBits()
         return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
