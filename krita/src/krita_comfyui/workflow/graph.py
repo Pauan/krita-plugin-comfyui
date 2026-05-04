@@ -88,13 +88,13 @@ class KritaSelection:
             selection = workflow.document.selection()
 
             if selection is None:
-                selection = Selection.solid(bounds, 255)
+                selection = Selection.solid(bounds, 0xff)
                 active = False
 
             else:
                 if selection.bounds() == bounds:
-                    # TODO test this
-                    active = (selection != Selection.solid(bounds, 255))
+                    # TODO figure out a faster way of determining if the selection is fully white
+                    active = not selection.mask(bounds).is_solid(0xff)
                 else:
                     active = True
 
@@ -125,9 +125,14 @@ class KritaSelectionBorder:
             if not isinstance(y, int):
                 raise WorkflowError(f"[#{node_id} Krita Selection: Border]\ny must be an int constant")
 
-            selection = selection.copy()
-            selection.border(x, y)
-            outputs.append(selection)
+            if x == 0 and y == 0:
+                outputs.append(selection)
+
+            else:
+                new_selection = selection.copy()
+                new_selection.border(x, y)
+                #new_selection.subtract(selection)
+                outputs.append(new_selection)
 
         return (
             Link(outputs),
@@ -168,18 +173,44 @@ class KritaSelectionFeather:
 
         selection = workflow.evaluate_link(inputs["selection"])
         amount = workflow.evaluate_link(inputs["amount"])
+        mode = workflow.evaluate_link(inputs["mode"])
 
         outputs = []
 
-        for selection, amount in zip_inputs(selection, amount):
+        for selection, amount, mode in zip_inputs(selection, amount, mode):
             assert isinstance(selection, Selection)
 
             if not isinstance(amount, int):
                 raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\namount must be an int constant")
 
-            selection = selection.copy()
-            selection.feather(amount)
-            outputs.append(selection)
+            if not isinstance(mode, str):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\nmode must be a string constant")
+
+            if amount == 0:
+                outputs.append(selection)
+
+            elif mode == "outside":
+                new_selection = selection.copy()
+                new_selection.grow(amount, amount)
+
+                # When Krita feathers a selection, it sometimes feathers a tiny
+                # bit more than it's supposed to, so we compensate by feathering
+                # a tiny bit less than the desired amount.
+                new_selection.feather(max(min(2, amount), amount - 2))
+
+                # This guarantees that the original selection will always be
+                # white. This prevents the feathering from bleeding into the
+                # original selection.
+                new_selection.add(selection)
+                outputs.append(new_selection)
+
+            elif mode == "inside":
+                new_selection = selection.copy()
+                new_selection.feather(amount)
+                outputs.append(new_selection)
+
+            else:
+                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\nmode must outside or inside")
 
         return (
             Link(outputs),
@@ -205,9 +236,13 @@ class KritaSelectionGrow:
             if not isinstance(y, int):
                 raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\ny must be an int constant")
 
-            selection = selection.copy()
-            selection.grow(x, y)
-            outputs.append(selection)
+            if x == 0 and y == 0:
+                outputs.append(selection)
+
+            else:
+                selection = selection.copy()
+                selection.grow(x, y)
+                outputs.append(selection)
 
         return (
             Link(outputs),
@@ -271,9 +306,13 @@ class KritaSelectionShrink:
             if not isinstance(y, int):
                 raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\ny must be an int constant")
 
-            selection = selection.copy()
-            selection.shrink(x, y)
-            outputs.append(selection)
+            if x == 0 and y == 0:
+                outputs.append(selection)
+
+            else:
+                selection = selection.copy()
+                selection.shrink(x, y)
+                outputs.append(selection)
 
         return (
             Link(outputs),
@@ -470,7 +509,7 @@ class WorkflowGraph:
 
         self.graph = Graph()
 
-        self.bounds = None
+        self.cached_bounds = None
 
         # The cached depth of each node.
         self.node_depths = {}
@@ -509,9 +548,9 @@ class WorkflowGraph:
 
 
     def bounds(self):
-        if self.bounds is None:
-            self.bounds = self.document.bounds()
-        return self.bounds
+        if self.cached_bounds is None:
+            self.cached_bounds = self.document.bounds()
+        return self.cached_bounds
 
 
     @staticmethod
@@ -604,9 +643,10 @@ class WorkflowGraph:
         # We evaluate the deepest nodes first, so that way if a Switch is
         # encountered it can do proper dead code elimination of any
         # branches that aren't taken.
-        copied_nodes.sort(lambda x: x[0], reversed=True)
+        copied_nodes.sort(key=lambda x: x[0], reverse=True)
 
-        print(copied_nodes)
+        for (depth, name) in [(depth, self.graph.nodes[id]["class_type"]) for (depth, id) in copied_nodes]:
+            print(depth, name)
 
 
         # For all of the copied nodes, we have to constant-evaluate their

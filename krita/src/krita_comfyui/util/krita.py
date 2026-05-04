@@ -193,7 +193,7 @@ class Selection:
             bounds.x,
             bounds.y,
             bounds.width,
-            bounds,height,
+            bounds.height,
             value,
         )
         return Selection(selection)
@@ -201,20 +201,38 @@ class Selection:
     def copy(self):
         return Selection(self._selection.duplicate())
 
-    def feather(self, radius):
-        self._selection.feather(radius)
+    def add(self, other):
+        self._selection.add(other._selection)
+
+    def subtract(self, other):
+        self._selection.subtract(other._selection)
+
+    def invert(self):
+        self._selection.invert()
+
+    def smooth(self):
+        self._selection.smooth()
 
     def grow(self, horizontal, vertical):
         self._selection.grow(horizontal, vertical)
 
     def shrink(self, horizontal, vertical):
-        self._selection.shrink(horizontal, vertical)
+        # TODO investigate the edgeLock argument
+        self._selection.shrink(horizontal, vertical, False)
 
+    def feather(self, radius):
+        # Stupid hack needed because Krita feathers both inside and outside the selection
+        half = round(radius / 2)
+        self.shrink(half, half)
+        self._selection.feather(half)
+
+    # TODO this is off by 1 pixel
     def border(self, horizontal, vertical):
-        self._selection.border(horizontal, vertical)
-
-    def smooth(self):
-        self._selection.smooth()
+        # Stupid hack needed because Krita borders both inside and outside the selection
+        half_horizontal = round(horizontal / 2)
+        half_vertical = round(vertical / 2)
+        self.grow(half_horizontal, half_vertical)
+        self._selection.border(half_horizontal, half_vertical)
 
     def mask(self, bounds):
         bytes = self._selection.pixelData(bounds.x, bounds.y, bounds.width, bounds.height)

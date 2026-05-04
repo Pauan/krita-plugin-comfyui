@@ -27,7 +27,7 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * The layer selection widget is a lot nicer.
 
-* The Outputs are automatically organized into separate batches.
+* The Outputs are automatically organized into separate batches, and sorted by name.
 
 * It now has two separate dockers, one for Inputs and one for Outputs.
 

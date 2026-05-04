@@ -797,7 +797,7 @@ class ComfyUIOutputWidget(DockWidget):
 
             bytes = round(bytes, 2)
 
-            self.setWindowTitle(f"ComfyUI Outputs  ({bytes:.999999999g} {suffix})")
+            self.setWindowTitle(f"ComfyUI Outputs  ({bytes:g} {suffix})")
 
 
     def canvasChanged(self, canvas):
@@ -816,8 +816,19 @@ class ComfyUIOutputWidget(DockWidget):
                 elif output.node_name == "krita_comfyui: KritaText":
                     texts.extend(output.value["krita_comfyui_text"])
 
-            # Sorts the bigger batches first
-            images.sort(key=lambda x: len(x), reverse=True)
+            max_len = max(len(batch) for batch in images)
+
+            # Sorts the bigger batches first.
+            # If the batch only has 1 image, then sort by name.
+            def sort_batches(batch):
+                if len(batch) == 1:
+                    return (max_len - 1, batch[0]["name"].casefold())
+                else:
+                    return (max_len - len(batch), "")
+
+            images.sort(key=sort_batches)
+
+            # Sort text by name
             texts.sort(key=lambda x: x["name"].casefold())
 
             for batch in images:
