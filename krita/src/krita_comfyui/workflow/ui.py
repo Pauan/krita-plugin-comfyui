@@ -8,7 +8,6 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QCheckBox,
-    QSlider,
     QMessageBox,
 )
 from ..util.qt import BlockSignals, LayoutManager, ComboBox, BlockMouseWheel
@@ -384,57 +383,84 @@ class UiInt(QWidget):
 
         self.layout_manager = LayoutManager(self)
 
-        with self.layout_manager.row() as row:
+        # TODO maybe we don't need a LayoutManager ?
+        with self.layout_manager.column() as column:
             if slider:
-                with row.slider() as widget:
-                    widget.setOrientation(Qt.Orientation.Horizontal)
-                    widget.setRange(min, max)
-                    widget.setSingleStep(step)
-                    widget.setPageStep(step)
-                    widget.setValue(self.input.get())
-                    widget.valueChanged.connect(self.on_slider_changed)
-                    self.slider_widget = widget
+                # This blocks the slider from receiving the mouse wheel event
+                self.block_wheel = BlockMouseWheel(self)
 
-                row.spacer(4)
+                self.slider = SliderSpinBox()
+                self.slider.setParent(self)
+
+                self.slider.setFastSliderStep(step)
+                self.slider.setRange(min, max)
+
+                with column.widget(self.slider.widget()) as widget:
+                    if prefix is not None:
+                        widget.setPrefix(prefix)
+
+                    if suffix is not None:
+                        widget.setSuffix(suffix)
+
+                    widget.installEventFilter(self.block_wheel)
+
+                    widget.setSingleStep(step)
+                    widget.setValue(clamp(self.input.get(), min, max))
+                    widget.draggingFinished.connect(self.on_drag_end)
+                    widget.valueChanged.connect(self.on_value_changed)
+                    self.value_widget = widget
 
             else:
-                self.slider_widget = None
+                self.block_wheel = None
+                self.slider = None
 
-            with row.int() as widget:
-                if suffix is not None:
-                    widget.setSuffix(suffix)
+                with column.int() as widget:
+                    if prefix is not None:
+                        widget.setPrefix(prefix)
 
-                widget.setRange(min, max)
-                widget.setSingleStep(step)
-                widget.setValue(self.input.get())
-                widget.valueChanged.connect(self.on_value_changed)
-                self.value_widget = widget
+                    if suffix is not None:
+                        widget.setSuffix(suffix)
+
+                    widget.setRange(min, max)
+                    widget.setSingleStep(step)
+                    widget.setValue(clamp(self.input.get(), min, max))
+                    widget.valueChanged.connect(self.on_value_changed)
+                    self.value_widget = widget
 
 
-    def on_slider_changed(self, value):
-        assert self.slider_widget is not None
+    def get_real_value(self):
+        return clamp(self.value_widget.value(), self.min, self.max)
+
+
+    def clamp_to_step(self):
+        value = self.get_real_value()
 
         # Rounds to the nearest step
-        new_value = round(float(value) / self.step) * self.step
+        new_value = round(float(value) / float(self.step)) * self.step
         new_value = clamp(new_value, self.min, self.max)
 
         if value != new_value:
             value = new_value
-            with BlockSignals(self.slider_widget):
-                self.slider_widget.setValue(value)
-
-        with BlockSignals(self.value_widget):
             self.value_widget.setValue(value)
 
-        self.input.set(value)
+        return value
 
 
-    def on_value_changed(self, value):
-        value = clamp(value, self.min, self.max)
+    # Normally the valueChanged event handles clamping, but in the rare
+    # (impossible?) situation where the draggingFinished event triggers
+    # before the valueChanged event, we do some extra clamping in here.
+    def on_drag_end(self):
+        self.clamp_to_step()
 
-        if self.slider_widget is not None:
-            with BlockSignals(self.slider_widget):
-                self.slider_widget.setValue(value)
+
+    def on_value_changed(self, _):
+        # We want to clamp the value while dragging, but the draggingFinished event
+        # only triggers when the dragging is ended, so we have to clamp in here.
+        if self.slider is not None and self.slider.isDragging():
+            with BlockSignals(self.value_widget):
+                value = self.clamp_to_step()
+        else:
+            value = self.get_real_value()
 
         self.input.set(value)
 

@@ -38,6 +38,8 @@
 
 * Scrolling with the mouse wheel will no longer accidentally change values.
 
+   You can still change values by holding Shift or Ctrl while using the mouse wheel.
+
 * Minor improvements to error messages.
 
 
