@@ -8,6 +8,11 @@ class LayerId(io.ComfyTypeIO):
     Type = str
 
 
+@io.comfytype(io_type="KRITA_SELECTION")
+class Selection(io.ComfyTypeIO):
+    pass
+
+
 class LoadImageBase64(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -147,16 +152,190 @@ class KritaSelection(io.ComfyNode):
         return io.Schema(
             node_id="krita_comfyui: KritaSelection",
             display_name="Krita Selection",
-            category="krita",
-            description="Retrieves the selection bounds from Krita.",
+            category="krita/selection",
+            description="Retrieves the selection from Krita.",
             inputs=[],
             outputs=[
-                io.Boolean.Output(display_name="active"),
-                io.Mask.Output(display_name="mask"),
+                Selection.Output(display_name="selection"),
+                io.Boolean.Output(display_name="is_active", tooltip="Whether the selection exists in Krita or not."),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaSelectionGrow(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionGrow",
+            display_name="Krita Selection: Grow",
+            category="krita/selection",
+            description="Grows the Krita selection.",
+            inputs=[
+                Selection.Input("selection"),
+                io.Int.Input("x", tooltip="X width for growing the selection."),
+                io.Int.Input("y", tooltip="Y height for growing the selection."),
+            ],
+            outputs=[
+                Selection.Output(display_name="selection"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaSelectionShrink(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionShrink",
+            display_name="Krita Selection: Shrink",
+            category="krita/selection",
+            description="Shrinks the Krita selection.",
+            inputs=[
+                Selection.Input("selection"),
+                io.Int.Input("x", tooltip="X width for shrinking the selection."),
+                io.Int.Input("y", tooltip="Y height for shrinking the selection."),
+            ],
+            outputs=[
+                Selection.Output(display_name="selection"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaSelectionFeather(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionFeather",
+            display_name="Krita Selection: Feather",
+            category="krita/selection",
+            description="Feathers the Krita selection.",
+            inputs=[
+                Selection.Input("selection"),
+                io.Int.Input("amount", tooltip="Radius for feathering the selection."),
+            ],
+            outputs=[
+                Selection.Output(display_name="selection"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaSelectionBorder(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionBorder",
+            display_name="Krita Selection: Border",
+            category="krita/selection",
+            description="Adds a border around the Krita selection.",
+            inputs=[
+                Selection.Input("selection"),
+                io.Int.Input("x", tooltip="X width of the border."),
+                io.Int.Input("y", tooltip="Y height of the border."),
+            ],
+            outputs=[
+                Selection.Output(display_name="selection"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaSelectionSmooth(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionSmooth",
+            display_name="Krita Selection: Smooth",
+            category="krita/selection",
+            description="Smooths the Krita selection.",
+            inputs=[
+                Selection.Input("selection"),
+            ],
+            outputs=[
+                Selection.Output(display_name="selection"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaSelectionInvert(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionInvert",
+            display_name="Krita Selection: Invert",
+            category="krita/selection",
+            description="Inverts the Krita selection.",
+            inputs=[
+                Selection.Input("selection"),
+            ],
+            outputs=[
+                Selection.Output(display_name="selection"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaSelectionBounds(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionBounds",
+            display_name="Krita Selection: Bounds",
+            category="krita/selection",
+            description="Retrieves the bounds of the Krita selection.",
+            inputs=[
+                Selection.Input("selection"),
+            ],
+            outputs=[
                 io.Int.Output(display_name="x"),
                 io.Int.Output(display_name="y"),
                 io.Int.Output(display_name="width"),
                 io.Int.Output(display_name="height"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaSelectionMask(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionMask",
+            display_name="Krita Selection: Mask",
+            category="krita/selection",
+            description="Retrieves the mask of the Krita selection.",
+            inputs=[
+                Selection.Input("selection"),
+            ],
+            outputs=[
+                io.Mask.Output(display_name="mask"),
             ],
         )
 

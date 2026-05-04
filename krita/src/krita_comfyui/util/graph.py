@@ -23,22 +23,6 @@ class Graph:
         self.nodes = {}
 
 
-    @staticmethod
-    def from_serialized(nodes):
-        node_id = 0
-
-        for key in nodes.keys():
-            try:
-                node_id = max(node_id, int(key) + 1)
-            except:
-                pass
-
-        graph = Graph()
-        graph.node_id = node_id
-        graph.nodes = nodes
-        return graph
-
-
     def node(self, class_type, **kwargs):
         id = str(self.node_id)
         self.node_id += 1

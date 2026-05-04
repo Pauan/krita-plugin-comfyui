@@ -11,7 +11,14 @@ class KritaComfyui(ComfyExtension):
             nodes.LoadMaskBase64,
             nodes.ThrowError,
 
-            # ui
+            # krita
+            nodes.KritaCanvas,
+            nodes.KritaLayers,
+            nodes.KritaOutput,
+            nodes.KritaSeed,
+            nodes.KritaText,
+
+            # krita/ui
             ui.KritaUiBoolean,
             ui.KritaUiCombo,
             ui.KritaUiFloat,
@@ -19,13 +26,16 @@ class KritaComfyui(ComfyExtension):
             ui.KritaUiLayerId,
             ui.KritaUiString,
 
-            # krita
-            nodes.KritaCanvas,
-            nodes.KritaLayers,
-            nodes.KritaSeed,
+            # krita/selection
             nodes.KritaSelection,
-            nodes.KritaOutput,
-            nodes.KritaText,
+            nodes.KritaSelectionBorder,
+            nodes.KritaSelectionBounds,
+            nodes.KritaSelectionFeather,
+            nodes.KritaSelectionGrow,
+            nodes.KritaSelectionInvert,
+            nodes.KritaSelectionMask,
+            nodes.KritaSelectionShrink,
+            nodes.KritaSelectionSmooth,
         ]
 
 async def comfy_entrypoint() -> KritaComfyui:

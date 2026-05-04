@@ -1,3 +1,4 @@
+import krita
 from pathlib import Path
 from enum import Enum
 from PyQt6 import sip
@@ -177,6 +178,26 @@ class Selection:
     def __init__(self, selection):
         self._selection = selection
 
+    def __eq__(self, other):
+        return self._selection == other._selection
+
+    def __ne__(self, other):
+        return self._selection != other._selection
+
+    @staticmethod
+    def solid(bounds, value):
+        # TODO what about memory management? does this need to be manually deleted?
+        selection = krita.Selection()
+        # TODO is this the fastest way to create a selection that spans the entire document?
+        selection.select(
+            bounds.x,
+            bounds.y,
+            bounds.width,
+            bounds,height,
+            value,
+        )
+        return Selection(selection)
+
     def copy(self):
         return Selection(self._selection.duplicate())
 
@@ -185,6 +206,15 @@ class Selection:
 
     def grow(self, horizontal, vertical):
         self._selection.grow(horizontal, vertical)
+
+    def shrink(self, horizontal, vertical):
+        self._selection.shrink(horizontal, vertical)
+
+    def border(self, horizontal, vertical):
+        self._selection.border(horizontal, vertical)
+
+    def smooth(self):
+        self._selection.smooth()
 
     def mask(self, bounds):
         bytes = self._selection.pixelData(bounds.x, bounds.y, bounds.width, bounds.height)

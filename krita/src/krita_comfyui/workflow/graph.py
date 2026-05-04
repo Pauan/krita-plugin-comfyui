@@ -1,14 +1,14 @@
 import random
 import sys
 from ..util.graph import Graph
-from ..util.krita import Mask
+from ..util.krita import Selection
 
 
 def is_link(value):
     return isinstance(value, list) and len(value) == 2
 
 
-def zip_inputs(*inputs):
+def zip_lists(inputs):
     max_length = max(len(x) for x in inputs)
 
     for index in range(max_length):
@@ -20,30 +20,40 @@ def zip_inputs(*inputs):
 
         yield output
 
+def zip_inputs(*inputs):
+    yield from zip_lists([x.values for x in inputs])
+
 
 class WorkflowError(RuntimeError):
     pass
 
 
 class Link:
-    def __init__(self, values, is_const):
+    def __init__(self, values):
         assert isinstance(values, list)
-
-        # True if the link was constant-evaluated
-        self.is_const = is_const
 
         # List of values
         self.values = values
 
+        self.node = None
+
+    # Converts the Link into a graph node.
+    #
+    # This is cached, so calling it multiple times gives the same node.
+    def to_node(self, graph):
+        if self.node is None:
+            self.node = graph.list(self.values)
+        return self.node
+
 
 class UiLink(Link):
     def __init__(self, values, id):
-        super().__init__(values, True)
+        super().__init__(values)
         self.id = id
 
 
 # Evaluates a UI widget to a constant value
-class UiConstNode:
+class KritaUi:
     def __init__(self, ui_values, type):
         self.ui_values = ui_values
         self.type = type
@@ -57,7 +67,7 @@ class UiConstNode:
             raise WorkflowError(f"UI widget [{id}] not found")
 
 
-    def get_outputs(self, node):
+    def get_outputs(self, workflow, node_id, node):
         id = node["inputs"]["id"]
         values = self.get_values(id)
 
@@ -67,130 +77,267 @@ class UiConstNode:
         )
 
 
-class WorkflowGraph:
-    def __init__(self, document, json, seed, ui_values):
-        self.document = document
-        self.json = json
-        self.seed = seed
-
-        self.graph = Graph()
-
-        self.node_ids = []
-        self.replaced_links = {}
-        self.replaced_ids = {}
-
-        self.document_bounds = self.document.bounds()
-        self.canvas = None
+class KritaSelection:
+    def __init__(self):
         self.selection = None
-        self.layers = {}
-        self.layer_image = {}
 
-        self.const_nodes = {
-            "krita_comfyui: KritaUiFloat": UiConstNode(ui_values, "float"),
-            "krita_comfyui: KritaUiInt": UiConstNode(ui_values, "int"),
-            "krita_comfyui: KritaUiBoolean": UiConstNode(ui_values, "boolean"),
-            "krita_comfyui: KritaUiString": UiConstNode(ui_values, "string"),
-            "krita_comfyui: KritaUiLayerId": UiConstNode(ui_values, "layer_id"),
-            "krita_comfyui: KritaUiCombo": UiConstNode(ui_values, "combo"),
-        }
-
-
-    @staticmethod
-    def random_seed():
-        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1570
-        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_primitive.py#L52
-        return random.randint(0, sys.maxsize)
-
-
-    def replace_outputs(self, id, outputs):
-        for index, output in enumerate(outputs):
-            self.replaced_links[(id, index)] = output
-
-
-    def replace_id(self, old_id, node):
-        self.node_ids.append(node.id)
-        self.replaced_ids[old_id] = node.id
-
-
-    # Evaluates the link if the connected node has a constant value.
-    def evaluate_link(self, value):
-        # If it's a node link, then follow the link.
-        if is_link(value):
-            node = self.json[value[0]]
-            name = node["class_type"]
-
-            try:
-                const_node = self.const_nodes[name]
-            except KeyError:
-                # If the node isn't constant, return the link as-is
-                return Link([value], is_const=False)
-
-            outputs = const_node.get_outputs(node)
-            return outputs[value[1]]
-
-        else:
-            return Link([value], is_const=False)
-
-
-    def get_canvas(self):
-        if self.canvas is None:
-            image = self.document.canvas(self.document_bounds)
-
-            (image, mask) = self.graph.image(image)
-
-            self.canvas = (
-                image,
-                mask,
-                self.document_bounds.width,
-                self.document_bounds.height,
-            )
-
-        return self.canvas
-
-
-    def get_selection(self):
+    def get_outputs(self, workflow, node_id, node):
         if self.selection is None:
-            selection = self.document.selection()
+            bounds = workflow.bounds()
 
-            if selection is not None:
-                selection_bounds = selection.bounds().clamp_to_parent(self.document_bounds)
-                mask = selection.mask(self.document_bounds)
+            selection = workflow.document.selection()
 
-                if selection_bounds == self.document_bounds:
-                    active = not mask.is_solid(0xff)
+            if selection is None:
+                selection = Selection.solid(bounds, 255)
+                active = False
+
+            else:
+                if selection.bounds() == bounds:
+                    # TODO test this
+                    active = (selection != Selection.solid(bounds, 255))
                 else:
                     active = True
 
-            else:
-                selection_bounds = self.document_bounds
-                mask = Mask.solid(0xff, self.document_bounds.width, self.document_bounds.height)
-                active = False
-
-            mask = self.graph.mask(mask)
-
             self.selection = (
-                active,
-                mask,
-                selection_bounds.x,
-                selection_bounds.y,
-                selection_bounds.width,
-                selection_bounds.height,
+                Link([selection]),
+                Link([active]),
             )
 
         return self.selection
 
 
-    def get_layer_image(self, layer):
+class KritaSelectionBorder:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        selection = workflow.evaluate_link(inputs["selection"])
+        x = workflow.evaluate_link(inputs["x"])
+        y = workflow.evaluate_link(inputs["y"])
+
+        outputs = []
+
+        for selection, x, y in zip_inputs(selection, x, y):
+            assert isinstance(selection, Selection)
+
+            if not isinstance(x, int):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nx must be an int constant")
+
+            if not isinstance(y, int):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\ny must be an int constant")
+
+            selection = selection.copy()
+            selection.border(x, y)
+            outputs.append(selection)
+
+        return (
+            Link(outputs),
+        )
+
+
+class KritaSelectionBounds:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        selection = workflow.evaluate_link(inputs["selection"])
+
+        x = []
+        y = []
+        width = []
+        height = []
+
+        for selection in selection.values:
+            assert isinstance(selection, Selection)
+
+            bounds = selection.bounds().clamp_to_parent(workflow.bounds())
+            x.append(bounds.x)
+            y.append(bounds.y)
+            width.append(bounds.width)
+            height.append(bounds.height)
+
+        return (
+            Link(x),
+            Link(y),
+            Link(width),
+            Link(height),
+        )
+
+
+class KritaSelectionFeather:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        selection = workflow.evaluate_link(inputs["selection"])
+        amount = workflow.evaluate_link(inputs["amount"])
+
+        outputs = []
+
+        for selection, amount in zip_inputs(selection, amount):
+            assert isinstance(selection, Selection)
+
+            if not isinstance(amount, int):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\namount must be an int constant")
+
+            selection = selection.copy()
+            selection.feather(amount)
+            outputs.append(selection)
+
+        return (
+            Link(outputs),
+        )
+
+
+class KritaSelectionGrow:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        selection = workflow.evaluate_link(inputs["selection"])
+        x = workflow.evaluate_link(inputs["x"])
+        y = workflow.evaluate_link(inputs["y"])
+
+        outputs = []
+
+        for selection, x, y in zip_inputs(selection, x, y):
+            assert isinstance(selection, Selection)
+
+            if not isinstance(x, int):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\nx must be an int constant")
+
+            if not isinstance(y, int):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\ny must be an int constant")
+
+            selection = selection.copy()
+            selection.grow(x, y)
+            outputs.append(selection)
+
+        return (
+            Link(outputs),
+        )
+
+
+class KritaSelectionInvert:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        selection = workflow.evaluate_link(inputs["selection"])
+
+        outputs = []
+
+        for selection in selection.values:
+            assert isinstance(selection, Selection)
+            selection = selection.copy()
+            selection.invert()
+            outputs.append(selection)
+
+        return (
+            Link(outputs),
+        )
+
+
+class KritaSelectionMask:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        selection = workflow.evaluate_link(inputs["selection"])
+
+        outputs = []
+
+        for selection in selection.values:
+            assert isinstance(selection, Selection)
+            mask = selection.mask(workflow.bounds())
+            mask = workflow.graph.mask(mask)
+            outputs.append(mask)
+
+        return (
+            Link(outputs),
+        )
+
+
+class KritaSelectionShrink:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        selection = workflow.evaluate_link(inputs["selection"])
+        x = workflow.evaluate_link(inputs["x"])
+        y = workflow.evaluate_link(inputs["y"])
+
+        outputs = []
+
+        for selection, x, y in zip_inputs(selection, x, y):
+            assert isinstance(selection, Selection)
+
+            if not isinstance(x, int):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\nx must be an int constant")
+
+            if not isinstance(y, int):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\ny must be an int constant")
+
+            selection = selection.copy()
+            selection.shrink(x, y)
+            outputs.append(selection)
+
+        return (
+            Link(outputs),
+        )
+
+
+class KritaSelectionSmooth:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        selection = workflow.evaluate_link(inputs["selection"])
+
+        outputs = []
+
+        for selection in selection.values:
+            assert isinstance(selection, Selection)
+            selection = selection.copy()
+            selection.smooth()
+            outputs.append(selection)
+
+        return (
+            Link(outputs),
+        )
+
+
+class KritaCanvas:
+    def __init__(self):
+        self.canvas = None
+
+    def get_outputs(self, workflow, node_id, node):
+        if self.canvas is None:
+            bounds = workflow.bounds()
+
+            image = workflow.document.canvas(bounds)
+
+            (image, mask) = workflow.graph.image(image)
+
+            self.canvas = (
+                Link([image]),
+                Link([mask]),
+                Link([bounds.width]),
+                Link([bounds.height]),
+            )
+
+        return self.canvas
+
+
+class KritaLayers:
+    def __init__(self):
+        self.layers = {}
+        self.layer_image = {}
+
+
+    def get_layer_image(self, workflow, layer):
         image = self.layer_image.get(layer.id, None)
 
         if image is None:
-            image = self.graph.image(layer.image(self.document_bounds))
+            image = workflow.graph.image(layer.image(workflow.bounds()))
             self.layer_image[layer.id] = image
 
         return image
 
 
-    def get_layers(self, layer_id, mode):
+    def get_layers(self, workflow, layer_id, mode):
         layers = self.layers.get((layer_id, mode), None)
 
         if layers is None:
@@ -198,13 +345,13 @@ class WorkflowGraph:
             masks = []
             names = []
 
-            layer = self.document.find_layer_by_id(layer_id)
+            layer = workflow.document.find_layer_by_id(layer_id)
 
             if layer is None:
                 raise WorkflowError(f"Could not find layer {layer_id}")
 
             def add_image(layer):
-                (image, mask) = self.get_layer_image(layer)
+                (image, mask) = self.get_layer_image(workflow, layer)
                 images.append(image)
                 masks.append(mask)
                 names.append(layer.name)
@@ -230,104 +377,253 @@ class WorkflowGraph:
         return layers
 
 
-    def process_node(self, id, node):
-        class_type = node["class_type"]
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
 
-        match class_type:
-            case "krita_comfyui: KritaCanvas":
-                self.replace_outputs(id, self.get_canvas())
+        images = []
+        masks = []
+        names = []
 
-            case "krita_comfyui: KritaSelection":
-                self.replace_outputs(id, self.get_selection())
+        layer_id_link = workflow.evaluate_link(inputs["layer_id"])
+        mode_link = workflow.evaluate_link(inputs["mode"])
 
-            case "krita_comfyui: KritaSeed":
-                self.replace_outputs(id, (self.seed,))
+        error = None
 
+        for (layer_id, mode) in zip_inputs(layer_id_link, mode_link):
+            if not isinstance(layer_id, str):
+                raise WorkflowError(f"[#{node_id} Krita Layers]\nlayer_id must be a string constant")
 
-            # @TODO maybe cache this based on inputs somehow ?
-            case "krita_comfyui: KritaLayers":
-                inputs = node["inputs"]
+            if not isinstance(mode, str):
+                raise WorkflowError(f"[#{node_id} Krita Layers]\nmode must be a string constant")
 
-                images = []
-                masks = []
-                names = []
-
-                layer_id_link = self.evaluate_link(inputs["layer_id"])
-                mode_link = self.evaluate_link(inputs["mode"])
-
-                error = None
-
-                for (layer_id, mode) in zip_inputs(layer_id_link.values, mode_link.values):
-                    if not isinstance(layer_id, str):
-                        raise WorkflowError(f"[#{id} Krita Layers]\nlayer_id must be a string constant")
-
-                    if not isinstance(mode, str):
-                        raise WorkflowError(f"[#{id} Krita Layers]\nmode must be a string constant")
-
-                    # If the layer name is empty, throw an error
-                    if layer_id == "":
-                        if error is None:
-                            if isinstance(layer_id_link, UiLink):
-                                error = self.graph.error(f"Layer selector [{layer_id_link.id}] is empty")
-                            else:
-                                error = self.graph.error(f"[#{id} Krita Layers]\nlayer_id is empty")
-
-                        images.append(error)
-                        masks.append(error)
-                        names.append(error)
-
+            # If the layer name is empty, throw an error
+            if layer_id == "":
+                if error is None:
+                    # TODO maybe raise the error immediately?
+                    if isinstance(layer_id_link, UiLink):
+                        error = workflow.graph.error(f"Layer selector [{layer_id_link.id}] is empty")
                     else:
-                        layers = self.get_layers(layer_id, mode)
-                        images.extend(layers[0])
-                        masks.extend(layers[1])
-                        names.extend(layers[2])
+                        error = workflow.graph.error(f"[#{node_id} Krita Layers]\nlayer_id is empty")
 
-                self.replace_outputs(id, (
-                    self.graph.list(images),
-                    self.graph.list(masks),
-                    self.graph.list(names),
-                ))
+                images.append(error)
+                masks.append(error)
+                names.append(error)
+
+            else:
+                layers = self.get_layers(workflow, layer_id, mode)
+                images.extend(layers[0])
+                masks.extend(layers[1])
+                names.extend(layers[2])
+
+        return (
+            Link(images),
+            Link(masks),
+            Link(names),
+        )
 
 
-            case _:
-                self.replace_id(id, self.graph.node(class_type, **node["inputs"]))
+class KritaSeed:
+    def get_outputs(self, workflow, node_id, node):
+        return (
+            Link([workflow.seed]),
+        )
 
 
-    def replace_input(self, value):
-        link = self.evaluate_link(value)
+class Switch:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
 
-        if link.is_const:
-            return self.graph.list(link.values)
+        switch = workflow.evaluate_link(inputs["switch"])
+        on_true = workflow.evaluate_link(inputs["on_true"])
+        on_false = workflow.evaluate_link(inputs["on_false"])
 
+        outputs = []
+
+        for (switch, on_true, on_false) in zip_inputs(switch, on_true, on_false):
+            if isinstance(switch, bool):
+                if switch:
+                    outputs.append(on_true)
+                else:
+                    outputs.append(on_false)
+
+            # We don't know if switch is true or false, so we create
+            # a node and determine the branch at runtime.
+            else:
+                outputs.append(workflow.graph.node("ComfySwitchNode",
+                    switch=switch,
+                    # Even though we don't know which branch to take,
+                    # the branches are still constant-evaluated.
+                    on_false=on_false,
+                    on_true=on_true,
+                ).out(0))
+
+        return (
+            Link(outputs),
+        )
+
+
+class WorkflowGraph:
+    def __init__(self, document, json, seed, ui_values):
+        self.document = document
+        self.json = json
+        self.seed = seed
+
+        self.graph = Graph()
+
+        self.bounds = None
+
+        # The cached depth of each node.
+        self.node_depths = {}
+
+        # When we copy an existing node, we have to replace the old node ID with the new node ID.
+        self.replaced_ids = {}
+
+        # Cached outputs for constant-evaluated nodes.
+        self.const_outputs = {}
+
+        # The node IDs which can be constant evaluated.
+        self.const_nodes = {
+            "krita_comfyui: KritaUiBoolean": KritaUi(ui_values, "boolean"),
+            "krita_comfyui: KritaUiCombo": KritaUi(ui_values, "combo"),
+            "krita_comfyui: KritaUiFloat": KritaUi(ui_values, "float"),
+            "krita_comfyui: KritaUiInt": KritaUi(ui_values, "int"),
+            "krita_comfyui: KritaUiLayerId": KritaUi(ui_values, "layer_id"),
+            "krita_comfyui: KritaUiString": KritaUi(ui_values, "string"),
+
+            "krita_comfyui: KritaCanvas": KritaCanvas(),
+            "krita_comfyui: KritaLayers": KritaLayers(),
+            "krita_comfyui: KritaSeed": KritaSeed(),
+
+            "krita_comfyui: KritaSelection": KritaSelection(),
+            "krita_comfyui: KritaSelectionBorder": KritaSelectionBorder(),
+            "krita_comfyui: KritaSelectionBounds": KritaSelectionBounds(),
+            "krita_comfyui: KritaSelectionFeather": KritaSelectionFeather(),
+            "krita_comfyui: KritaSelectionGrow": KritaSelectionGrow(),
+            "krita_comfyui: KritaSelectionInvert": KritaSelectionInvert(),
+            "krita_comfyui: KritaSelectionMask": KritaSelectionMask(),
+            "krita_comfyui: KritaSelectionShrink": KritaSelectionShrink(),
+            "krita_comfyui: KritaSelectionSmooth": KritaSelectionSmooth(),
+
+            "ComfySwitchNode": Switch(),
+        }
+
+
+    def bounds(self):
+        if self.bounds is None:
+            self.bounds = self.document.bounds()
+        return self.bounds
+
+
+    @staticmethod
+    def random_seed():
+        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1570
+        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_primitive.py#L52
+        return random.randint(0, sys.maxsize)
+
+
+    # Evaluates the link if the connected node has a constant value.
+    def evaluate_link(self, value):
+        # If it's a node link, then follow the link.
         if is_link(value):
-            try:
-                new_id = self.replaced_ids[value[0]]
-                return [new_id, value[1]]
-            except KeyError:
-                pass
+            node_id = value[0]
 
             try:
-                return self.replaced_links[(value[0], value[1])]
+                # If we've evaluated this node before, return the cached outputs.
+                outputs = self.const_outputs[node_id]
+
+            # We haven't evaluated this node before.
             except KeyError:
-                pass
+                node = self.json[node_id]
+                name = node["class_type"]
 
-        return value
+                try:
+                    const_node = self.const_nodes[name]
+
+                # The node isn't constant, that means it's a link to an old node,
+                # so we replace its ID with the new ID.
+                except KeyError:
+                    # TODO cache this in const_outputs somehow ?
+                    new_id = self.replaced_ids[node_id]
+                    value = [new_id, value[1]]
+                    return Link([value])
+
+                outputs = const_node.get_outputs(self, node_id, node)
+                self.const_outputs[node_id] = outputs
+
+            return outputs[value[1]]
+
+        else:
+            return Link([value])
 
 
+    def find_depth(self, node_id):
+        try:
+            max_depth = self.node_depths[node_id]
+
+        except KeyError:
+            max_depth = 0
+
+            node = self.json[node_id]
+
+            for value in node["inputs"].values():
+                if is_link(value):
+                    link_id = value[0]
+                    depth = self.find_depth(link_id)
+                    max_depth = max(max_depth, depth + 1)
+
+            self.node_depths[node_id] = max_depth
+
+        return max_depth
+
+
+    # Returns a graph which contains a copy of all the old nodes, except
+    # constant evaluated nodes have been removed and replaced with their
+    # constant outputs.
     def evaluate(self):
-        for id, node in self.json.items():
-            # We skip const nodes completely, they're evaluated by `evaluate_link`
-            if not node["class_type"] in self.const_nodes:
-                self.process_node(id, node)
+        copied_nodes = []
 
-        for id in self.node_ids:
+
+        for id, node in self.json.items():
+            class_type = node["class_type"]
+
+            # We skip const nodes completely, they're evaluated by `evaluate_link`
+            if not class_type in self.const_nodes:
+                depth = self.find_depth(id)
+
+                # We create a new node which is the same as the old node.
+                new_node = self.graph.node(class_type, **node["inputs"])
+
+                # We only process the copied nodes, any other nodes which are created
+                # by constant evaluation (images, lists, etc.) won't be touched.
+                copied_nodes.append((depth, new_node.id))
+
+                # We have to replace the old node ID with the new node ID.
+                self.replaced_ids[id] = new_node.id
+
+
+        # We evaluate the deepest nodes first, so that way if a Switch is
+        # encountered it can do proper dead code elimination of any
+        # branches that aren't taken.
+        copied_nodes.sort(lambda x: x[0], reversed=True)
+
+        print(copied_nodes)
+
+
+        # For all of the copied nodes, we have to constant-evaluate their
+        # inputs.
+        #
+        # We do this in a second pass because we need to evaluate them in
+        # the right order (deepest node first) and also we have to replace
+        # the old IDs with new IDs from replaced_ids.
+        for _, id in copied_nodes:
             node = self.graph.nodes[id]
 
             inputs = {}
 
             for key, value in node["inputs"].items():
-                inputs[key] = self.replace_input(value)
+                inputs[key] = self.evaluate_link(value).to_node(self.graph)
 
             node["inputs"] = inputs
+
 
         return self.graph

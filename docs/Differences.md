@@ -1,3 +1,6 @@
+This is a mostly comprehensive list of all the differences with [krita-ai-diffusion](https://github.com/Acly/krita-ai-diffusion).
+
+
 # UI
 
 ## New features
@@ -53,7 +56,21 @@
 
    * Layer groups (containing multiple images) are now accessible in custom workflows.
 
-   * The selection bounds are now accessible in custom workflows, which means you can now do custom cropping / padding / feathering.
+   * New nodes for the Krita selection:
+
+      * `Krita Selection: Border` creates a border around the selection.
+
+      * `Krita Selection: Bounds` gives you the x / y / width / height bounds of the selection. This allows you to do custom cropping based on the selection.
+
+      * `Krita Selection: Feather` feathers the selection.
+
+      * `Krita Selection: Grow` grows the selection.
+
+      * `Krita Selection: Invert` inverts the selection.
+
+      * `Krita Selection: Shrink` shrinks the selection.
+
+      * `Krita Selection: Smooth` smooths the selection.
 
 * UI data is saved much more robustly. No more losing your prompts or custom settings.
 
