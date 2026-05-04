@@ -1,3 +1,4 @@
+from krita import SliderSpinBox, DoubleSliderSpinBox
 import math
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QTextOption, QFontMetricsF
@@ -10,7 +11,7 @@ from PyQt6.QtWidgets import (
     QSlider,
     QMessageBox,
 )
-from ..util.qt import BlockSignals, LayoutManager, ComboBox
+from ..util.qt import BlockSignals, LayoutManager, ComboBox, BlockMouseWheel
 from ..util import number_of_lines, lerp, normalize, clamp
 
 
@@ -262,113 +263,116 @@ class UiRow(QWidget):
             self.layout = row
 
 
-# @TODO don't hardcode the amount of steps
-def step_size(minimum, maximum, step):
-    return int(max(abs(maximum - minimum) / step, 1.0) * 1000000.0)
-
 class UiFloat(QWidget):
-    def __init__(self, input, slider, tooltip, min, max, step, decimals, multiplier, suffix):
+    def __init__(self, input, slider, tooltip, min, max, step, decimals, multiplier, prefix, suffix):
         super().__init__()
 
         self.input = input
         self.min = min
         self.max = max
+        self.step = step
         self.decimals = decimals
         self.multiplier = multiplier
 
         if self.multiplier is None:
             self.multiplier = 1.0
 
-        self.steps = step_size(min, max, step)
-
         self.setToolTip(self.input.format_tooltip(tooltip))
 
         self.layout_manager = LayoutManager(self)
 
-        with self.layout_manager.row() as row:
-            if slider:
-                with row.slider() as widget:
-                    widget.setOrientation(Qt.Orientation.Horizontal)
-                    widget.setRange(0, self.steps)
-                    widget.setSingleStep(1000000)
-                    widget.setPageStep(1000000)
-                    widget.setValue(self.value_to_slider(self.input.get()))
-                    #widget.setTickInterval(1000000)
-                    #widget.setTickPosition(QSlider.TickPosition.TicksAbove)
-                    #widget.setMinimumHeight(self._slider.minimumSizeHint().height() + 4)
-                    widget.valueChanged.connect(self.on_slider_changed)
-                    self.slider_widget = widget
+        display_value = round(clamp(self.input.get(), self.min, self.max) * self.multiplier, self.decimals)
 
-                row.spacer(4)
+        # TODO maybe we don't need a LayoutManager ?
+        with self.layout_manager.column() as column:
+            if slider:
+                # This blocks the slider from receiving the mouse wheel event
+                self.block_wheel = BlockMouseWheel(self)
+
+                self.slider = DoubleSliderSpinBox()
+                self.slider.setParent(self)
+
+                self.slider.setFastSliderStep(self.step * self.multiplier)
+                self.slider.setRange(self.min * self.multiplier, self.max * self.multiplier, self.decimals)
+
+                with column.widget(self.slider.widget()) as widget:
+                    if prefix is not None:
+                        widget.setPrefix(prefix)
+
+                    if suffix is not None:
+                        widget.setSuffix(suffix)
+
+                    widget.installEventFilter(self.block_wheel)
+
+                    widget.setSingleStep(self.step * self.multiplier)
+                    widget.setValue(display_value)
+                    widget.draggingFinished.connect(self.on_drag_end)
+                    widget.valueChanged.connect(self.on_value_changed)
+                    self.value_widget = widget
 
             else:
-                self.slider_widget = None
+                self.block_wheel = None
+                self.slider = None
 
-            with row.float() as widget:
-                if suffix is not None:
-                    widget.setSuffix(suffix)
+                with column.float() as widget:
+                    if prefix is not None:
+                        widget.setPrefix(prefix)
 
-                widget.setRange(min * self.multiplier, max * self.multiplier)
-                widget.setSingleStep(step * self.multiplier)
-                widget.setDecimals(decimals)
-                widget.setValue(self.input.get() * self.multiplier)
-                widget.valueChanged.connect(self.on_value_changed)
-                self.value_widget = widget
+                    if suffix is not None:
+                        widget.setSuffix(suffix)
 
-
-    def slider_to_value(self, value):
-        if value == self.steps:
-            return self.max
-        elif value == 0:
-            return self.min
-        else:
-            value = lerp(float(value) / float(self.steps), self.min, self.max)
-            return round(value * self.multiplier, self.decimals) / self.multiplier
+                    widget.setRange(min * self.multiplier, max * self.multiplier)
+                    widget.setSingleStep(step * self.multiplier)
+                    widget.setDecimals(self.decimals)
+                    widget.setValue(display_value)
+                    widget.valueChanged.connect(self.on_value_changed)
+                    self.value_widget = widget
 
 
-    def value_to_slider(self, value):
-        if value == self.max:
-            return self.steps
-        elif value == self.min:
-            return 0
-        else:
-            return int(normalize(value, self.min, self.max) * float(self.steps))
+    def get_real_value(self):
+        value = round(self.value_widget.value(), self.decimals) / self.multiplier
+        return clamp(value, self.min, self.max)
 
 
-    def on_slider_changed(self, value):
-        assert self.slider_widget is not None
+    def clamp_to_step(self):
+        value = self.get_real_value()
 
         # Rounds to the nearest step
-        new_value = round(float(value) / 1000000.0) * 1000000
-        new_value = clamp(new_value, 0, self.steps)
+        new_value = round(value / self.step) * self.step
+
+        # The rounding is to prevent floating point rounding errors
+        # like 0.3 becoming 0.30000000000000004
+        # TODO make the rounding configurable
+        new_value = clamp(round(new_value, 10), self.min, self.max)
 
         if value != new_value:
             value = new_value
-            with BlockSignals(self.slider_widget):
-                self.slider_widget.setValue(value)
+            self.value_widget.setValue(round(value * self.multiplier, self.decimals))
 
-        value = self.slider_to_value(value)
-        value = clamp(value, self.min, self.max)
-
-        with BlockSignals(self.value_widget):
-            self.value_widget.setValue(value * self.multiplier)
-
-        self.input.set(value)
+        return value
 
 
-    def on_value_changed(self, value):
-        value = value / self.multiplier
-        value = clamp(value, self.min, self.max)
+    # Normally the valueChanged event handles clamping, but in the rare
+    # (impossible?) situation where the draggingFinished event triggers
+    # before the valueChanged event, we do some extra clamping in here.
+    def on_drag_end(self):
+        self.clamp_to_step()
 
-        if self.slider_widget is not None:
-            with BlockSignals(self.slider_widget):
-                self.slider_widget.setValue(self.value_to_slider(value))
+
+    def on_value_changed(self, _):
+        # We want to clamp the value while dragging, but the draggingFinished event
+        # only triggers when the dragging is ended, so we have to clamp in here.
+        if self.slider is not None and self.slider.isDragging():
+            with BlockSignals(self.value_widget):
+                value = self.clamp_to_step()
+        else:
+            value = self.get_real_value()
 
         self.input.set(value)
 
 
 class UiInt(QWidget):
-    def __init__(self, input, slider, tooltip, min, max, step, suffix):
+    def __init__(self, input, slider, tooltip, min, max, step, prefix, suffix):
         super().__init__()
 
         self.input = input

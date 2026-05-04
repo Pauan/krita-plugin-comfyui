@@ -428,15 +428,6 @@ class ImageWidget(QListWidget):
         return thumbnail.to_icon()
 
 
-    def apply_image(self, document, image):
-        activeLayer = document.active_layer()
-        parent = activeLayer.parent
-
-        layer = Layer.fromImage(document, image["name"], image["image"], image["x"], image["y"])
-
-        parent.insert_child(layer, activeLayer)
-
-
     def show_preview(self, image):
         document = self.document.current()
 
@@ -561,7 +552,13 @@ class ImageWidget(QListWidget):
 
         if document is not None:
             for image in self.apply_selected_images(document):
-                self.apply_image(document, image)
+                layer = Layer.fromImage(document, image["name"], image["image"], image["x"], image["y"])
+
+                layer.move_to_top(document.root_layer())
+
+                #activeLayer = document.active_layer()
+                #parent = activeLayer.parent
+                #parent.insert_child(layer, activeLayer)
 
 
     def apply_existing_layer(self):
@@ -800,7 +797,7 @@ class ComfyUIOutputWidget(DockWidget):
 
             bytes = round(bytes, 2)
 
-            self.setWindowTitle(f"ComfyUI Outputs  ({bytes} {suffix})")
+            self.setWindowTitle(f"ComfyUI Outputs  ({bytes:.999999999g} {suffix})")
 
 
     def canvasChanged(self, canvas):

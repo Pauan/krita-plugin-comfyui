@@ -20,6 +20,8 @@
 
 * The UI is smaller and cleaner.
 
+* The sliders now use Krita sliders, which are a lot nicer.
+
 * The layer selection widget is a lot nicer.
 
 * The Outputs are automatically organized into separate batches.

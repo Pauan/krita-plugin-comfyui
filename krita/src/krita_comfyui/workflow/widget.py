@@ -209,6 +209,7 @@ class WorkflowWidget(QWidget):
                     min=info.get("min", -2147483648),
                     max=info.get("max", 2147483647),
                     step=info.get("step", 1),
+                    prefix=info.get("prefix", None),
                     suffix=info.get("suffix", None),
                 ))
 
@@ -225,6 +226,7 @@ class WorkflowWidget(QWidget):
                     max=info.get("max", 1.0),
                     step=info.get("step", 0.01),
                     multiplier=info.get("multiplier", None),
+                    prefix=info.get("prefix", None),
                     suffix=info.get("suffix", None),
                     decimals=info.get("decimals", 2),
                 ))
@@ -242,6 +244,7 @@ class WorkflowWidget(QWidget):
                     max=1.0,
                     step=info.get("step", 0.01),
                     multiplier=100.0,
+                    prefix=info.get("prefix", None),
                     suffix="%",
                     decimals=info.get("decimals", 0),
                 ))

@@ -1,6 +1,6 @@
 import re
 import math
-from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, QSize, Qt
+from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import (
     QToolButton,
@@ -40,6 +40,9 @@ class ComboBox(QComboBox):
     def __init__(self, *args):
         super().__init__(*args)
 
+        self.block_wheel = BlockMouseWheel(self)
+        self.installEventFilter(self.block_wheel)
+
         self.setEditable(True)
         self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self.setDuplicatesEnabled(True)
@@ -53,11 +56,6 @@ class ComboBox(QComboBox):
         completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
 
         self.setCompleter(completer)
-
-
-    # Disables mouse wheel
-    def wheelEvent(self, event):
-        event.ignore()
 
 
     # Resizes the dropdown so it fits all of the items
@@ -82,22 +80,38 @@ class ComboBox(QComboBox):
         view.setMinimumWidth(icon_size + column_width + scrollbar_width)
 
 
+# This causes the mouse wheel event to be blocked, but only when Shift / Alt / Ctrl are not being pressed.
+class BlockMouseWheel(QObject):
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Wheel:
+            modifiers = event.modifiers()
+
+            if modifiers == Qt.KeyboardModifier.NoModifier:
+                event.ignore()
+                return True
+
+        return super().eventFilter(obj, event)
+
+
 class Slider(QSlider):
-    # Disables mouse wheel
-    def wheelEvent(self, event):
-        event.ignore()
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.block_wheel = BlockMouseWheel(self)
+        self.installEventFilter(self.block_wheel)
 
 
 class SpinBox(QSpinBox):
-    # Disables mouse wheel
-    def wheelEvent(self, event):
-        event.ignore()
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.block_wheel = BlockMouseWheel(self)
+        self.installEventFilter(self.block_wheel)
 
 
 class DoubleSpinBox(QDoubleSpinBox):
-    # Disables mouse wheel
-    def wheelEvent(self, event):
-        event.ignore()
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.block_wheel = BlockMouseWheel(self)
+        self.installEventFilter(self.block_wheel)
 
 
 # Resizes to fit the detail text better
