@@ -223,7 +223,7 @@ class KritaSelectionFeather(io.ComfyNode):
             inputs=[
                 Selection.Input("selection"),
                 io.Int.Input("amount", tooltip="Radius for feathering the selection."),
-                io.Combo.Input("mode", options=["outside", "inside"], default="outside", tooltip="Whether to feather outside or inside the selection."),
+                io.Combo.Input("mode", options=["outside", "inside", "both"], default="outside", tooltip="Whether to feather outside or inside the selection."),
             ],
             outputs=[
                 Selection.Output(display_name="selection"),
@@ -247,6 +247,7 @@ class KritaSelectionBorder(io.ComfyNode):
                 Selection.Input("selection"),
                 io.Int.Input("x", tooltip="X width of the border."),
                 io.Int.Input("y", tooltip="Y height of the border."),
+                io.Combo.Input("mode", options=["outside", "inside", "both"], default="outside", tooltip="Whether to border outside or inside the selection."),
             ],
             outputs=[
                 Selection.Output(display_name="selection"),
@@ -254,7 +255,7 @@ class KritaSelectionBorder(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, selection, x, y) -> io.NodeOutput:
+    def execute(cls, selection, x, y, mode) -> io.NodeOutput:
         raise RuntimeError("Workflow must be run from Krita.")
 
 

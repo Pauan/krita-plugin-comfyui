@@ -220,19 +220,49 @@ class Selection:
         # TODO investigate the edgeLock argument
         self._selection.shrink(horizontal, vertical, False)
 
-    def feather(self, radius):
-        # Stupid hack needed because Krita feathers both inside and outside the selection
+
+    def feather_outside(self, radius):
+        # Hack needed because Krita feathers both inside and outside the selection
+        half_grow = round(radius / 2)
+        self.grow(half_grow, half_grow)
+
+        # When Krita feathers a selection, it sometimes feathers a tiny
+        # bit more than it's supposed to, so we compensate by feathering
+        # a tiny bit less than the desired amount.
+        half_feather = max(1, half_grow - 1)
+        self._selection.feather(half_feather)
+
+    # TODO this is off by 1 pixel when the radius is an odd number
+    def feather_inside(self, radius):
+        # Hack needed because Krita feathers both inside and outside the selection
         half = round(radius / 2)
         self.shrink(half, half)
         self._selection.feather(half)
 
+    def feather_both(self, radius):
+        self._selection.feather(radius)
+
+
     # TODO this is off by 1 pixel
-    def border(self, horizontal, vertical):
-        # Stupid hack needed because Krita borders both inside and outside the selection
-        half_horizontal = round(horizontal / 2)
-        half_vertical = round(vertical / 2)
-        self.grow(half_horizontal, half_vertical)
-        self._selection.border(half_horizontal, half_vertical)
+    def border_outside(self, x, y):
+        # Hack needed because Krita borders both inside and outside the selection
+        half_x = round(x / 2)
+        half_y = round(y / 2)
+        self.grow(half_x, half_y)
+        self._selection.border(half_x, half_y)
+
+    # TODO this is off by 1 pixel
+    def border_inside(self, x, y):
+        # Hack needed because Krita borders both inside and outside the selection
+        half_x = round(x / 2)
+        half_y = round(y / 2)
+        self.shrink(max(0, half_x - 1), max(0, half_y - 1))
+        self._selection.border(half_x, half_y)
+
+    # TODO this is off by 1 pixel
+    def border_both(self, x, y):
+        self._selection.border(x, y)
+
 
     def mask(self, bounds):
         bytes = self._selection.pixelData(bounds.x, bounds.y, bounds.width, bounds.height)

@@ -113,10 +113,11 @@ class KritaSelectionBorder:
         selection = workflow.evaluate_link(inputs["selection"])
         x = workflow.evaluate_link(inputs["x"])
         y = workflow.evaluate_link(inputs["y"])
+        mode = workflow.evaluate_link(inputs["mode"])
 
         outputs = []
 
-        for selection, x, y in zip_inputs(selection, x, y):
+        for selection, x, y, mode in zip_inputs(selection, x, y, mode):
             assert isinstance(selection, Selection)
 
             if not isinstance(x, int):
@@ -128,11 +129,23 @@ class KritaSelectionBorder:
             if x == 0 and y == 0:
                 outputs.append(selection)
 
-            else:
+            elif mode == "outside":
                 new_selection = selection.copy()
-                new_selection.border(x, y)
-                #new_selection.subtract(selection)
+                new_selection.border_outside(x, y)
                 outputs.append(new_selection)
+
+            elif mode == "inside":
+                new_selection = selection.copy()
+                new_selection.border_inside(x, y)
+                outputs.append(new_selection)
+
+            elif mode == "both":
+                new_selection = selection.copy()
+                new_selection.border_both(x, y)
+                outputs.append(new_selection)
+
+            else:
+                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nmode must outside, inside, or both")
 
         return (
             Link(outputs),
@@ -191,12 +204,7 @@ class KritaSelectionFeather:
 
             elif mode == "outside":
                 new_selection = selection.copy()
-                new_selection.grow(amount, amount)
-
-                # When Krita feathers a selection, it sometimes feathers a tiny
-                # bit more than it's supposed to, so we compensate by feathering
-                # a tiny bit less than the desired amount.
-                new_selection.feather(max(min(2, amount), amount - 2))
+                new_selection.feather_outside(amount)
 
                 # This guarantees that the original selection will always be
                 # white. This prevents the feathering from bleeding into the
@@ -206,11 +214,16 @@ class KritaSelectionFeather:
 
             elif mode == "inside":
                 new_selection = selection.copy()
-                new_selection.feather(amount)
+                new_selection.feather_inside(amount)
+                outputs.append(new_selection)
+
+            elif mode == "both":
+                new_selection = selection.copy()
+                new_selection.feather_both(amount)
                 outputs.append(new_selection)
 
             else:
-                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\nmode must outside or inside")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\nmode must outside, inside, or both")
 
         return (
             Link(outputs),
