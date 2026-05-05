@@ -72,6 +72,8 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
       * `Krita Selection: Smooth` smooths the selection.
 
+   * New `Krita Debug` node which makes it easier to debug your workflow.
+
 * UI data is saved much more robustly. No more losing your prompts or custom settings.
 
 * Much more powerful UI system for creating custom workflows.

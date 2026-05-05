@@ -1,6 +1,12 @@
-import json
 from comfy_api.latest import io
-from .util import timestamp, decode_image, decode_mask, encode_image
+from comfy_execution.graph_utils import GraphBuilder
+from .util import timestamp, decode_image, decode_mask, encode_image, serialize_any, graph_list
+
+
+def always_execute():
+    # Hack that causes ComfyUI to always execute the node
+    # https://github.com/Comfy-Org/ComfyUI/discussions/12546
+    return float("nan")
 
 
 @io.comfytype(io_type="KRITA_LAYER_ID")
@@ -375,6 +381,10 @@ You can use the following special syntax:
         )
 
     @classmethod
+    def fingerprint_inputs(cls, text):
+        return always_execute()
+
+    @classmethod
     def execute(cls, images, x, y, name) -> io.NodeOutput:
         def lookup(list, index):
             return list[min(index, len(list) - 1)]
@@ -431,22 +441,96 @@ class KritaText(io.ComfyNode):
         )
 
     @classmethod
+    def fingerprint_inputs(cls, text):
+        return always_execute()
+
+    @classmethod
     def execute(cls, text, name) -> io.NodeOutput:
-        output = ""
+        return io.NodeOutput(ui={"krita_comfyui_text": [{ "name": name, "text": serialize_any(text) }]})
 
-        if isinstance(text, str):
-            output = text
 
-        elif isinstance(text, (int, float, bool)):
-            output = str(text)
+class KritaDebug(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaDebug",
+            display_name="Krita Debug",
+            category="krita/debug",
+            description="Sends information to Krita for debugging.",
+            inputs=[
+                io.Image.Input("images", tooltip="Images that will be debugged.", lazy=True, optional=True),
+                io.Mask.Input("masks", tooltip="Masks that will be debugged.", lazy=True, optional=True),
+                io.AnyType.Input("text", tooltip="Will be converted into a string and sent to Krita.", lazy=True, optional=True),
 
-        elif text is not None:
+                io.Boolean.Input("enabled", default=False, tooltip="Whether to send debug data or not."),
+                io.Int.Input("x", default=0, tooltip="X position relative to the canvas.", lazy=True),
+                io.Int.Input("y", default=0, tooltip="Y position relative to the canvas.", lazy=True),
+                io.String.Input("name", default="", tooltip="Name that is used for the debug.", lazy=True),
+            ],
+            outputs=[],
+            is_input_list=True,
+            is_output_node=True,
+            enable_expand=True,
+        )
+
+    @classmethod
+    def fingerprint_inputs(cls, text):
+        return always_execute()
+
+    @classmethod
+    def check_lazy_status(cls, enabled, images=None, masks=None, text=None, x=None, y=None, name=None):
+        needed = []
+
+        def check_none(list):
             try:
-                output = json.dumps(text, indent=2)
-            except:
-                try:
-                    output = str(text)
-                except:
-                    output = "Text could not be serialized."
+                return any(x is None for x in list)
+            except TypeError:
+                return False
 
-        return io.NodeOutput(ui={"krita_comfyui_text": [{ "name": name, "text": output }]})
+        if any(enabled):
+            if images is not None and check_none(images):
+                needed.append("images")
+            if masks is not None and check_none(masks):
+                needed.append("masks")
+            if text is not None and check_none(text):
+                needed.append("text")
+            # TODO verify that check_none is needed
+            if x is None or check_none(x):
+                needed.append("x")
+            if y is None or check_none(y):
+                needed.append("y")
+            if name is None or check_none(name):
+                needed.append("name")
+
+        return needed
+
+    @classmethod
+    def execute(cls, enabled, x, y, name, images=None, masks=None, text=None) -> io.NodeOutput:
+        assert len(enabled) == 1
+        assert len(name) == 1
+
+        graph = GraphBuilder()
+
+        if enabled[0]:
+            if images is not None and len(images) > 0:
+                graph.node("krita_comfyui: KritaOutput",
+                    images=graph_list(graph, images),
+                    x=graph_list(graph, x),
+                    y=graph_list(graph, y),
+                    name=f"[DEBUG IMAGE] {name[0]} [%index%]"
+                )
+
+            if masks is not None and len(masks) > 0:
+                masks = graph.node("MaskToImage", mask=graph_list(graph, masks)).out(0)
+
+                graph.node("krita_comfyui: KritaOutput",
+                    images=masks,
+                    x=graph_list(graph, x),
+                    y=graph_list(graph, y),
+                    name=f"[DEBUG MASK] {name[0]} [%index%]"
+                )
+
+            if text is not None and len(text) > 0:
+                graph.node("krita_comfyui: KritaText", text="\n".join(serialize_any(x) for x in text), name=f"[DEBUG] {name[0]}")
+
+        return io.NodeOutput(None, expand=graph.finalize())

@@ -1,10 +1,57 @@
 import numpy as np
 import base64
+import math
 import torch
 import time
 import datetime
+import json
 from PIL import Image
 from io import BytesIO
+
+
+# https://stackoverflow.com/a/2189827/449477
+def digits(num):
+    if num == 0:
+        return 1
+    else:
+        return int(math.log10(num)) + 1
+
+
+# TODO move this into ComfyUI
+def graph_list(graph, items):
+    if len(items) == 1:
+        return items[0]
+
+    inputs = {}
+
+    # We pad the numbers so that they are sorted correctly
+    padding = digits(max(0, len(items) - 1))
+
+    for i, value in enumerate(items):
+        inputs["inputs.input" + str(i).zfill(padding)] = value
+
+    return graph.node("CreateList", **inputs).out(0)
+
+
+def serialize_any(text):
+    output = ""
+
+    if isinstance(text, str):
+        output = text
+
+    elif isinstance(text, (int, float, bool)):
+        output = str(text)
+
+    elif text is not None:
+        try:
+            output = json.dumps(text, indent=2)
+        except:
+            try:
+                output = str(text)
+            except:
+                output = "Text could not be serialized."
+
+    return output
 
 
 # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1741-L1750

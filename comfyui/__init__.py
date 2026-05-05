@@ -18,6 +18,9 @@ class KritaComfyui(ComfyExtension):
             nodes.KritaSeed,
             nodes.KritaText,
 
+            # krita/debug
+            nodes.KritaDebug,
+
             # krita/ui
             ui.KritaUiBoolean,
             ui.KritaUiCombo,
