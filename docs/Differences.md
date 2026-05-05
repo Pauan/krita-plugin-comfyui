@@ -84,6 +84,12 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * Sending text to Krita is nicer, and it auto-sorts based on the name.
 
+* It pre-compiles the workflow before sending it to ComfyUI. This allows it to do constant evaluation and dead code elimination.
+
+   That means if you have a node which is only sometimes evaluated (like with `Switch`) then it will only be evaluated if needed.
+
+   This is really useful for enabling / disabling mask regions, controlnets, debug output, etc.
+
 
 # Code quality
 

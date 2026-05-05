@@ -72,3 +72,36 @@ class Graph:
 
     def serialize(self):
         return self.nodes
+
+
+    def debug(self):
+        output = {}
+
+        for key, value in self.nodes.items():
+            match value["class_type"]:
+                case "krita_comfyui: LoadImageBase64":
+                    inputs = value["inputs"]
+                    output[key] = {
+                        "class_type": "krita_comfyui: LoadImageBase64",
+                        "inputs": {
+                            "base64": "...",
+                            "width": inputs["width"],
+                            "height": inputs["height"],
+                        },
+                    }
+
+                case "krita_comfyui: LoadMaskBase64":
+                    inputs = value["inputs"]
+                    output[key] = {
+                        "class_type": "krita_comfyui: LoadMaskBase64",
+                        "inputs": {
+                            "base64": "...",
+                            "width": inputs["width"],
+                            "height": inputs["height"],
+                        },
+                    }
+
+                case _:
+                    output[key] = value
+
+        return output

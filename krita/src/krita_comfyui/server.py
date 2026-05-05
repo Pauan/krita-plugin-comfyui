@@ -677,7 +677,7 @@ class ComfyUIClient(QObject):
 
 
     def execute_graph(self, graph):
-        util.log_debug_json(graph.serialize())
+        util.log_debug_json(graph.debug())
 
         graph_id = str(self.graph_id)
 
