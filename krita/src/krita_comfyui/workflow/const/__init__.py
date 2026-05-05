@@ -14,6 +14,23 @@ def zip_inputs(*inputs):
     yield from zip_lists([x.values for x in inputs])
 
 
+def check_booleans(inputs):
+    all_true = True
+    all_false = True
+
+    for condition in inputs:
+        if isinstance(condition, bool):
+            if condition:
+                all_false = False
+            else:
+                all_true = False
+        else:
+            all_true = False
+            all_false = False
+
+    return (all_true, all_false)
+
+
 class WorkflowError(RuntimeError):
     pass
 

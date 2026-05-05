@@ -37,6 +37,7 @@ class WorkflowGraph:
             "krita_comfyui: KritaUiString": krita.KritaUi(ui_values, "string"),
 
             "krita_comfyui: KritaCanvas": krita.KritaCanvas(),
+            "krita_comfyui: KritaDebug": krita.KritaDebug()
             "krita_comfyui: KritaLayers": krita.KritaLayers(),
             "krita_comfyui: KritaSeed": krita.KritaSeed(),
 

@@ -1,4 +1,4 @@
-from . import WorkflowError, Link, zip_inputs
+from . import WorkflowError, Link, zip_inputs, check_booleans
 
 
 class UiLink(Link):
@@ -52,6 +52,32 @@ class KritaCanvas:
             )
 
         return self.canvas
+
+
+class KritaDebug:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        enabled = workflow.evaluate_link(inputs["enabled"])
+
+        (all_true, all_false) = check_booleans(enabled.values)
+
+        # If it's disabled, don't evaluate anything.
+        if all_false and not all_true:
+            return ()
+
+        else:
+            outputs = {}
+
+            for key, value in inputs.items():
+                if key == "enabled":
+                    outputs[key] = enabled.to_node(workflow.graph)
+                else:
+                    outputs[key] = workflow.evaluate_link(value).to_node(workflow.graph)
+
+            workflow.graph.node("krita_comfyui: KritaDebug", **outputs)
+
+            return ()
 
 
 class KritaLayers:

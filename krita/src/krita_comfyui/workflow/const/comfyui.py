@@ -1,4 +1,4 @@
-from . import Link, zip_inputs
+from . import Link, zip_inputs, check_booleans
 
 
 class Primitive:
@@ -13,29 +13,30 @@ class Switch:
         inputs = node["inputs"]
 
         switch = workflow.evaluate_link(inputs["switch"])
-        on_true = workflow.evaluate_link(inputs["on_true"])
-        on_false = workflow.evaluate_link(inputs["on_false"])
 
-        outputs = []
+        (all_true, all_false) = check_booleans(switch.values)
 
-        for (switch, on_true, on_false) in zip_inputs(switch, on_true, on_false):
-            if isinstance(switch, bool):
-                if switch:
-                    outputs.append(on_true)
-                else:
-                    outputs.append(on_false)
+        if all_true and not all_false:
+            return (
+                workflow.evaluate_link(inputs["on_true"]),
+            )
 
-            # We don't know if switch is true or false, so we create
-            # a node and determine the branch at runtime.
-            else:
-                outputs.append(workflow.graph.node("ComfySwitchNode",
-                    switch=switch,
-                    # Even though we don't know which branch to take,
-                    # the branches are still constant-evaluated.
-                    on_false=on_false,
-                    on_true=on_true,
-                ).out(0))
+        elif all_false and not all_true:
+            return (
+                workflow.evaluate_link(inputs["on_false"]),
+            )
 
-        return (
-            Link(outputs),
-        )
+        # We don't know if switch is true or false, so we create
+        # a node and determine the branch at runtime.
+        else:
+            output = workflow.graph.node("ComfySwitchNode",
+                switch=switch.to_node(workflow.graph),
+                # Even though we don't know which branch to take,
+                # we can still constant-evaluate the branches.
+                on_false=workflow.evaluate_link(inputs["on_false"]).to_node(workflow.graph),
+                on_true=workflow.evaluate_link(inputs["on_true"]).to_node(workflow.graph),
+            ).out(0)
+
+            return (
+                Link([output]),
+            )
