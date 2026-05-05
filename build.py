@@ -18,7 +18,11 @@ def bundle_package(wheel, out_dir, name, zip_name, include):
         zip.extractall(members=files, path=out_dir)
 
     # Build dependencies
-    subprocess.run(["uv", "pip", "install", "--target", out_dir / name / "site-packages", wheel], cwd=root, check=True)
+    subprocess.run([
+        "uv", "pip", "install",
+        "--target", out_dir / name / "site-packages", wheel,
+        "--excludes", "exclude-packages.txt",
+    ], cwd=root, check=True)
 
     for path in include:
         shutil.copy(path, out_dir / Path(path).name)

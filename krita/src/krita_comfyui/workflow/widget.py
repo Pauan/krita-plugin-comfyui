@@ -218,6 +218,7 @@ class WorkflowWidget(QWidget):
                     enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     label=info.get("label", None),
+                    style=info.get("style", "switch"),
                 ))
 
 

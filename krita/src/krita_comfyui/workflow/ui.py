@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 from ..util.qt import BlockSignals, LayoutManager, ComboBox, BlockMouseWheel
+from ..util.qt.toggle import Toggle
 from ..util import number_of_lines, lerp, normalize, clamp
 
 
@@ -133,8 +134,8 @@ class UiCombo(ComboBox):
             self.resize_dropdown()
 
 
-class UiBoolean(QCheckBox):
-    def __init__(self, input, enabled_if, tooltip, label):
+class UiBoolean(QWidget):
+    def __init__(self, input, enabled_if, tooltip, label, style):
         super().__init__()
 
         self.input = input
@@ -144,33 +145,57 @@ class UiBoolean(QCheckBox):
             self.update_enabled()
             self.enabled_if.add_listener(self.update_enabled)
 
-        self.setChecked(self.input.get())
+        self.layout_manager = LayoutManager(self)
 
-        self.setStyleSheet("""
-            QCheckBox {
-                spacing: 4px;
-            }
-            QCheckBox::indicator {
-                width: 24px;
-                height: 24px;
-            }
-        """)
+        with self.layout_manager.row() as row:
+            if style == "switch":
+                with row.widget(Toggle()) as checkbox:
+                    self.checkbox = checkbox
+                    checkbox.checkStateChanged.connect(self.on_changed)
+                    checkbox.setChecked(self.input.get())
 
+                if label is not None:
+                    row.label(text=label)
+
+            elif style == "checkbox":
+                with row.widget(QCheckBox()) as checkbox:
+                    self.checkbox = checkbox
+                    checkbox.checkStateChanged.connect(self.on_changed)
+                    checkbox.setChecked(self.input.get())
+                    checkbox.setStyleSheet("""
+                        QCheckBox {
+                            spacing: 4px;
+                        }
+                        QCheckBox::indicator {
+                            width: 24px;
+                            height: 24px;
+                        }
+                    """)
+
+                    if label is not None:
+                        checkbox.setText(label)
+
+            else:
+                raise RuntimeError("style must be switch or checkbox")
+
+        self.setToolTip(self.input.format_tooltip(tooltip))
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
-        if label is not None:
-            self.setText(label)
 
-        self.checkStateChanged.connect(self.on_changed)
+    # TODO this should be mouseClickEvent but it doesn't exist!
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.checkbox.setChecked(not self.checkbox.isChecked())
+        super().mousePressEvent(event)
 
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip(self.input.format_tooltip(tooltip))
 
     def update_enabled(self):
-        self.setEnabled(self.enabled_if.is_enabled())
+        self.checkbox.setEnabled(self.enabled_if.is_enabled())
+
 
     def on_changed(self):
-        self.input.set(self.isChecked())
+        self.input.set(self.checkbox.isChecked())
 
 
 class UiString(QLineEdit):
