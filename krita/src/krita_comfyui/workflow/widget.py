@@ -246,7 +246,7 @@ class WorkflowWidget(QWidget):
                     multiplier=100.0,
                     prefix=info.get("prefix", None),
                     suffix="%",
-                    decimals=info.get("decimals", 0),
+                    decimals=0,
                 ))
 
 

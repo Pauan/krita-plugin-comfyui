@@ -533,7 +533,7 @@ class ComfyUIClient(QObject):
 
 
     def on_websocket_message(self, message):
-        util.log_debug_json(message)
+        #util.log_debug_json(message)
 
         if message["type"] == "execution_start":
             self.on_prompt_executing(message["data"]["prompt_id"])
@@ -687,6 +687,8 @@ class ComfyUIClient(QObject):
 
 
     def execute_graph(self, graph):
+        util.log_debug_json(graph.serialize())
+
         graph_id = str(self.graph_id)
 
         self.graph_id += 1

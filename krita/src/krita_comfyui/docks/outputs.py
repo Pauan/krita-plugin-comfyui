@@ -85,6 +85,7 @@ class ImageStorage(QObject):
             )
 
             self.metadata[uuid] = {
+                "format": "rgba",
                 "width": self.thumbnail_size,
                 "height": self.thumbnail_size,
                 "x": 0,
@@ -166,6 +167,7 @@ class ImageStorage(QObject):
         self.total_bytes += image.byte_size()
 
         metadata = {
+            "format": "rgba",
             "width": info["width"],
             "height": info["height"],
             "x": info["x"],
