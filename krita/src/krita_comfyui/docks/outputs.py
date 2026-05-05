@@ -812,11 +812,11 @@ class ComfyUIOutputWidget(DockWidget):
             texts = []
 
             for output in info.outputs:
-                if output.node_name == "krita_comfyui: KritaOutput":
-                    images.append(output.value["krita_comfyui_output_images"])
+                if "krita_comfyui_output_images" in output:
+                    images.append(output["krita_comfyui_output_images"])
 
-                elif output.node_name == "krita_comfyui: KritaText":
-                    texts.extend(output.value["krita_comfyui_text"])
+                if "krita_comfyui_text" in output:
+                    texts.extend(output["krita_comfyui_text"])
 
             max_len = max(len(batch) for batch in images)
 

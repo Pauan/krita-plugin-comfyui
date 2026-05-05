@@ -102,6 +102,26 @@ class UiCombo(ComboBox):
             self.resize_dropdown()
 
 
+class UiBoolean(QCheckBox):
+    def __init__(self, input, tooltip, label):
+        super().__init__()
+
+        self.input = input
+
+        self.setChecked(self.input.get())
+
+        if label is not None:
+            self.setText(label)
+
+        self.checkStateChanged.connect(self.on_changed)
+
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip(self.input.format_tooltip(tooltip))
+
+    def on_changed(self):
+        self.input.set(self.isChecked())
+
+
 class UiString(QLineEdit):
     def __init__(self, input, placeholder, tooltip):
         super().__init__()

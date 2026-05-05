@@ -11,7 +11,7 @@ from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
 from .graph import WorkflowError
-from .ui import UiLayerId, UiCombo, UiInt, UiFloat, UiString, UiStringMultiline, UiGroup, UiRow, UiList
+from .ui import UiLayerId, UiCombo, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList
 
 
 class WorkflowSelector(ComboBox):
@@ -195,6 +195,17 @@ class WorkflowWidget(QWidget):
                     )
 
                 parent.widget(widget)
+
+
+            case "boolean":
+                input = workflow.input(info["id"])
+                self.ui_inputs.append(input)
+
+                parent.widget(UiBoolean(
+                    input,
+                    tooltip=info.get("tooltip", None),
+                    label=info.get("label", None),
+                ))
 
 
             case "int":

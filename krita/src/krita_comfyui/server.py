@@ -131,11 +131,6 @@ class GraphState(Enum):
             return Krita.icon("dialog-ok")
 
 
-class GraphOutput:
-    def __init__(self, node_name, value):
-        self.node_name = node_name
-        self.value = value
-
 class GraphInfo:
     def __init__(self, graph_id, progress, state, error, outputs):
         self.graph_id = graph_id
@@ -230,7 +225,7 @@ class Prompt:
         self.graph_id = graph_id
         self.graph = graph
         self.error = None
-        self.outputs = {}
+        self.outputs = []
 
         serialized = graph.serialize()
 
@@ -249,27 +244,22 @@ class Prompt:
 
     def cancel(self):
         self.state = GraphState.Cancelled
-        self.outputs = {}
+        self.outputs = []
 
 
     def set_error(self, error):
         self.state = GraphState.Error
         self.error = error
-        self.outputs = {}
+        self.outputs = []
 
 
     def graph_info(self):
-        outputs = []
-
-        for id, value in self.outputs.items():
-            outputs.append(GraphOutput(self.graph.nodes[id]["class_type"], value))
-
         if self.state.is_ended():
             progress = 1.0
         else:
             progress = self.progress.percent()
 
-        return GraphInfo(self.graph_id, progress, self.state, self.error, outputs)
+        return GraphInfo(self.graph_id, progress, self.state, self.error, self.outputs.copy())
 
 
     # Returns a fresh Prompt with the same graph.
@@ -501,12 +491,12 @@ class ComfyUIClient(QObject):
                 self.graph_changed.emit(prompt.graph_info())
 
 
-    def on_prompt_executed(self, prompt_id, node_id, output):
+    def on_prompt_executed(self, prompt_id, output):
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
         if prompt is not None and prompt.state.is_running():
-            prompt.outputs[node_id] = output
+            prompt.outputs.append(output)
             self.graph_changed.emit(prompt.graph_info())
 
 
@@ -551,7 +541,7 @@ class ComfyUIClient(QObject):
             output = data.get("output", None)
 
             if output is not None:
-                self.on_prompt_executed(data["prompt_id"], data["node"], output)
+                self.on_prompt_executed(data["prompt_id"], output)
 
         elif message["type"] == "execution_success":
             self.on_prompt_finished(message["data"]["prompt_id"])
