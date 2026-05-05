@@ -50,6 +50,11 @@ class WorkflowGraph:
             "krita_comfyui: KritaSelectionShrink": selection.KritaSelectionShrink(),
             "krita_comfyui: KritaSelectionSmooth": selection.KritaSelectionSmooth(),
 
+            "PrimitiveString": comfyui.Primitive(),
+            "PrimitiveStringMultiline": comfyui.Primitive(),
+            "PrimitiveInt": comfyui.Primitive(),
+            "PrimitiveFloat": comfyui.Primitive(),
+            "PrimitiveBoolean": comfyui.Primitive(),
             "ComfySwitchNode": comfyui.Switch(),
         }
 

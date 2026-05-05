@@ -1,6 +1,13 @@
 from . import Link, zip_inputs
 
 
+class Primitive:
+    def get_outputs(self, workflow, node_id, node):
+        return (
+            workflow.evaluate_link(node["inputs"]["value"]),
+        )
+
+
 class Switch:
     def get_outputs(self, workflow, node_id, node):
         inputs = node["inputs"]
