@@ -15,6 +15,7 @@ class KritaUiFloat(io.ComfyNode):
             ],
             outputs=[
                 io.Float.Output(display_name="float", is_output_list=True),
+                io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )
 
@@ -36,6 +37,7 @@ class KritaUiInt(io.ComfyNode):
             ],
             outputs=[
                 io.Int.Output(display_name="int", is_output_list=True),
+                io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )
 
@@ -57,6 +59,7 @@ class KritaUiBoolean(io.ComfyNode):
             ],
             outputs=[
                 io.Boolean.Output(display_name="boolean", is_output_list=True),
+                io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )
 
@@ -78,6 +81,7 @@ class KritaUiString(io.ComfyNode):
             ],
             outputs=[
                 io.String.Output(display_name="string", is_output_list=True),
+                io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )
 
@@ -99,7 +103,7 @@ class KritaUiLayerId(io.ComfyNode):
             ],
             outputs=[
                 LayerId.Output(display_name="layer_id", is_output_list=True),
-                io.Boolean.Output(display_name="has_value", is_output_list=True, tooltip="Whether the layer selector has a value."),
+                io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )
 
@@ -121,7 +125,7 @@ class KritaUiCombo(io.ComfyNode):
             ],
             outputs=[
                 io.Combo.Output(display_name="combo", is_output_list=True),
-                io.Boolean.Output(display_name="has_value", is_output_list=True, tooltip="Whether the combo box has a value."),
+                io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )
 

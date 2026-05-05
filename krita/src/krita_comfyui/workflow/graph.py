@@ -25,10 +25,12 @@ class NormalOutputs:
 
 
 class WorkflowGraph:
-    def __init__(self, document, json, seed, ui_values):
+    def __init__(self, document, json, seed, ui_values, defaults):
         self.document = document
         self.json = json
         self.seed = seed
+        self.ui_values = ui_values
+        self.defaults = defaults
 
         self.graph = Graph()
 
@@ -39,12 +41,12 @@ class WorkflowGraph:
 
         # The node IDs which can be constant evaluated.
         self.const_nodes = {
-            "krita_comfyui: KritaUiBoolean": krita.KritaUi(ui_values, "boolean"),
-            "krita_comfyui: KritaUiCombo": krita.KritaUi(ui_values, "combo"),
-            "krita_comfyui: KritaUiFloat": krita.KritaUi(ui_values, "float"),
-            "krita_comfyui: KritaUiInt": krita.KritaUi(ui_values, "int"),
-            "krita_comfyui: KritaUiLayerId": krita.KritaUi(ui_values, "layer_id"),
-            "krita_comfyui: KritaUiString": krita.KritaUi(ui_values, "string"),
+            "krita_comfyui: KritaUiBoolean": krita.KritaUi("boolean"),
+            "krita_comfyui: KritaUiCombo": krita.KritaUi("combo"),
+            "krita_comfyui: KritaUiFloat": krita.KritaUi("float"),
+            "krita_comfyui: KritaUiInt": krita.KritaUi("int"),
+            "krita_comfyui: KritaUiLayerId": krita.KritaUi("layer_id"),
+            "krita_comfyui: KritaUiString": krita.KritaUi("string"),
 
             "krita_comfyui: KritaCanvas": krita.KritaCanvas(),
             "krita_comfyui: KritaDebug": krita.KritaDebug(),
@@ -68,6 +70,13 @@ class WorkflowGraph:
             "PrimitiveBoolean": comfyui.Primitive(),
             "ComfySwitchNode": comfyui.Switch(),
         }
+
+
+    def get_ui_values(self, id):
+        try:
+            return self.ui_values[id]
+        except KeyError:
+            raise WorkflowError(f"UI widget [{id}] not found")
 
 
     def bounds(self):

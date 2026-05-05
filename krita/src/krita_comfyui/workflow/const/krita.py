@@ -2,33 +2,36 @@ from . import WorkflowError, Link, zip_inputs, check_booleans
 
 
 class UiLink(Link):
-    def __init__(self, values, id):
+    def __init__(self, values, ids):
         super().__init__(values)
-        self.id = id
+        self.ids = ids
 
 
 # Evaluates a UI widget to a constant value
 class KritaUi:
-    def __init__(self, ui_values, type):
-        self.ui_values = ui_values
+    def __init__(self, type):
         self.type = type
 
-
-    def get_values(self, id):
-        id = f"{self.type}/{id}"
-        try:
-            return self.ui_values[id]
-        except KeyError:
-            raise WorkflowError(f"UI widget [{id}] not found")
-
+    def get_id(self, id):
+        return f"{self.type}/{id}"
 
     def get_outputs(self, workflow, node_id, node):
-        id = node["inputs"]["id"]
-        values = self.get_values(id)
+        ids = []
+        outputs = []
+        is_default = []
+
+        for id in workflow.evaluate_link(node["inputs"]["id"]).values:
+            id = self.get_id(id)
+            values = workflow.get_ui_values(id)
+            default = workflow.defaults[id]
+
+            ids.append(id)
+            outputs.extend(values)
+            is_default.extend(value == default for value in values)
 
         return (
-            UiLink(values, id),
-            UiLink([x != "" for x in values], id),
+            UiLink(outputs, ids),
+            UiLink(is_default, ids),
         )
 
 
@@ -160,7 +163,7 @@ class KritaLayers:
                 if error is None:
                     # TODO maybe raise the error immediately?
                     if isinstance(layer_id_link, UiLink):
-                        error = workflow.graph.error(f"Layer selector [{layer_id_link.id}] is empty")
+                        error = workflow.graph.error(f"Layer selector [{", ".join(layer_id_link.ids)}] is empty")
                     else:
                         error = workflow.graph.error(f"[#{node_id} Krita Layers]\nlayer_id is empty")
 

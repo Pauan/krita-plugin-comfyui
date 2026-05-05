@@ -1,6 +1,6 @@
 from krita import SliderSpinBox, DoubleSliderSpinBox
 import math
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QAction, QTextOption, QFontMetricsF
 from PyQt6.QtWidgets import (
     QWidget,
@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QCheckBox,
     QMessageBox,
+    QSizePolicy,
 )
 from ..util.qt import BlockSignals, LayoutManager, ComboBox, BlockMouseWheel
 from ..util import number_of_lines, lerp, normalize, clamp
@@ -109,6 +110,18 @@ class UiBoolean(QCheckBox):
         self.input = input
 
         self.setChecked(self.input.get())
+
+        self.setStyleSheet("""
+            QCheckBox {
+                spacing: 4px;
+            }
+            QCheckBox::indicator {
+                width: 24px;
+                height: 24px;
+            }
+        """)
+
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
         if label is not None:
             self.setText(label)

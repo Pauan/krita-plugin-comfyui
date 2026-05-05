@@ -318,7 +318,7 @@ class Workflow(QObject):
         return self.document is not None and self.id != "" and self.graph is not None
 
 
-    def to_graph(self, ui_values):
+    def to_graph(self, ui_values, defaults):
         if self.document is None:
             raise WorkflowError("Krita does not have an opened image")
 
@@ -331,10 +331,12 @@ class Workflow(QObject):
 
         print("Running graph")
         print(ui_values)
+        print(defaults)
 
         return WorkflowGraph(
             document=self.document,
             json=self.graph,
             seed=seed,
             ui_values=ui_values,
+            defaults=defaults,
         ).evaluate()

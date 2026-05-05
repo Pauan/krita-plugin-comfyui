@@ -361,9 +361,12 @@ class WorkflowWidget(QWidget):
 
     def run_workflow(self):
         ui_values = {}
+        defaults = {}
 
         # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
         for input in self.ui_inputs:
+            defaults[input.id] = input.default
+
             values = ui_values.get(input.id, None)
 
             if values is None:
@@ -373,7 +376,7 @@ class WorkflowWidget(QWidget):
             values.append(input.value)
 
         try:
-            graph = self.workflow.to_graph(ui_values)
+            graph = self.workflow.to_graph(ui_values, defaults)
 
         except WorkflowError as e:
             self.show_error(message=str(e))
