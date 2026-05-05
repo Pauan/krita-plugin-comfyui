@@ -63,6 +63,13 @@ class WorkflowGraph:
             "krita_comfyui: KritaSelectionShrink": selection.KritaSelectionShrink(),
             "krita_comfyui: KritaSelectionSmooth": selection.KritaSelectionSmooth(),
 
+            "Basic data handling: Boolean And": comfyui.Binary(bool, "input1", "input2", lambda x, y: x and y),
+            "Basic data handling: Boolean Nand": comfyui.Binary(bool, "input1", "input2", lambda x, y: not (x and y)),
+            "Basic data handling: Boolean Nor": comfyui.Binary(bool, "input1", "input2", lambda x, y: not (x or y)),
+            "Basic data handling: Boolean Not": comfyui.Unary(bool, "input", lambda x: not x),
+            "Basic data handling: Boolean Or": comfyui.Binary(bool, "input1", "input2", lambda x, y: x or y),
+            "Basic data handling: Boolean Xor": comfyui.Binary(bool, "input1", "input2", lambda x, y: x != y),
+
             "PrimitiveString": comfyui.Primitive(),
             "PrimitiveStringMultiline": comfyui.Primitive(),
             "PrimitiveInt": comfyui.Primitive(),

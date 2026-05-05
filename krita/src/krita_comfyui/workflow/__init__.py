@@ -231,7 +231,8 @@ class Workflow(QObject):
                 case "layer_id" | "combo" | "string": return ""
                 case "int": return 0
                 case "float" | "percentage": return 0.0
-                case "boolean" | "group": return False
+                case "boolean": return True
+                case "group": return False
                 case "list": return []
                 case _: raise RuntimeError(f"Unknown widget type {widget["type"]}")
 
