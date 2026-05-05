@@ -11,7 +11,7 @@ from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
 from .graph import WorkflowError
-from .ui import UiLayerId, UiCombo, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList
+from .ui import EnabledIf, UiLayerId, UiCombo, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList
 
 
 class WorkflowSelector(ComboBox):
@@ -144,6 +144,14 @@ class WorkflowWidget(QWidget):
     def add_widget(self, workflow, parent, info):
         info = self.get_node_metadata(info)
 
+        enabled_if = info.get("enabled_if", None)
+
+        if enabled_if is not None:
+            enabled_if = EnabledIf(
+                workflow.input(enabled_if["id"]),
+                enabled_if["value"],
+            )
+
         match info["type"]:
             case "layer_id":
                 input = workflow.input(info["id"])
@@ -151,6 +159,7 @@ class WorkflowWidget(QWidget):
 
                 widget = UiLayerId(
                     input,
+                    enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     layers=self.document.layers,
                 )
@@ -166,6 +175,7 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiCombo(
                     input,
+                    enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     values=info.get("values", []),
                 ))
@@ -180,6 +190,7 @@ class WorkflowWidget(QWidget):
                 if multiline:
                     widget = UiStringMultiline(
                         input,
+                        enabled_if=enabled_if,
                         tooltip=info.get("tooltip", None),
                         placeholder=info.get("placeholder", None),
                         background_color=info.get("background_color", None),
@@ -190,6 +201,7 @@ class WorkflowWidget(QWidget):
                 else:
                     widget = UiString(
                         input,
+                        enabled_if=enabled_if,
                         tooltip=info.get("tooltip", None),
                         placeholder=info.get("placeholder", None),
                     )
@@ -203,6 +215,7 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiBoolean(
                     input,
+                    enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     label=info.get("label", None),
                 ))
@@ -214,6 +227,7 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiInt(
                     input,
+                    enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
                     # 32-bit signed integer
@@ -229,8 +243,9 @@ class WorkflowWidget(QWidget):
                 input = workflow.input(info["id"])
                 self.ui_inputs.append(input)
 
-                parent.widget(widget = UiFloat(
+                parent.widget(UiFloat(
                     input,
+                    enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
                     min=info.get("min", 0.0),
@@ -249,6 +264,7 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiFloat(
                     input,
+                    enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", True),
                     min=0.0,
@@ -262,6 +278,8 @@ class WorkflowWidget(QWidget):
 
 
             case "group":
+                assert enabled_if is None
+
                 widget = UiGroup(
                     workflow.input(info["id"]),
                     title=info.get("title", ""),
@@ -274,6 +292,8 @@ class WorkflowWidget(QWidget):
 
 
             case "row":
+                assert enabled_if is None
+
                 widget = UiRow()
 
                 for child in info["children"]:
@@ -283,6 +303,8 @@ class WorkflowWidget(QWidget):
 
 
             case "list":
+                assert enabled_if is None
+
                 widget = UiList(
                     workflow.input_list(info["id"]),
 

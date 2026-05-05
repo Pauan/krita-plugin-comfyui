@@ -29,6 +29,15 @@ class Input:
         self.id = id
         self.default = default
         self.value = value
+        self.listeners = []
+
+
+    def add_listener(self, f):
+        self.listeners.append(f)
+
+    def notify_listeners(self):
+        for listener in self.listeners:
+            listener()
 
 
     def format_tooltip(self, tooltip):
@@ -45,6 +54,8 @@ class Input:
     def set(self, value):
         assert value is not None
 
+        old_value = self.value
+
         self.value = value
 
         try:
@@ -57,8 +68,13 @@ class Input:
             self.serialized[self.id] = value
             self.root.save()
 
+        if old_value != self.value:
+            self.notify_listeners()
+
 
     def reset_to_default(self):
+        old_value = self.value
+
         self.value = self.default
 
         try:
@@ -69,14 +85,24 @@ class Input:
 
         self.root.save()
 
+        if old_value != self.value:
+            self.notify_listeners()
+
 
 class InputListChild:
     def __init__(self, root, serialized):
         self.root = root
         self.serialized = serialized
+        self.inputs = {}
 
+    # TODO this doesn't reset the inputs when the root's metadata changes
     def input(self, id):
-        return Input(self.root, self.serialized, id)
+        try:
+            return self.inputs[id]
+        except KeyError:
+            input = Input(self.root, self.serialized, id)
+            self.inputs[id] = input
+            return input
 
     def input_list(self, id):
         return InputList(self.root, self.serialized, id)
@@ -140,6 +166,7 @@ class Workflow(QObject):
         super().__init__()
 
         self.settings = settings
+        self.inputs = {}
 
         self.id = ""
         self.document = None
@@ -153,11 +180,17 @@ class Workflow(QObject):
     # This doesn't reset any of the Inputs
     def clear(self):
         self.serialized = {}
+        self.inputs = {}
         self.save()
 
 
     def input(self, id):
-        return Input(self, self.serialized, id)
+        try:
+            return self.inputs[id]
+        except KeyError:
+            input = Input(self, self.serialized, id)
+            self.inputs[id] = input
+            return input
 
     def input_list(self, id):
         return InputList(self, self.serialized, id)
@@ -221,6 +254,7 @@ class Workflow(QObject):
 
     def update_metadata(self):
         self.metadata = {}
+        self.inputs = {}
 
         if self.layout is not None:
             # We look for every widget in the layout and get the default.
@@ -236,6 +270,8 @@ class Workflow(QObject):
 
     def update_serialized(self):
         assert self.id is not None
+
+        self.inputs = {}
 
         if self.id == "":
             self.serialized = {}
