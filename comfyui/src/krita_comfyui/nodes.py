@@ -317,6 +317,7 @@ class KritaSelectionBounds(io.ComfyNode):
             description="Retrieves the bounds of the Krita selection.",
             inputs=[
                 Selection.Input("selection"),
+                io.Int.Input("round_up", min=1, default=32, tooltip="Rounds up to the nearest multiple. Set to 1 to disable rounding."),
             ],
             outputs=[
                 io.Int.Output(display_name="x"),

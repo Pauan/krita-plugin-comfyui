@@ -82,16 +82,16 @@ class KritaSelectionBounds:
         inputs = node["inputs"]
 
         selection = workflow.evaluate_link(inputs["selection"])
+        round_up = workflow.evaluate_link(inputs["round_up"])
 
         x = []
         y = []
         width = []
         height = []
 
-        for selection in selection.values:
+        for selection, round_up in zip_inputs(selection, round_up):
             assert isinstance(selection, Selection)
-
-            bounds = selection.bounds().clamp_to_parent(workflow.bounds())
+            bounds = selection.bounds().round_up(workflow.bounds(), round_up)
             x.append(bounds.x)
             y.append(bounds.y)
             width.append(bounds.width)

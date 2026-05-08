@@ -5,6 +5,7 @@ from PyQt6 import sip
 from typing import NamedTuple
 from json import (dumps, loads)
 import numpy as np
+from . import clamp, round_to_multiple
 
 from PyQt6.QtCore import QObject, QByteArray, QSize, QRect, QBuffer, QUuid, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
@@ -121,29 +122,64 @@ class Bounds(NamedTuple):
     width: int
     height: int
 
+
     @staticmethod
     def from_qrect(qrect: QRect):
         return Bounds(qrect.x(), qrect.y(), qrect.width(), qrect.height())
-
 
     def to_qrect(self):
         return QRect(self.x, self.y, self.width, self.height)
 
 
+    def check_within_bounds(self, parent):
+        assert self.x >= parent.x
+        assert self.y >= parent.y
+        assert self.width >= 0
+        assert self.height >= 0
+        assert (self.x + self.width) <= (parent.x + parent.width)
+        assert (self.y + self.height) <= (parent.y + parent.height)
+        return self
+
+
+    def round_up(self, parent, multiple):
+        assert multiple >= 1
+
+        bounds = self.clamp_to_parent(parent)
+
+        if multiple > 1:
+            # Increases the bounds to the right and bottom
+            width = round_to_multiple(bounds.width, multiple)
+            height = round_to_multiple(bounds.height, multiple)
+
+            parent_right = parent.x + parent.width
+            parent_bottom = parent.y + parent.height
+
+            # Clamp if it goes outside of the parent
+            right = clamp(bounds.x + width, parent.x, parent_right)
+            bottom = clamp(bounds.y + height, parent.y, parent_bottom)
+
+            # If the bounds was clamped, increases the bounds to the left and top
+            left = clamp(right - width, parent.x, parent_right)
+            top = clamp(bottom - height, parent.y, parent_bottom)
+
+            assert right >= left
+            assert bottom >= top
+
+            bounds = Bounds(left, top, right - left, bottom - top).check_within_bounds(parent)
+
+        return bounds
+
+
     def clamp_to_parent(self, parent):
-        x = max(parent.x, self.x)
-        y = max(parent.y, self.y)
-        width = max(0, min(parent.x + parent.width, self.x + self.width) - x)
-        height = max(0, min(parent.y + parent.height, self.y + self.height) - y)
+        parent_right = parent.x + parent.width
+        parent_bottom = parent.y + parent.height
 
-        assert x >= parent.x
-        assert y >= parent.y
-        assert width >= 0
-        assert height >= 0
-        assert (x + width) <= (parent.x + parent.width)
-        assert (y + height) <= (parent.y + parent.height)
+        x = clamp(self.x, parent.x, parent_right)
+        y = clamp(self.y, parent.y, parent_bottom)
+        width = clamp(self.width, 0, parent_right - x)
+        height = clamp(self.height, 0, parent_bottom - y)
 
-        return Bounds(x, y, width, height)
+        return Bounds(x, y, width, height).check_within_bounds(parent)
 
 
     def area(self):

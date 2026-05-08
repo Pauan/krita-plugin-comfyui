@@ -20,21 +20,9 @@ class GraphError:
     def format(self):
         message = []
 
-        has_id = self.node_id is not None
-        has_name = self.node_name is not None
-
-        if has_id or has_name:
+        if self.node_name is not None:
             message.append("[")
-
-        if has_id:
-            message.append("#" + self.node_id)
-
-        if has_name:
-            if len(message) > 0:
-                message.append(" ")
             message.append(self.node_name)
-
-        if has_id or has_name:
             message.append("]")
 
         if len(message) > 0:

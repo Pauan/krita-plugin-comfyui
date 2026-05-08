@@ -26,6 +26,15 @@ def clamp(value, minimum, maximum):
     return max(minimum, min(value, maximum))
 
 
+def round_to_multiple(value, multiple):
+    extra = value % multiple
+
+    if extra == 0:
+        return value
+    else:
+        return value + (multiple - extra)
+
+
 # https://en.wikipedia.org/wiki/Linear_interpolation#Programming_language_support
 def lerp(percent, min, max):
     return ((1.0 - percent) * min) + (percent * max)
