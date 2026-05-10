@@ -9,6 +9,48 @@ from PIL import Image
 from io import BytesIO
 
 
+def mask_inverse_sum(masks):
+    return 1.0 - torch.clamp(torch.sum(torch.stack(masks, dim=0), dim=0), 0.0, 1.0)
+
+
+def mask_bounds(mask):
+    # TODO verify that the 3rd dimension can never break this
+    _, ys, xs = torch.nonzero(mask, as_tuple=True)
+
+    if xs.numel() == 0:
+        return (0, 0, 0, 0)
+
+    else:
+        (x_min, x_max) = torch.aminmax(xs)
+        (y_min, y_max) = torch.aminmax(ys)
+
+        x_min = x_min.item()
+        x_max = x_max.item() + 1
+
+        y_min = y_min.item()
+        y_max = y_max.item() + 1
+
+        return (
+            x_min,
+            y_min,
+            x_max - x_min,
+            y_max - y_min,
+        )
+
+
+def zip_lists(*inputs):
+    max_length = max(len(x) for x in inputs)
+
+    for index in range(max_length):
+        output = tuple(
+            input[min(index, len(input) - 1)]
+            for input
+            in inputs
+        )
+
+        yield output
+
+
 # https://stackoverflow.com/a/2189827/449477
 def digits(num):
     if num == 0:

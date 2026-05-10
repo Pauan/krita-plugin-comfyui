@@ -1,6 +1,6 @@
 from comfy_api.latest import ComfyExtension, io
 
-from .src.krita_comfyui import nodes, ui
+from .src.krita_comfyui import nodes, ui, region_comfyui
 
 
 class KritaComfyui(ComfyExtension):
@@ -20,6 +20,13 @@ class KritaComfyui(ComfyExtension):
 
             # krita/debug
             nodes.KritaDebug,
+
+            # krita/region
+            region_comfyui.RegionMask,
+            region_comfyui.RegionSubtract,
+            region_comfyui.RegionsEncode,
+            region_comfyui.RegionsDebug,
+            #region_comfyui.ApplyAttentionMasks,
 
             # krita/ui
             ui.KritaUiBoolean,
