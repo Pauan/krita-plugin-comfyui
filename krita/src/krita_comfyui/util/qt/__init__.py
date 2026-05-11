@@ -305,6 +305,7 @@ class Layout:
         widget.setOrientation(orientation)
         widget.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         widget.setIconSize(QSize(16, 16))
+        widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         widget.setContentsMargins(0, 0, 0, 0)
 

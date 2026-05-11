@@ -19,7 +19,7 @@ class Input:
         id = metadata.get_full_id(id)
 
         default = metadata.default
-        value = serialized.get(id, metadata.default)
+        value = serialized.get(id, default)
 
         assert default is not None
         assert value is not None
@@ -174,6 +174,7 @@ class Workflow(QObject):
         self.layout = None
 
         self.serialized = {}
+        self.defaults = {}
         self.metadata = {}
 
 
@@ -255,6 +256,7 @@ class Workflow(QObject):
 
     def update_metadata(self):
         self.metadata = {}
+        self.defaults = {}
         self.inputs = {}
 
         if self.layout is not None:
@@ -263,10 +265,13 @@ class Workflow(QObject):
                 id = widget.get("id", None)
 
                 if id is not None:
-                    self.metadata[id] = Metadata(
+                    metadata = Metadata(
                         self.get_default_for_widget(widget),
                         self.get_type_for_widget(widget),
                     )
+
+                    self.metadata[id] = metadata
+                    self.defaults[metadata.get_full_id(id)] = metadata.default
 
 
     def update_serialized(self):
@@ -355,6 +360,10 @@ class Workflow(QObject):
         return self.document is not None and self.id != "" and self.graph is not None
 
 
+    def get_defaults(self):
+        return self.defaults
+
+
     def to_graph(self, ui_values, defaults):
         if self.document is None:
             raise WorkflowError("Krita does not have an opened image")
@@ -366,9 +375,12 @@ class Workflow(QObject):
 
         seed = WorkflowGraph.random_seed()
 
+        import json
         print("Running graph")
-        print(ui_values)
-        print(defaults)
+        print(json.dumps(ui_values, indent=2))
+        print("")
+        print(json.dumps(defaults, indent=2))
+        print("")
 
         return WorkflowGraph(
             document=self.document,

@@ -302,7 +302,7 @@ class UiStringMultiline(QPlainTextEdit):
 
 
 class UiGroup(QWidget):
-    def __init__(self, input, title):
+    def __init__(self, input, title, indent):
         super().__init__()
 
         self.input = input
@@ -334,8 +334,9 @@ class UiGroup(QWidget):
                 self.container = widget
 
                 with layout.column() as column:
-                    # TODO figure out a way to calculate this automatically
-                    column.set_padding(left=20)
+                    if indent:
+                        # TODO figure out a way to calculate this automatically
+                        column.set_padding(left=20)
                     self.layout = column
 
         self.update()
@@ -648,10 +649,11 @@ class UiListChild(QFrame):
 
 
 class UiList(QWidget):
-    def __init__(self, input, trigger_refresh):
+    def __init__(self, input, label, trigger_refresh):
         super().__init__()
 
         self.input = input
+        self.label = label
         self.trigger_refresh = trigger_refresh
 
         self.children = []
@@ -696,6 +698,13 @@ class UiList(QWidget):
         if len(self.children) > 0:
             self.layout.spacer(2)
 
-        with self.layout.tool_button(icon=Krita.icon("addlayer"), text="Add...", tooltip="Add new item...") as button:
+        if self.label is None:
+            text = "Add"
+            tooltip = "Add new item."
+        else:
+            text = f"Add {self.label}"
+            tooltip = f"Add new {self.label}."
+
+        with self.layout.tool_button(icon=Krita.icon("addlayer"), text=text, tooltip=tooltip) as button:
             button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
             button.clicked.connect(self.add_child)

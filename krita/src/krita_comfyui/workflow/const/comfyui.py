@@ -91,3 +91,15 @@ class Switch:
             return (
                 Link([output]),
             )
+
+
+class Default:
+    def get_outputs(self, workflow, node_id, node):
+        inputs = node["inputs"]
+
+        input = workflow.evaluate_link(inputs["input"])
+
+        if len(input.values) == 0:
+            return (workflow.evaluate_link(inputs["default"]),)
+        else:
+            return (input,)

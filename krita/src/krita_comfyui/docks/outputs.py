@@ -269,6 +269,16 @@ class TextWidget(QWidget):
         self.document = document
         self.document.document_changed.connect(self.load_texts)
 
+        self.texts = []
+
+        self.text_menus = []
+
+        self.menu = QMenu(self)
+        self.text_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete all texts", self.clear_text))
+
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+
         self.layout = LayoutManager(self)
 
         self.setStyleSheet("""
@@ -298,6 +308,15 @@ class TextWidget(QWidget):
         self.load_texts()
 
 
+    def show_context_menu(self, pos: QPoint):
+        has_text = len(self.texts) > 0
+
+        for menu in self.text_menus:
+            menu.setEnabled(has_text)
+
+        self.menu.exec(self.mapToGlobal(pos))
+
+
     def load_texts(self):
         document = self.document.current()
 
@@ -310,6 +329,8 @@ class TextWidget(QWidget):
 
 
     def display_text(self, texts):
+        self.texts = texts
+
         self.column.clear()
 
         if len(texts) == 0:
@@ -327,6 +348,10 @@ class TextWidget(QWidget):
             self.setVisible(True)
 
 
+    def clear_text(self):
+        self.set_text([])
+
+
     def set_text(self, texts):
         document = self.document.current()
 
@@ -340,8 +365,6 @@ class TextWidget(QWidget):
 
 
 class ImageWidget(QListWidget):
-    image_selected = pyqtSignal(QListWidgetItem)
-
     image_size = 96
     image_padding = 1
     spacer_height = 4

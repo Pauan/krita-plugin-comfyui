@@ -52,15 +52,31 @@ class GraphError:
     def from_comfyui_error(info):
         error = GraphError()
 
-        print(info)
+        output = []
+
+        print(json.dumps(info, indent=2))
 
         message = info["error"]["message"]
         details = info["error"]["details"]
 
-        if details != "":
-            message = f"{message} ({details})"
+        if details == "":
+            output.append(message)
+        else:
+            output.append(f"{message} ({details})")
 
-        error.message = message
+        for value in info["node_errors"].values():
+            class_type = value["class_type"]
+
+            for info in value["errors"]:
+                message = info["message"]
+                details = info["details"]
+
+                if details == "":
+                    output.append(f"    [{class_type}] {message}")
+                else:
+                    output.append(f"    [{class_type}] {message} ({details})")
+
+        error.message = "\n".join(output)
         return error
 
 

@@ -93,7 +93,7 @@ def graph_list(graph, items):
     for i, value in enumerate(items):
         inputs["inputs.input" + str(i).zfill(padding)] = value
 
-    return graph.node("CreateList", **inputs).out(0)
+    return graph.node("krita_comfyui: MakeList", **inputs).out(0)
 
 
 def serialize_any(text):

@@ -284,6 +284,7 @@ class WorkflowWidget(QWidget):
                 widget = UiGroup(
                     workflow.input(info["id"]),
                     title=info.get("title", ""),
+                    indent=info.get("indent", False),
                 )
 
                 for child in info["children"]:
@@ -308,6 +309,7 @@ class WorkflowWidget(QWidget):
 
                 widget = UiList(
                     workflow.input_list(info["id"]),
+                    label=info.get("label", None),
 
                     # When an item is added, removed, or moved, it clears out all the
                     # existing widgets and remakes them from scratch.
@@ -383,20 +385,15 @@ class WorkflowWidget(QWidget):
 
 
     def run_workflow(self):
+        defaults = self.workflow.get_defaults()
         ui_values = {}
-        defaults = {}
+
+        for id in defaults.keys():
+            ui_values[id] = []
 
         # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
         for input in self.ui_inputs:
-            defaults[input.id] = input.default
-
-            values = ui_values.get(input.id, None)
-
-            if values is None:
-                values = []
-                ui_values[input.id] = values
-
-            values.append(input.value)
+            ui_values[input.id].append(input.value)
 
         try:
             graph = self.workflow.to_graph(ui_values, defaults)

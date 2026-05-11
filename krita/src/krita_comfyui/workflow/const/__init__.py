@@ -1,14 +1,12 @@
 def zip_lists(inputs):
-    max_length = max(len(x) for x in inputs)
+    min_length = min(len(x) for x in inputs)
 
-    for index in range(max_length):
-        output = tuple(
-            input[min(index, len(input) - 1)]
-            for input
-            in inputs
-        )
+    if min_length > 0:
+        max_length = max(len(x) for x in inputs)
 
-        yield output
+        for index in range(max_length):
+            yield tuple(input[min(index, len(input) - 1)] for input in inputs)
+
 
 def zip_inputs(*inputs):
     yield from zip_lists([x.values for x in inputs])

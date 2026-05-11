@@ -48,7 +48,7 @@ class Graph:
         for i, value in enumerate(items):
             inputs["inputs.input" + str(i).zfill(padding)] = value
 
-        return self.node("CreateList", **inputs).out(0)
+        return self.node("krita_comfyui: MakeList", **inputs).out(0)
 
 
     # Sends an Image to ComfyUI

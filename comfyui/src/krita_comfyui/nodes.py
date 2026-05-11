@@ -10,6 +10,81 @@ def always_execute():
     return float("nan")
 
 
+# @TODO Move this functionality into the ComfyUI CreateList node
+class MakeList(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        template_matchtype = io.MatchType.Template("type")
+        template_autogrow = io.Autogrow.TemplatePrefix(
+            input=io.MatchType.Input("input", template=template_matchtype, optional=True),
+            prefix="input",
+        )
+        return io.Schema(
+            node_id="krita_comfyui: MakeList",
+            display_name="Make List",
+            category="logic",
+            description="Makes a list",
+            inputs=[
+                io.Autogrow.Input("inputs", template=template_autogrow, optional=True),
+            ],
+            outputs=[
+                io.MatchType.Output(
+                    template=template_matchtype,
+                    is_output_list=True,
+                    display_name="list",
+                ),
+            ],
+            is_input_list=True,
+        )
+
+    @classmethod
+    def execute(cls, inputs={}) -> io.NodeOutput:
+        output_list = []
+        for input in inputs.values():
+            output_list += input
+        return io.NodeOutput(output_list)
+
+
+# TODO move this into ComfyUI
+class Default(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        template = io.MatchType.Template("type")
+        return io.Schema(
+            node_id="krita_comfyui: Default",
+            display_name="Default",
+            category="logic",
+            description="Sets a default value if the input is empty.",
+            inputs=[
+                io.MatchType.Input("input", template=template),
+                io.MatchType.Input("default", template=template, lazy=True),
+            ],
+            outputs=[
+                io.MatchType.Output(
+                    template=template,
+                    is_output_list=True,
+                    display_name="output",
+                ),
+            ],
+            is_input_list=True,
+        )
+
+    @classmethod
+    def check_lazy_status(cls, input, default):
+        needed = []
+        if len(input) == 0:
+            if default is None or (len(default) == 1 and default[0] is None):
+                needed.append("default")
+        return needed
+
+    @classmethod
+    def execute(cls, input, default=[]) -> io.NodeOutput:
+        if len(input) == 0:
+            return io.NodeOutput(default)
+        else:
+            return io.NodeOutput(input)
+
+
 @io.comfytype(io_type="KRITA_LAYER_ID")
 class LayerId(io.ComfyTypeIO):
     Type = str

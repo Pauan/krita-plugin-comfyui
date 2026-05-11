@@ -11,6 +11,10 @@ class KritaComfyui(ComfyExtension):
             nodes.LoadMaskBase64,
             nodes.ThrowError,
 
+            # logic
+            nodes.MakeList,
+            nodes.Default,
+
             # latent
             nodes.Img2img,
 

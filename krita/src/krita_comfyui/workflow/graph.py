@@ -76,6 +76,7 @@ class WorkflowGraph:
             "PrimitiveFloat": comfyui.Primitive(),
             "PrimitiveBoolean": comfyui.Primitive(),
             "ComfySwitchNode": comfyui.Switch(),
+            "krita_comfyui: Default": comfyui.Default(),
         }
 
 
