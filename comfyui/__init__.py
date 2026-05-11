@@ -1,6 +1,6 @@
 from comfy_api.latest import ComfyExtension, io
 
-from .src.krita_comfyui import nodes, ui, region_comfyui
+from .src.krita_comfyui import controlnet, nodes, ui, region_comfyui
 
 
 class KritaComfyui(ComfyExtension):
@@ -10,6 +10,19 @@ class KritaComfyui(ComfyExtension):
             nodes.LoadImageBase64,
             nodes.LoadMaskBase64,
             nodes.ThrowError,
+
+            # latent
+            nodes.Img2img,
+
+            # conditioning
+            nodes.ClipSkip,
+
+            # conditioning/controlnet
+            controlnet.MakeControlNet,
+            controlnet.ApplyControlNets,
+
+            # trasform
+            nodes.Detail,
 
             # krita
             nodes.KritaCanvas,

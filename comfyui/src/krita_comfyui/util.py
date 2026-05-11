@@ -9,6 +9,21 @@ from PIL import Image
 from io import BytesIO
 
 
+# https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_images.py#L580-L589
+def get_size(input):
+    height = input.shape[1]
+    width = input.shape[2]
+    batch_size = input.shape[0]
+    return (width, height, batch_size)
+
+
+# https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_post_processing.py#L267-L270
+def is_image(input):
+    # images have 4 dimensions: [batch, height, width, channels]
+    # masks have 3 dimensions: [batch, height, width]
+    return len(input.shape) == 4
+
+
 def mask_inverse_sum(masks):
     return 1.0 - torch.clamp(torch.sum(torch.stack(masks, dim=0), dim=0), 0.0, 1.0)
 

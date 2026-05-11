@@ -1,6 +1,7 @@
+import math
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
-from .util import timestamp, decode_image, decode_mask, encode_image, serialize_any, graph_list
+from .util import timestamp, decode_image, decode_mask, encode_image, serialize_any, zip_lists, graph_list, is_image, get_size
 
 
 def always_execute():
@@ -507,31 +508,480 @@ class KritaDebug(io.ComfyNode):
 
     @classmethod
     def execute(cls, enabled, x, y, name, images=None, masks=None, text=None) -> io.NodeOutput:
-        assert len(enabled) == 1
-        assert len(name) == 1
+        if images is None:
+            images = [None]
+
+        if masks is None:
+            masks = [None]
+
+        if text is None:
+            text = [None]
 
         graph = GraphBuilder()
 
-        if enabled[0]:
-            if images is not None and len(images) > 0:
+        outputs = {}
+
+        for enabled, x, y, name, image, mask, text in zip_lists(enabled, x, y, name, images, masks, text):
+            if enabled:
+                output = outputs.get(name, None)
+
+                if output is None:
+                    output = {
+                        "images": [],
+                        "masks": [],
+                        "texts": [],
+                    }
+
+                    outputs[name] = output
+
+                if image is not None:
+                    output["images"].append({
+                        "image": image,
+                        "x": x,
+                        "y": y,
+                    })
+
+                if mask is not None:
+                    output["masks"].append({
+                        "mask": mask,
+                        "x": x,
+                        "y": y,
+                    })
+
+                if text is not None:
+                    output["texts"].append(text)
+
+
+        for name, output in outputs.items():
+            images = output["images"]
+
+            if len(images) > 0:
                 graph.node("krita_comfyui: KritaOutput",
-                    images=graph_list(graph, images),
-                    x=graph_list(graph, x),
-                    y=graph_list(graph, y),
-                    name=f"[DEBUG IMAGE] {name[0]} [%index%]"
+                    images=graph_list(graph, [image["image"] for image in images]),
+                    x=graph_list(graph, [image["x"] for image in images]),
+                    y=graph_list(graph, [image["y"] for image in images]),
+                    name=f"[DEBUG IMAGE] {name} [%index%]"
                 )
 
-            if masks is not None and len(masks) > 0:
-                masks = graph.node("MaskToImage", mask=graph_list(graph, masks)).out(0)
+            masks = output["masks"]
+
+            if len(masks) > 0:
+                images = graph.node("MaskToImage", mask=graph_list(graph, [mask["mask"] for mask in masks])).out(0)
 
                 graph.node("krita_comfyui: KritaOutput",
-                    images=masks,
-                    x=graph_list(graph, x),
-                    y=graph_list(graph, y),
-                    name=f"[DEBUG MASK] {name[0]} [%index%]"
+                    images=images,
+                    x=graph_list(graph, [mask["x"] for mask in masks]),
+                    y=graph_list(graph, [mask["y"] for mask in masks]),
+                    name=f"[DEBUG MASK] {name} [%index%]"
                 )
 
-            if text is not None and len(text) > 0:
-                graph.node("krita_comfyui: KritaText", text="\n".join(serialize_any(x) for x in text), name=f"[DEBUG] {name[0]}")
+            texts = output["texts"]
+
+            if len(texts) > 0:
+                graph.node("krita_comfyui: KritaText", text="\n".join(serialize_any(x) for x in texts), name=f"[DEBUG] {name}")
 
         return io.NodeOutput(None, expand=graph.finalize())
+
+
+class Img2img(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: img2img",
+            display_name="img2img",
+            category="latent",
+            description="Converts an image into latent space.\n\nIf a mask is provided, then it is used for inpainting.\n\nIf the strength is 0, then it ignores the image and does a regular txt2img.",
+            inputs=[
+                io.Conditioning.Input("positive"),
+                io.Conditioning.Input("negative"),
+                io.Vae.Input("vae"),
+                io.Image.Input("image"),
+                io.Mask.Input("mask", optional=True, tooltip="Optional mask for inpainting."),
+                io.Float.Input("strength",
+                    default=0.0,
+                    min=0.0,
+                    max=1.0,
+                    step=0.1,
+                    round=0.01,
+                    tooltip="How much the image should influence the result.\n\nHigher number means it closely matches the image, lower number means more random.\n\n0 means that it ignores the image and does a regular txt2img.",
+                ),
+                io.Int.Input("batch_size", default=1, min=1, max=64, tooltip="The number of output images in the batch."),
+            ],
+            outputs=[
+                io.Conditioning.Output(display_name="positive"),
+                io.Conditioning.Output(display_name="negative"),
+                io.Latent.Output(display_name="latent"),
+                io.Float.Output(display_name="denoise"),
+            ],
+            enable_expand=True,
+        )
+
+    @classmethod
+    def execute(cls, positive, negative, vae, image, strength, batch_size, mask=None) -> io.NodeOutput:
+        graph = GraphBuilder()
+
+        if strength == 0.0:
+            size = graph.node("GetImageSize", image=image)
+
+            latent = graph.node(
+                "EmptyLatentImage",
+                width=size.out(0),
+                height=size.out(1),
+                batch_size=batch_size,
+            ).out(0)
+
+        else:
+            if mask is None:
+                latent = graph.node("VAEEncode", pixels=image, vae=vae).out(0)
+
+            else:
+                # VAEEncodeForInpaint doesn't support denoise, so we use InpaintModelConditioning instead
+                inpaint_model_conditioning = graph.node(
+                    "InpaintModelConditioning",
+                    positive=positive,
+                    negative=negative,
+                    vae=vae,
+                    pixels=image,
+                    mask=mask,
+                    noise_mask=True,
+                )
+
+                positive = inpaint_model_conditioning.out(0)
+                negative = inpaint_model_conditioning.out(1)
+                latent = inpaint_model_conditioning.out(2)
+
+            if batch_size > 1:
+                latent = graph.node("RepeatLatentBatch", samples=latent, amount=batch_size).out(0)
+
+        return io.NodeOutput(positive, negative, latent, 1.0 - strength, expand=graph.finalize())
+
+
+class ClipSkip(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: ClipSkip",
+            display_name="CLIP Skip",
+            category="conditioning",
+            description="Sets the clip skip.",
+            inputs=[
+                io.Clip.Input("clip"),
+                io.Int.Input("skip", default=0, min=0, max=24, step=1, tooltip="0 disables the clip skip."),
+            ],
+            outputs=[
+                io.Clip.Output(),
+            ],
+            enable_expand=True,
+        )
+
+    @classmethod
+    def execute(cls, clip, skip) -> io.NodeOutput:
+        graph = GraphBuilder()
+
+        if skip > 0:
+            clip = graph.node(
+                "CLIPSetLastLayer",
+                clip=clip,
+                stop_at_clip_layer=-skip,
+            ).out(0)
+
+        return io.NodeOutput(clip, expand=graph.finalize())
+
+
+class Detail(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        template = io.MatchType.Template("input_type", [io.Image, io.Mask])
+
+        return io.Schema(
+            node_id="krita_comfyui: Detail",
+            display_name="Detail",
+            category="transform",
+            description="Crops and resizes the image / mask.",
+            inputs=[
+                io.MatchType.Input("input", template=template),
+
+                io.BoundingBox.Input("bounding_box", component=None, tooltip="Crops the image / mask to the bounding box."),
+
+                io.DynamicCombo.Input(
+                    "resize_type",
+                    tooltip="Select how to resize: by exact dimensions, scale factor, matching another image, etc.",
+                    options=[
+                        io.DynamicCombo.Option("scale total pixels", [
+                            io.Float.Input("megapixels", default=2.0, min=0.01, max=16.0, step=0.01, tooltip="Target total megapixels (e.g., 1.0 ≈ 1024×1024). Aspect ratio is preserved."),
+                        ]),
+                    ],
+                ),
+
+                io.Combo.Input(
+                    "scale_method",
+                    options=["nearest-exact", "bilinear", "area", "bicubic", "lanczos"],
+                    default="lanczos",
+                    tooltip="Interpolation algorithm. 'area' is best for downscaling, 'lanczos' for upscaling, 'nearest-exact' for pixel art.",
+                ),
+            ],
+            outputs=[
+                io.MatchType.Output(template=template, display_name="cropped"),
+                io.MatchType.Output(template=template, display_name="resized"),
+            ],
+            enable_expand=True,
+        )
+
+
+    @staticmethod
+    def should_crop(input, bounding_box):
+        if bounding_box["x"] == 0 and bounding_box["y"] == 0:
+            (width, height, _) = get_size(input)
+
+            return bounding_box["width"] != width or bounding_box["height"] != height
+
+        else:
+            return True
+
+
+    @staticmethod
+    def scale(resize_type, width, height):
+        type = resize_type["resize_type"]
+
+        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L281-L289
+        if type == "scale by multiplier":
+            multiplier = resize_type["multiplier"]
+
+            if multiplier > 1.0:
+                width = int(round(width * multiplier))
+                height = int(round(height * multiplier))
+
+        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L346-L357
+        elif type == "scale total pixels":
+            old = float(width * height)
+            new = resize_type["megapixels"] * 1024.0 * 1024.0
+
+            if new > old:
+                scale_by = math.sqrt(new / old)
+                width = int(round(width * scale_by))
+                height = int(round(height * scale_by))
+
+        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L306-L324
+        # TODO it should leave the width / height unchanged if they are smaller
+        elif type == "scale longer dimension":
+            largest_size = resize_type["longer_size"]
+
+            if height > width:
+                width = int(round((width / height) * largest_size))
+                height = largest_size
+            elif width > height:
+                height = int(round((height / width) * largest_size))
+                width = largest_size
+            else:
+                height = largest_size
+                width = largest_size
+
+        else:
+            raise RuntimeError(f"Unknown resize_type {type}")
+
+        return (width, height)
+
+
+    @classmethod
+    def execute(cls, input, bounding_box, resize_type, scale_method) -> io.NodeOutput:
+        graph = GraphBuilder()
+
+        is_input_image = is_image(input)
+
+        cropped_width = bounding_box["width"]
+        cropped_height = bounding_box["height"]
+
+        if cls.should_crop(input, bounding_box):
+            if is_input_image:
+                cropped = graph.node("ImageCropV2", image=input, crop_region=bounding_box).out(0)
+
+            else:
+                cropped = graph.node("CropMask",
+                    mask=input,
+                    x=bounding_box["x"],
+                    y=bounding_box["y"],
+                    width=cropped_width,
+                    height=cropped_height,
+                ).out(0)
+
+        else:
+            cropped = input
+
+        (new_width, new_height) = cls.scale(resize_type, cropped_width, cropped_height)
+
+        if cropped_width == new_width and cropped_height == new_height:
+            resized = cropped
+
+        else:
+            assert new_width > cropped_width or new_height > cropped_height
+
+            # It's a mask, so we have to convert it to an image.
+            # This is necessary because the ResizeImageMaskNode rotates
+            # masks by -90 degrees when using lanczos.
+            if not is_input_image:
+                image = graph.node("MaskToImage", mask=cropped).out(0)
+            else:
+                image = cropped
+
+            inputs = {
+                "input": image,
+                "resize_type": "scale dimensions",
+                "resize_type.width": new_width,
+                "resize_type.height": new_height,
+                "resize_type.crop": "disabled",
+                "scale_method": scale_method,
+            }
+
+            resized = graph.node("ResizeImageMaskNode", **inputs).out(0)
+
+            # We have to convert it back into a mask.
+            if not is_input_image:
+                resized = graph.node("ImageToMask", image=resized, channel="red").out(0)
+
+        return io.NodeOutput(cropped, resized, expand=graph.finalize())
+
+
+# This is only needed because the ComfyUI Resize Image node always resizes,
+# even if the new size is the same as the old size.
+class Downscale(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        template = io.MatchType.Template("input_type", [io.Image, io.Mask])
+
+        return io.Schema(
+            node_id="krita_comfyui: Downscale",
+            display_name="Downsample",
+            category="transform",
+            description="Downsamples the image / mask.",
+            inputs=[
+                io.MatchType.Input("input", template=template),
+
+                io.Int.Input("width"),
+                io.Int.Input("height"),
+
+                io.Combo.Input(
+                    "scale_method",
+                    options=["nearest-exact", "bilinear", "area", "bicubic", "lanczos"],
+                    default="lanczos",
+                    tooltip="Interpolation algorithm. 'area' is best for downscaling, 'lanczos' for upscaling, 'nearest-exact' for pixel art.",
+                ),
+            ],
+            outputs=[
+                io.MatchType.Output(template=template, display_name="cropped"),
+                io.MatchType.Output(template=template, display_name="resized"),
+            ],
+            enable_expand=True,
+        )
+
+
+    @staticmethod
+    def should_crop(input, bounding_box):
+        if bounding_box["x"] == 0 and bounding_box["y"] == 0:
+            (width, height, _) = get_size(input)
+
+            return bounding_box["width"] != width or bounding_box["height"] != height
+
+        else:
+            return True
+
+
+    @staticmethod
+    def scale(resize_type, width, height):
+        type = resize_type["resize_type"]
+
+        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L281-L289
+        if type == "scale by multiplier":
+            multiplier = resize_type["multiplier"]
+
+            if multiplier > 1.0:
+                width = int(round(width * multiplier))
+                height = int(round(height * multiplier))
+
+        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L346-L357
+        elif type == "scale total pixels":
+            old = float(width * height)
+            new = resize_type["megapixels"] * 1024 * 1024
+
+            if new > old:
+                scale_by = math.sqrt(new / old)
+                width = int(round(width * scale_by))
+                height = int(round(height * scale_by))
+
+        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L306-L324
+        # TODO it should leave the width / height unchanged if they are smaller
+        elif type == "scale longer dimension":
+            largest_size = resize_type["longer_size"]
+
+            if height > width:
+                width = int(round((width / height) * largest_size))
+                height = largest_size
+            elif width > height:
+                height = int(round((height / width) * largest_size))
+                width = largest_size
+            else:
+                height = largest_size
+                width = largest_size
+
+        else:
+            raise RuntimeError(f"Unknown resize_type {type}")
+
+        return (width, height)
+
+
+    @classmethod
+    def execute(cls, input, bounding_box, resize_type, scale_method) -> io.NodeOutput:
+        graph = GraphBuilder()
+
+        is_input_image = is_image(input)
+
+        cropped_width = bounding_box["width"]
+        cropped_height = bounding_box["height"]
+
+        if cls.should_crop(input, bounding_box):
+            if is_input_image:
+                cropped = graph.node("ImageCropV2", image=input, crop_region=bounding_box).out(0)
+
+            else:
+                cropped = graph.node("CropMask",
+                    mask=input,
+                    x=bounding_box["x"],
+                    y=bounding_box["y"],
+                    width=cropped_width,
+                    height=cropped_height,
+                ).out(0)
+
+        else:
+            cropped = input
+
+        (new_width, new_height) = cls.scale(resize_type, cropped_width, cropped_height)
+
+        if cropped_width == new_width and cropped_height == new_height:
+            resized = cropped
+
+        else:
+            assert new_width > cropped_width or new_height > cropped_height
+
+            # It's a mask, so we have to convert it to an image.
+            # This is necessary because the ResizeImageMaskNode rotates
+            # masks by -90 degrees when using lanczos.
+            if not is_input_image:
+                image = graph.node("MaskToImage", mask=cropped).out(0)
+            else:
+                image = cropped
+
+            inputs = {
+                "input": image,
+                "resize_type": "scale dimensions",
+                "resize_type.width": new_width,
+                "resize_type.height": new_height,
+                "resize_type.crop": "disabled",
+                "scale_method": scale_method,
+            }
+
+            resized = graph.node("ResizeImageMaskNode", **inputs).out(0)
+
+            # We have to convert it back into a mask.
+            if not is_input_image:
+                resized = graph.node("ImageToMask", image=resized, channel="red").out(0)
+
+        return io.NodeOutput(cropped, resized, expand=graph.finalize())
