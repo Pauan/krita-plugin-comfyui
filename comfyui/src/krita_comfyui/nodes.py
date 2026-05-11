@@ -383,7 +383,7 @@ You can use the following special syntax:
         )
 
     @classmethod
-    def fingerprint_inputs(cls, text):
+    def fingerprint_inputs(cls, **kwargs):
         return always_execute()
 
     @classmethod
@@ -443,7 +443,7 @@ class KritaText(io.ComfyNode):
         )
 
     @classmethod
-    def fingerprint_inputs(cls, text):
+    def fingerprint_inputs(cls, **kwargs):
         return always_execute()
 
     @classmethod
@@ -476,7 +476,7 @@ class KritaDebug(io.ComfyNode):
         )
 
     @classmethod
-    def fingerprint_inputs(cls, text):
+    def fingerprint_inputs(cls, **kwargs):
         return always_execute()
 
     @classmethod
@@ -507,16 +507,7 @@ class KritaDebug(io.ComfyNode):
         return needed
 
     @classmethod
-    def execute(cls, enabled, x, y, name, images=None, masks=None, text=None) -> io.NodeOutput:
-        if images is None:
-            images = [None]
-
-        if masks is None:
-            masks = [None]
-
-        if text is None:
-            text = [None]
-
+    def execute(cls, enabled, x, y, name, images=[], masks=[], text=[]) -> io.NodeOutput:
         graph = GraphBuilder()
 
         outputs = {}
@@ -708,7 +699,7 @@ class Detail(io.ComfyNode):
                     tooltip="Select how to resize: by exact dimensions, scale factor, matching another image, etc.",
                     options=[
                         io.DynamicCombo.Option("scale total pixels", [
-                            io.Float.Input("megapixels", default=2.0, min=0.01, max=16.0, step=0.01, tooltip="Target total megapixels (e.g., 1.0 ≈ 1024×1024). Aspect ratio is preserved."),
+                            io.Float.Input("megapixels", default=2.0, min=0.0, max=16.0, step=0.01, tooltip="Target total megapixels (e.g., 1.0 ≈ 1024×1024). Aspect ratio is preserved."),
                         ]),
                     ],
                 ),
@@ -841,147 +832,37 @@ class Detail(io.ComfyNode):
         return io.NodeOutput(cropped, resized, expand=graph.finalize())
 
 
-# This is only needed because the ComfyUI Resize Image node always resizes,
-# even if the new size is the same as the old size.
-class Downscale(io.ComfyNode):
+# @TODO Improve this after https://github.com/Comfy-Org/ComfyUI/issues/12580 is fixed
+class AddAlphaToImage(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
-        template = io.MatchType.Template("input_type", [io.Image, io.Mask])
-
         return io.Schema(
-            node_id="krita_comfyui: Downscale",
-            display_name="Downsample",
-            category="transform",
-            description="Downsamples the image / mask.",
+            node_id="krita_comfyui: AddAlphaToImage",
+            display_name="Add Alpha To Image",
+            category="image",
+            description="Adds an alpha mask to an image.",
             inputs=[
-                io.MatchType.Input("input", template=template),
-
-                io.Int.Input("width"),
-                io.Int.Input("height"),
-
-                io.Combo.Input(
-                    "scale_method",
-                    options=["nearest-exact", "bilinear", "area", "bicubic", "lanczos"],
-                    default="lanczos",
-                    tooltip="Interpolation algorithm. 'area' is best for downscaling, 'lanczos' for upscaling, 'nearest-exact' for pixel art.",
-                ),
+                io.Image.Input("image"),
+                io.Mask.Input("alpha", optional=True),
             ],
             outputs=[
-                io.MatchType.Output(template=template, display_name="cropped"),
-                io.MatchType.Output(template=template, display_name="resized"),
+                io.Image.Output(),
             ],
             enable_expand=True,
         )
 
-
-    @staticmethod
-    def should_crop(input, bounding_box):
-        if bounding_box["x"] == 0 and bounding_box["y"] == 0:
-            (width, height, _) = get_size(input)
-
-            return bounding_box["width"] != width or bounding_box["height"] != height
-
-        else:
-            return True
-
-
-    @staticmethod
-    def scale(resize_type, width, height):
-        type = resize_type["resize_type"]
-
-        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L281-L289
-        if type == "scale by multiplier":
-            multiplier = resize_type["multiplier"]
-
-            if multiplier > 1.0:
-                width = int(round(width * multiplier))
-                height = int(round(height * multiplier))
-
-        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L346-L357
-        elif type == "scale total pixels":
-            old = float(width * height)
-            new = resize_type["megapixels"] * 1024 * 1024
-
-            if new > old:
-                scale_by = math.sqrt(new / old)
-                width = int(round(width * scale_by))
-                height = int(round(height * scale_by))
-
-        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L306-L324
-        # TODO it should leave the width / height unchanged if they are smaller
-        elif type == "scale longer dimension":
-            largest_size = resize_type["longer_size"]
-
-            if height > width:
-                width = int(round((width / height) * largest_size))
-                height = largest_size
-            elif width > height:
-                height = int(round((height / width) * largest_size))
-                width = largest_size
-            else:
-                height = largest_size
-                width = largest_size
-
-        else:
-            raise RuntimeError(f"Unknown resize_type {type}")
-
-        return (width, height)
-
-
     @classmethod
-    def execute(cls, input, bounding_box, resize_type, scale_method) -> io.NodeOutput:
+    def execute(cls, image, alpha) -> io.NodeOutput:
         graph = GraphBuilder()
 
-        is_input_image = is_image(input)
+        if alpha is not None:
+            size = graph.node("GetImageSize", image=image).out(2)
 
-        cropped_width = bounding_box["width"]
-        cropped_height = bounding_box["height"]
+            alpha = graph.node("InvertMask", mask=alpha).out(0)
+            alpha = graph.node("MaskToImage", mask=alpha).out(0)
+            alpha = graph.node("RepeatImageBatch", image=alpha, amount=size).out(0)
+            alpha = graph.node("ImageToMask", image=alpha, channel="red").out(0)
 
-        if cls.should_crop(input, bounding_box):
-            if is_input_image:
-                cropped = graph.node("ImageCropV2", image=input, crop_region=bounding_box).out(0)
+            image = graph.node("JoinImageWithAlpha", image=image, alpha=alpha).out(0)
 
-            else:
-                cropped = graph.node("CropMask",
-                    mask=input,
-                    x=bounding_box["x"],
-                    y=bounding_box["y"],
-                    width=cropped_width,
-                    height=cropped_height,
-                ).out(0)
-
-        else:
-            cropped = input
-
-        (new_width, new_height) = cls.scale(resize_type, cropped_width, cropped_height)
-
-        if cropped_width == new_width and cropped_height == new_height:
-            resized = cropped
-
-        else:
-            assert new_width > cropped_width or new_height > cropped_height
-
-            # It's a mask, so we have to convert it to an image.
-            # This is necessary because the ResizeImageMaskNode rotates
-            # masks by -90 degrees when using lanczos.
-            if not is_input_image:
-                image = graph.node("MaskToImage", mask=cropped).out(0)
-            else:
-                image = cropped
-
-            inputs = {
-                "input": image,
-                "resize_type": "scale dimensions",
-                "resize_type.width": new_width,
-                "resize_type.height": new_height,
-                "resize_type.crop": "disabled",
-                "scale_method": scale_method,
-            }
-
-            resized = graph.node("ResizeImageMaskNode", **inputs).out(0)
-
-            # We have to convert it back into a mask.
-            if not is_input_image:
-                resized = graph.node("ImageToMask", image=resized, channel="red").out(0)
-
-        return io.NodeOutput(cropped, resized, expand=graph.finalize())
+        return io.NodeOutput(image, expand=graph.finalize())

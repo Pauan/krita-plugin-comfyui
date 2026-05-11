@@ -265,8 +265,6 @@ class UiStringMultiline(QPlainTextEdit):
             }}
         """)
 
-        self.setFixedHeight(self.get_pixel_height(self.min_lines))
-
         if placeholder is not None:
             self.setPlaceholderText(placeholder)
 

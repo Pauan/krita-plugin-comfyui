@@ -8,6 +8,25 @@ class ControlNet(io.ComfyTypeIO):
     Type = dict
 
 
+class EmptyControlNet(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: EmptyControlNet",
+            display_name="Empty Control Net",
+            category="conditioning/controlnet",
+            description="Makes an empty control net that does nothing.",
+            inputs=[],
+            outputs=[
+                ControlNet.Output(display_name="control_net"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        return io.NodeOutput(None)
+
+
 class MakeControlNet(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -84,50 +103,51 @@ class ApplyControlNets(io.ComfyNode):
         images = []
 
         for control_net in control_nets:
-            model = control_net["model"]
-            print(model.get_extra_arg("control_type"))
+            if control_net is not None:
+                model = control_net["model"]
+                print(model.get_extra_arg("control_type"))
 
-            model = graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]).out(0)
+                model = graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]).out(0)
 
-            image = control_net["image"]
+                image = control_net["image"]
 
-            match control_net["type"]:
-                case "hed/pidi/scribble/ted" | "canny/lineart/anime_lineart/mlsd":
-                    size = graph.node("GetImageSize", image=image)
+                match control_net["type"]:
+                    case "hed/pidi/scribble/ted" | "canny/lineart/anime_lineart/mlsd":
+                        size = graph.node("GetImageSize", image=image)
 
-                    empty_image = graph.node("EmptyImage",
-                        width=size.out(0),
-                        height=size.out(1),
-                        batch_size=size.out(2),
-                        # Pure white
-                        color=0xFFFFFF,
-                    ).out(0)
+                        empty_image = graph.node("EmptyImage",
+                            width=size.out(0),
+                            height=size.out(1),
+                            batch_size=size.out(2),
+                            # Pure white
+                            color=0xFFFFFF,
+                        ).out(0)
 
-                    image = graph.node("ImageCompositeMasked",
-                        destination=empty_image,
-                        source=image,
-                        mask=None,
-                        x=0,
-                        y=0,
-                        resize_source=False,
-                    ).out(0)
+                        image = graph.node("ImageCompositeMasked",
+                            destination=empty_image,
+                            source=image,
+                            mask=None,
+                            x=0,
+                            y=0,
+                            resize_source=False,
+                        ).out(0)
 
-                    image = graph.node("ImageInvert", image=image).out(0)
+                        image = graph.node("ImageInvert", image=image).out(0)
 
-            images.append(image)
+                images.append(image)
 
-            apply = graph.node("ControlNetApplyAdvanced",
-                positive=positive,
-                negative=negative,
-                control_net=model,
-                image=image,
-                vae=vae,
-                strength=control_net["strength"],
-                start_percent=control_net["start_percent"],
-                end_percent=control_net["end_percent"],
-            )
+                apply = graph.node("ControlNetApplyAdvanced",
+                    positive=positive,
+                    negative=negative,
+                    control_net=model,
+                    image=image,
+                    vae=vae,
+                    strength=control_net["strength"],
+                    start_percent=control_net["start_percent"],
+                    end_percent=control_net["end_percent"],
+                )
 
-            positive = apply.out(0)
-            negative = apply.out(1)
+                positive = apply.out(0)
+                negative = apply.out(1)
 
         return io.NodeOutput(positive, negative, images, expand=graph.finalize())

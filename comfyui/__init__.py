@@ -18,11 +18,15 @@ class KritaComfyui(ComfyExtension):
             nodes.ClipSkip,
 
             # conditioning/controlnet
+            controlnet.EmptyControlNet,
             controlnet.MakeControlNet,
             controlnet.ApplyControlNets,
 
             # trasform
             nodes.Detail,
+
+            # image
+            nodes.AddAlphaToImage,
 
             # krita
             nodes.KritaCanvas,

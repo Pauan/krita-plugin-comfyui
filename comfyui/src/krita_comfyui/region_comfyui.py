@@ -1,7 +1,7 @@
 import torch
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
-from .util import zip_lists, mask_bounds, mask_inverse_sum, graph_list
+from .util import mask_bounds, mask_inverse_sum, graph_list
 from .region_attention import AttentionMaskPatch
 
 
@@ -19,7 +19,7 @@ class RegionMask(io.ComfyNode):
             category="krita/region",
             description="Creates a region with a mask.",
             inputs=[
-                io.Mask.Input("mask", tooltip="Mask for the region."),
+                io.Mask.Input("mask", optional=True, tooltip="Mask for the region."),
                 io.String.Input("prompt", multiline=True, tooltip="Prompt that will be applied only within the region."),
                 io.Float.Input("strength", default=1.0, min=0.0, max=10.0, step=0.01, round=0.01, advanced=True),
                 io.Boolean.Input("isolated", default=False, tooltip="If this is true then the prompt is isolated inside the mask.\n\nIf this is false then the prompt is blended with the rest of the image outside of the mask.", advanced=True),
@@ -31,12 +31,13 @@ class RegionMask(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, prompt, mask, strength, add_to_global, isolated) -> io.NodeOutput:
-        if mask.dim() < 3:
-            mask = mask.unsqueeze(0)
+    def execute(cls, prompt, strength, add_to_global, isolated, mask=None) -> io.NodeOutput:
+        if mask is not None:
+            #if mask.dim() < 3:
+                #mask = mask.unsqueeze(0)
 
-        if strength < 1.0:
-            mask = torch.clamp(mask * strength, 0.0, 1.0)
+            if strength < 1.0:
+                mask = torch.clamp(mask * strength, 0.0, 1.0)
 
         return io.NodeOutput({
             "prompt": prompt,
@@ -266,7 +267,7 @@ class RegionsEncode(io.ComfyNode):
         assert len(add_to_regions) == 1
 
         clip = clip[0]
-        global_prompt = global_prompt[0]
+        global_prompt = global_prompt[0].strip()
         global_strength = global_strength[0]
         global_inverse_strength = global_inverse_strength[0]
         combine_prompts = combine_prompts[0]
@@ -274,7 +275,14 @@ class RegionsEncode(io.ComfyNode):
 
         state = RegionsEncodeState(clip, combine_prompts)
 
-        regions = [region for region in regions if region["strength"] > 0.0 and region["prompt"].strip() != ""]
+        def should_keep_region(region):
+            if region["strength"] > 0.0 and region["mask"] is not None:
+                prompt = region["prompt"].strip()
+                return prompt != "" and prompt != global_prompt
+            else:
+                return False
+
+        regions = [region for region in regions if should_keep_region(region)]
         outputs = []
 
         if len(regions) == 0:

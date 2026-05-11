@@ -11,9 +11,14 @@ from io import BytesIO
 
 # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_images.py#L580-L589
 def get_size(input):
-    height = input.shape[1]
-    width = input.shape[2]
-    batch_size = input.shape[0]
+    if is_image(input):
+        height = input.shape[1]
+        width = input.shape[2]
+        batch_size = input.shape[0]
+    else:
+        height = input.shape[0]
+        width = input.shape[1]
+        batch_size = 1
     return (width, height, batch_size)
 
 
@@ -53,17 +58,18 @@ def mask_bounds(mask):
         )
 
 
+def get_index(list, index):
+    l = len(list)
+    if l == 0:
+        return None
+    else:
+        return list[min(index, l - 1)]
+
 def zip_lists(*inputs):
     max_length = max(len(x) for x in inputs)
 
     for index in range(max_length):
-        output = tuple(
-            input[min(index, len(input) - 1)]
-            for input
-            in inputs
-        )
-
-        yield output
+        yield tuple(get_index(input, index) for input in inputs)
 
 
 # https://stackoverflow.com/a/2189827/449477

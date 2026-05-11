@@ -818,23 +818,24 @@ class ComfyUIOutputWidget(DockWidget):
                 if "krita_comfyui_text" in output:
                     texts.extend(output["krita_comfyui_text"])
 
-            max_len = max(len(batch) for batch in images)
+            if len(images) > 0:
+                max_len = max(len(batch) for batch in images)
 
-            # Sorts the bigger batches first.
-            # If the batch only has 1 image, then sort by name.
-            def sort_batches(batch):
-                if len(batch) == 1:
-                    return (max_len - 1, batch[0]["name"].casefold())
-                else:
-                    return (max_len - len(batch), "")
+                # Sorts the bigger batches first.
+                # If the batch only has 1 image, then sort by name.
+                def sort_batches(batch):
+                    if len(batch) == 1:
+                        return (max_len - 1, batch[0]["name"].casefold())
+                    else:
+                        return (max_len - len(batch), "")
 
-            images.sort(key=sort_batches)
+                images.sort(key=sort_batches)
+
+                for batch in images:
+                    self.add_images(batch)
 
             # Sort text by name
             texts.sort(key=lambda x: x["name"].casefold())
-
-            for batch in images:
-                self.add_images(batch)
 
             self.set_text(texts)
 
