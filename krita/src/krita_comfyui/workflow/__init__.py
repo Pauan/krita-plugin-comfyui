@@ -44,7 +44,7 @@ class Input:
         if tooltip is None:
             return f"[{self.id}]"
         else:
-            return f"[{self.id}]: {tooltip}"
+            return f"[{self.id}]\n{tooltip}"
 
 
     def get(self):

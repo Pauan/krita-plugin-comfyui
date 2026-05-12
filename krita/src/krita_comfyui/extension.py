@@ -19,16 +19,12 @@ class ComfyUIExtension(Extension):
         self.thread = QThread(self)
         self.notify = NotifyWorker(self)
         self.notify.moveToThread(self.thread)
-        self.thread.start()
 
         self.settings = Settings(self)
 
         self.client = ComfyUIClient(self, self.settings, url="127.0.0.1:8188", reconnect_delay=10000)
 
         self.client.graph_changed.connect(self.on_graph_changed)
-
-        # We immediately connect to ComfyUI so we can update the node metadata
-        self.client.connect()
 
         notifier = parent.notifier()
         notifier.setActive(True)
@@ -40,7 +36,10 @@ class ComfyUIExtension(Extension):
 
 
     def setup(self):
-        pass
+        self.thread.start()
+
+        # We immediately connect to ComfyUI so we can update the node metadata
+        self.client.connect()
 
 
     def on_graph_changed(self, graph):
