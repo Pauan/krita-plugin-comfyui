@@ -165,5 +165,4 @@ class ApplyControlNets(io.ComfyNode):
                     case x:
                         raise RuntimeError(f"Unknown type {x}")
 
-
         return io.NodeOutput(model, positive, negative, images, expand=graph.finalize())

@@ -35,15 +35,15 @@ class UiLayerId(ComboBox):
         self.input = input
         self.enabled_if = enabled_if
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
-
         self.activated.connect(self.on_changed)
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
         self.set_layers(layers)
+
+        if self.enabled_if is not None:
+            self.update_enabled()
+            self.enabled_if.add_listener(self.update_enabled)
 
 
     def update_enabled(self):
@@ -91,15 +91,15 @@ class UiCombo(ComboBox):
         self.input = input
         self.enabled_if = enabled_if
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
-
         self.activated.connect(self.on_changed)
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
         self.set_values(values)
+
+        if self.enabled_if is not None:
+            self.update_enabled()
+            self.enabled_if.add_listener(self.update_enabled)
 
 
     def update_enabled(self):
@@ -141,10 +141,6 @@ class UiBoolean(QWidget):
         self.input = input
         self.enabled_if = enabled_if
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
-
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.row() as row:
@@ -182,6 +178,10 @@ class UiBoolean(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
+        if self.enabled_if is not None:
+            self.update_enabled()
+            self.enabled_if.add_listener(self.update_enabled)
+
 
     # TODO this should be mouseClickEvent but it doesn't exist!
     def mousePressEvent(self, event):
@@ -205,10 +205,6 @@ class UiString(QLineEdit):
         self.input = input
         self.enabled_if = enabled_if
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
-
         self.setText(self.input.get())
 
         self.textEdited.connect(self.on_changed)
@@ -217,6 +213,10 @@ class UiString(QLineEdit):
             self.setPlaceholderText(placeholder)
 
         self.setToolTip(self.input.format_tooltip(tooltip))
+
+        if self.enabled_if is not None:
+            self.update_enabled()
+            self.enabled_if.add_listener(self.update_enabled)
 
     def update_enabled(self):
         self.setEnabled(self.enabled_if.is_enabled())
@@ -233,10 +233,6 @@ class UiStringMultiline(QPlainTextEdit):
         self.min_lines = min_lines
         self.max_lines = max_lines
         self.enabled_if = enabled_if
-
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
 
         self.set_text(self.input.get())
 
@@ -269,6 +265,10 @@ class UiStringMultiline(QPlainTextEdit):
             self.setPlaceholderText(placeholder)
 
         self.setToolTip(self.input.format_tooltip(tooltip))
+
+        if self.enabled_if is not None:
+            self.update_enabled()
+            self.enabled_if.add_listener(self.update_enabled)
 
     def update_enabled(self):
         self.setEnabled(self.enabled_if.is_enabled())
@@ -385,10 +385,6 @@ class UiFloat(QWidget):
         self.multiplier = multiplier
         self.enabled_if = enabled_if
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
-
         if self.multiplier is None:
             self.multiplier = 1.0
 
@@ -442,6 +438,10 @@ class UiFloat(QWidget):
                     widget.setValue(display_value)
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
+
+        if self.enabled_if is not None:
+            self.update_enabled()
+            self.enabled_if.add_listener(self.update_enabled)
 
 
     def update_enabled(self):
@@ -500,10 +500,6 @@ class UiInt(QWidget):
         self.step = step
         self.enabled_if = enabled_if
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
-
         self.setToolTip(self.input.format_tooltip(tooltip))
 
         self.layout_manager = LayoutManager(self)
@@ -551,6 +547,10 @@ class UiInt(QWidget):
                     widget.setValue(clamp(self.input.get(), min, max))
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
+
+        if self.enabled_if is not None:
+            self.update_enabled()
+            self.enabled_if.add_listener(self.update_enabled)
 
 
     def update_enabled(self):
