@@ -31,6 +31,7 @@ class KritaComfyui(ComfyExtension):
 
             # image
             nodes.AddAlphaToImage,
+            nodes.ReplaceTransparency,
 
             # krita
             nodes.KritaCanvas,

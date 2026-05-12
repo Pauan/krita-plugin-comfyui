@@ -85,6 +85,58 @@ class Default(io.ComfyNode):
             return io.NodeOutput(input)
 
 
+# TODO move this into ComfyUI
+class ReplaceTransparency(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: ReplaceTransparency",
+            display_name="Image Replace Transparency",
+            category="image",
+            description="Replaces the alpha transparency of an image with a color.",
+            inputs=[
+                io.Image.Input("image"),
+                io.Color.Input("color", default="#ffffff", tooltip="The transparency will be replaced with this color."),
+            ],
+            outputs=[
+                io.Image.Output(display_name="image"),
+            ],
+            enable_expand=True,
+        )
+
+    @classmethod
+    def execute(cls, image, color) -> io.NodeOutput:
+        # TODO this should be moved into the Color type
+        assert color[0] == "#"
+        color = int("0x" + color[1:], 16)
+
+        graph = GraphBuilder()
+
+        size = graph.node("GetImageSize", image=image)
+
+        empty_image = graph.node("EmptyImage",
+            width=size.out(0),
+            height=size.out(1),
+            batch_size=size.out(2),
+            color=color,
+        ).out(0)
+
+        split_image = graph.node("SplitImageWithAlpha", image=image)
+
+        mask = graph.node("InvertMask", mask=split_image.out(1)).out(0)
+
+        image = graph.node("ImageCompositeMasked",
+            destination=empty_image,
+            source=split_image.out(0),
+            mask=mask,
+            x=0,
+            y=0,
+            resize_source=False,
+        ).out(0)
+
+        return io.NodeOutput(image, expand=graph.finalize())
+
+
 @io.comfytype(io_type="KRITA_LAYER_ID")
 class LayerId(io.ComfyTypeIO):
     Type = str

@@ -1,3 +1,4 @@
+import folder_paths
 from comfy.cldm.control_types import UNION_CONTROLNET_TYPES
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
@@ -37,11 +38,18 @@ class MakeControlNet(io.ComfyNode):
             description="Makes a control net.",
             inputs=[
                 io.Image.Input("image"),
+                io.Mask.Input("mask", tooltip="Mask which is used for inpainting control nets. The white parts of the mask will be inpainted.", optional=True),
 
-                io.ControlNet.Input("model"),
+                # https://github.com/Comfy-Org/ComfyUI/blob/c9589f29b21fc5f73b6eb9d5c98d29a68cf8c392/nodes.py#L818
+                io.Combo.Input("model", options=folder_paths.get_filename_list("controlnet")),
 
-                # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_controlnet.py#L15
-                io.Combo.Input("type", default="auto", options=["auto"] + list(UNION_CONTROLNET_TYPES.keys())),
+                io.DynamicCombo.Input("type", options=[
+                    io.DynamicCombo.Option("Anima LLLite", []),
+                    io.DynamicCombo.Option("Union", [
+                        # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_controlnet.py#L15
+                        io.Combo.Input("union_type", default="auto", options=["auto"] + list(UNION_CONTROLNET_TYPES.keys())),
+                    ]),
+                ]),
 
                 # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/nodes.py#L888-L890
                 io.Float.Input("strength", default=1.0, min=0.0, max=10.0, step=0.01),
@@ -54,9 +62,10 @@ class MakeControlNet(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, model, type, strength, start_percent, end_percent) -> io.NodeOutput:
+    def execute(cls, image, model, type, strength, start_percent, end_percent, mask=None) -> io.NodeOutput:
         return io.NodeOutput({
             "image": image,
+            "mask": mask,
             "model": model,
             "type": type,
             "strength": strength,
@@ -74,26 +83,65 @@ class ApplyControlNets(io.ComfyNode):
             category="conditioning/controlnet",
             description="Applies the control nets.",
             inputs=[
+                io.Model.Input("model"),
                 io.Conditioning.Input("positive"),
                 io.Conditioning.Input("negative"),
                 io.Vae.Input("vae"),
                 ControlNet.Input("control_nets", optional=True),
             ],
             outputs=[
+                io.Model.Output(display_name="model"),
                 io.Conditioning.Output(display_name="positive"),
                 io.Conditioning.Output(display_name="negative"),
-                io.Image.Output(display_name="images", is_output_list=True),
+                io.Image.Output(display_name="images", is_output_list=True, tooltip="The final control net images, useful for debugging."),
             ],
             is_input_list=True,
             enable_expand=True,
         )
 
+
+    @staticmethod
+    def anima(graph, model, control_net, image):
+        return graph.node("AnimaLLLiteApply",
+            model=model,
+            lllite_name=control_net["model"],
+            image=image,
+            mask=control_net["mask"],
+            strength=control_net["strength"],
+            start_percent=control_net["start_percent"],
+            end_percent=control_net["end_percent"],
+        ).out(0)
+
+
+    @staticmethod
+    def union(graph, positive, negative, vae, control_net, image):
+        model = graph.node("ControlNetLoader", control_net_name=control_net["model"]).out(0)
+        model = graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]["union_type"]).out(0)
+
+        apply = graph.node("ControlNetApplyAdvanced",
+            positive=positive,
+            negative=negative,
+            control_net=model,
+            image=image,
+            vae=vae,
+            strength=control_net["strength"],
+            start_percent=control_net["start_percent"],
+            end_percent=control_net["end_percent"],
+        )
+
+        positive = apply.out(0)
+        negative = apply.out(1)
+        return (positive, negative)
+
+
     @classmethod
-    def execute(cls, positive, negative, vae, control_nets=[]) -> io.NodeOutput:
+    def execute(cls, model, positive, negative, vae, control_nets=[]) -> io.NodeOutput:
+        assert len(model) == 1
         assert len(positive) == 1
         assert len(negative) == 1
         assert len(vae) == 1
 
+        model = model[0]
         positive = positive[0]
         negative = negative[0]
         vae = vae[0]
@@ -104,52 +152,18 @@ class ApplyControlNets(io.ComfyNode):
 
         for control_net in control_nets:
             if control_net is not None:
-                model = control_net["model"]
-                model = graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]).out(0)
-
                 image = control_net["image"]
-
-                match control_net["type"]:
-                    case "hed/pidi/scribble/ted" | "canny/lineart/anime_lineart/mlsd":
-                        size = graph.node("GetImageSize", image=image)
-
-                        empty_image = graph.node("EmptyImage",
-                            width=size.out(0),
-                            height=size.out(1),
-                            batch_size=size.out(2),
-                            # Pure white
-                            color=0xFFFFFF,
-                        ).out(0)
-
-                        split_image = graph.node("SplitImageWithAlpha", image=image)
-
-                        mask = graph.node("InvertMask", mask=split_image.out(1)).out(0)
-
-                        image = graph.node("ImageCompositeMasked",
-                            destination=empty_image,
-                            source=split_image.out(0),
-                            mask=mask,
-                            x=0,
-                            y=0,
-                            resize_source=False,
-                        ).out(0)
-
-                        image = graph.node("ImageInvert", image=image).out(0)
-
                 images.append(image)
 
-                apply = graph.node("ControlNetApplyAdvanced",
-                    positive=positive,
-                    negative=negative,
-                    control_net=model,
-                    image=image,
-                    vae=vae,
-                    strength=control_net["strength"],
-                    start_percent=control_net["start_percent"],
-                    end_percent=control_net["end_percent"],
-                )
+                match control_net["type"]["type"]:
+                    case "Anima LLLite":
+                        model = cls.anima(graph, model, control_net, image)
 
-                positive = apply.out(0)
-                negative = apply.out(1)
+                    case "Union":
+                        (positive, negative) = cls.union(graph, positive, negative, vae, control_net, image)
 
-        return io.NodeOutput(positive, negative, images, expand=graph.finalize())
+                    case x:
+                        raise RuntimeError(f"Unknown type {x}")
+
+
+        return io.NodeOutput(model, positive, negative, images, expand=graph.finalize())
