@@ -278,7 +278,7 @@ class UiStringMultiline(QPlainTextEdit):
         return math.ceil(metrics.lineSpacing() * (lines + 1))
 
     def resize(self, text):
-        lines = max(self.min_lines, min(number_of_lines(text), self.max_lines))
+        lines = max(self.min_lines, min(number_of_lines(text) + 1, self.max_lines))
         self.setFixedHeight(self.get_pixel_height(lines))
 
     def on_changed(self):

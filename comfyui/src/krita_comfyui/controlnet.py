@@ -105,8 +105,6 @@ class ApplyControlNets(io.ComfyNode):
         for control_net in control_nets:
             if control_net is not None:
                 model = control_net["model"]
-                print(model.get_extra_arg("control_type"))
-
                 model = graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]).out(0)
 
                 image = control_net["image"]
@@ -123,10 +121,14 @@ class ApplyControlNets(io.ComfyNode):
                             color=0xFFFFFF,
                         ).out(0)
 
+                        split_image = graph.node("SplitImageWithAlpha", image=image)
+
+                        mask = graph.node("InvertMask", mask=split_image.out(1)).out(0)
+
                         image = graph.node("ImageCompositeMasked",
                             destination=empty_image,
-                            source=image,
-                            mask=None,
+                            source=split_image.out(0),
+                            mask=mask,
                             x=0,
                             y=0,
                             resize_source=False,
