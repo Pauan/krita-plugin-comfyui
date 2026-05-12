@@ -349,7 +349,14 @@ class TextWidget(QWidget):
 
 
     def clear_text(self):
-        self.set_text([])
+        reply = QMessageBox.question(
+            self,
+            "Delete all",
+            "Are you sure you want to delete all output texts?",
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.set_text([])
 
 
     def set_text(self, texts):

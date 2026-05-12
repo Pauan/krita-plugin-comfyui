@@ -191,7 +191,7 @@ class UiBoolean(QWidget):
 
 
     def update_enabled(self):
-        self.checkbox.setEnabled(self.enabled_if.is_enabled())
+        self.setEnabled(self.enabled_if.is_enabled())
 
 
     def on_changed(self):
