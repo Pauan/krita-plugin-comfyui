@@ -51,6 +51,7 @@ class WorkflowWidget(QWidget):
 
         self.extension = extension
         self.extension.settings.node_metadata_changed.connect(self.on_metadata_changed)
+        self.extension.settings.workflows.changed.connect(self.on_workflows_changed)
 
         self.document = DocumentManager(self)
         self.document.document_changed.connect(self.on_document_changed)
@@ -74,11 +75,7 @@ class WorkflowWidget(QWidget):
 
                 with row.widget(WorkflowSelector(tooltip="Workflow")) as combo:
                     self.workflow_selector = combo
-
                     combo.activated.connect(self.on_workflow_changed)
-
-                    combo.set_values(self.extension.settings.load_all_workflows())
-                    combo.set_selected(self.workflow.id)
 
                 with row.tool_button(icon=Krita.icon("properties"), tooltip="Open settings") as button:
                     button.clicked.connect(self.open_settings)
@@ -95,6 +92,8 @@ class WorkflowWidget(QWidget):
                     self.widgets = column
 
                 scroll.setWidget(widget)
+
+        self.update_workflow_selector()
 
         if self.workflow.change_document(self.document.current()):
             self.update_widgets()
@@ -329,6 +328,11 @@ class WorkflowWidget(QWidget):
                 raise RuntimeError(f"Unknown widget type {info["type"]}")
 
 
+    def update_workflow_selector(self):
+        self.workflow_selector.set_values(self.extension.settings.get_all_workflows())
+        self.workflow_selector.set_selected(self.workflow.id)
+
+
     def update_widgets(self):
         self.widgets.clear()
         self.ui_inputs = []
@@ -348,6 +352,13 @@ class WorkflowWidget(QWidget):
 
         for input in self.layer_inputs:
             input.set_layers(layers)
+
+
+    def on_workflows_changed(self):
+        if self.workflow.reload_workflow():
+            self.update_widgets()
+
+        self.update_workflow_selector()
 
 
     def on_metadata_changed(self):

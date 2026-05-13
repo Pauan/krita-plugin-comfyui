@@ -10,24 +10,24 @@ from PyQt6.QtWidgets import (
 
 
 class SettingsPresets(QWidget):
-    def __init__(self, settings):
+    def __init__(self, presets):
         super().__init__()
 
-        self.settings = settings
+        self.presets = presets
 
 
 class SettingsWorkflows(QWidget):
-    def __init__(self, settings):
+    def __init__(self, workflows):
         super().__init__()
 
-        self.settings = settings
+        self.workflows = workflows
 
 
 class SettingsBundles(QWidget):
-    def __init__(self, settings):
+    def __init__(self, bundles):
         super().__init__()
 
-        self.settings = settings
+        self.bundles = bundles
 
 
 class SettingsDialog(QDialog):
@@ -53,13 +53,13 @@ class SettingsDialog(QDialog):
                 with column.stack() as stack:
                     self.stack = stack
 
-                    with stack.widget(SettingsBundles(self.settings)):
+                    with stack.widget(SettingsBundles(self.settings.bundles)):
                         self.add_menu_tab("Bundles")
 
-                    with stack.widget(SettingsPresets(self.settings)):
+                    with stack.widget(SettingsPresets(self.settings.presets)):
                         self.add_menu_tab("Presets")
 
-                    with stack.widget(SettingsWorkflows(self.settings)):
+                    with stack.widget(SettingsWorkflows(self.settings.workflows)):
                         self.add_menu_tab("Workflows")
 
                     stack.set_current_index(0)
@@ -90,8 +90,10 @@ class SettingsDialog(QDialog):
 
     def cancel(self):
         assert self.snapshot is not None
-        self.settings.restore_snapshot(self.snapshot)
-        self.snapshot = None
+        try:
+            self.settings.restore_snapshot(self.snapshot)
+        finally:
+            self.snapshot = None
         self.close()
 
 

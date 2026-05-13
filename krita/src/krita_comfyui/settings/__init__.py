@@ -1,4 +1,6 @@
 import os
+import contextlib
+from enum import Enum, auto
 from json import dump, dumps, load, loads
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -77,76 +79,243 @@ class NodeMetadata:
             return metadata
 
 
-class Snapshot:
-    def __init__(self, settings, workflows):
-        self.settings = settings
-        self.workflows = workflows
+class SaveState(Enum):
+    SHOULD_SAVE = auto()
+    DELAY_SAVE = auto()
+    DID_SAVE = auto()
+
+
+class KeyValue(QObject):
+    changed = pyqtSignal()
+
+    def __init__(self, parent, defaults):
+        super().__init__(parent)
+
+        self.save_state = SaveState.SHOULD_SAVE
+        self.dict = {}
+        self.defaults = defaults
+
+
+    @contextlib.contextmanager
+    def delay_save(self):
+        save_state = self.save_state
+
+        self.save_state = SaveState.DELAY_SAVE
+
+        try:
+            yield
+
+        finally:
+            if self.save_state == SaveState.DID_SAVE:
+                self.save_state = save_state
+                self.save()
+            else:
+                self.save_state = save_state
+
+
+    def save(self):
+        if self.save_state == SaveState.SHOULD_SAVE:
+            self.changed.emit()
+        else:
+            self.save_state = SaveState.DID_SAVE
+
+
+    def get(self, key):
+        try:
+            return self.dict[key]
+        except KeyError:
+            return self.defaults[key]
+
+
+    def set(self, key, value):
+        try:
+            changed = (self.dict[key] != value)
+        except KeyError:
+            changed = True
+
+        if changed:
+            self.dict[key] = value
+            self.save()
+
+        return changed
+
+
+    def remove(self, key):
+        try:
+            del self.dict[key]
+        except KeyError:
+            return False
+
+        self.save()
+        return True
+
+
+    def restore_defaults(self):
+        if self.dict != {}:
+            self.dict = {}
+            self.save()
+            return True
+        else:
+            return False
+
+
+    def snapshot(self):
+        return loads(dumps(self.dict))
+
+
+    def restore_snapshot(self, snapshot):
+        if self.dict != snapshot:
+            self.dict = snapshot
+            self.save()
+
+
+class KeyValueFile(KeyValue):
+    def __init__(self, parent, path, defaults):
+        super().__init__(parent, defaults)
+        self.path = path
+
+
+    def load(self):
+        assert self.dict == {}
+
+        try:
+            with open(self.path, "r") as file:
+                self.dict = load(file)
+        except FileNotFoundError:
+            pass
+
+
+    def save(self):
+        with open(self.path, "w") as file:
+            dump(self.dict, file, indent=2)
+
+        super().save()
+
+
+class KeyValueFolder(KeyValue):
+    def __init__(self, parent, folder, defaults):
+        super().__init__(parent, defaults)
+        self.folder = folder
+        os.makedirs(self.folder, exist_ok=True)
+
+
+    def load(self):
+        assert self.dict == {}
+
+        for filename in os.listdir(self.folder):
+            key = Path(filename).stem
+
+            with open(self.folder / filename, "r") as file:
+                self.dict[key] = load(file)
+
+
+    def set(self, key, value):
+        with self.delay_save():
+            if super().set(key, value):
+                with open(self.folder / (key + ".json"), "w") as file:
+                    dump(value, file, indent=2)
+                return True
+            return False
+
+
+    def remove(self, key):
+        with self.delay_save():
+            if super().remove(key):
+                os.remove(self.folder / (key + ".json"))
+                return True
+            return False
+
+
+    def restore_defaults(self):
+        with self.delay_save():
+            if super().restore_defaults():
+                for filename in os.listdir(self.folder):
+                    os.remove(filename)
+                return True
+            return False
+
+
+    def restore_snapshot(self, snapshot):
+        with self.delay_save():
+            for key in self.dict.keys():
+                if not key in snapshot:
+                    self.remove(key)
+
+            for key, value in snapshot.items():
+                self.set(key, value)
+
+            assert self.dict == snapshot
 
 
 class Settings(QObject):
     node_metadata_changed = pyqtSignal()
-    settings_changed = pyqtSignal()
 
-
-    default_settings = {
-
-    }
-
+    default_settings = {}
+    default_presets = {}
+    default_workflows = {}
 
     def __init__(self, parent):
         super().__init__(parent)
 
         self.dir = Path(Krita.getAppDataLocation()) / "krita_comfyui"
 
-        self.settings = self.load_settings()
-
         self.node_metadata = None
         self.cached_node_metadata = {}
 
-        self.workflows_dir = self.dir / "workflows"
+        self.settings = KeyValueFile(self, self.dir / "settings.json", self.default_settings)
+        self.bundles = KeyValueFile(self, self.dir / "bundles.json", {})
+        self.presets = KeyValueFile(self, self.dir / "presets.json", self.default_presets)
+        self.workflows = KeyValueFolder(self, self.dir / "workflows", self.default_workflows)
 
-        os.makedirs(self.workflows_dir, exist_ok=True)
-
-        self.workflows = {}
+        self.settings.load()
+        self.bundles.load()
+        self.presets.load()
+        self.workflows.load()
 
         self.load_node_metadata()
 
 
-    # Creates a deep copy of the settings
+    def get_all_workflows(self):
+        def sort_workflow(x):
+            return (x.get("order", 0), x["name"].casefold(), x["id"])
+
+        return sorted(list(self.workflows.defaults.values()) + list(self.workflows.dict.values()), key=sort_workflow)
+
+
     def snapshot(self):
-        return Snapshot(loads(dumps(self.settings)), self.workflows)
+        return (
+            self.settings.snapshot(),
+            self.bundles.snapshot(),
+            self.presets.snapshot(),
+            self.workflows.snapshot(),
+        )
 
 
     def restore_snapshot(self, snapshot):
-        self.settings = snapshot.settings
-        self.save_settings()
+        self.settings.restore_snapshot(snapshot[0])
+        self.bundles.restore_snapshot(snapshot[1])
+        self.presets.restore_snapshot(snapshot[2])
+        self.workflows.restore_snapshot(snapshot[3])
 
 
     def restore_defaults(self):
         reply = QMessageBox.question(
             self,
             "Restore defaults",
-            "Are you sure you want to restore all defaults?\n\nThis will delete your bundles, presets, and workflows!",
+            "Are you sure you want to restore all defaults?\n\nThis will delete all your bundles, presets, and workflows!\n\nThis cannot be undone!",
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            self.settings = self.default_settings()
-            self.save_settings()
+            snapshot = self.snapshot()
 
-
-    def load_settings(self):
-        try:
-            with open(self.dir / "settings.json", "r") as file:
-                return load(file)
-        except FileNotFoundError:
-            return {}
-
-
-    def save_settings(self):
-        with open(self.dir / "settings.json", "w") as file:
-            dump(self.settings, file, indent=2)
-
-        self.settings_changed.emit()
+            try:
+                self.settings.restore_defaults()
+                self.bundles.restore_defaults()
+                self.presets.restore_defaults()
+                self.workflows.restore_defaults()
+            except:
+                self.restore_snapshot(snapshot)
+                raise
 
 
     def get_node_metadata(self, node_id):
@@ -188,34 +357,3 @@ class Settings(QObject):
             dump(metadata, file, indent=2)
 
         self.node_metadata_changed.emit()
-
-
-    def workflow_path(self, id):
-        return self.workflows_dir / (id + ".json")
-
-
-    def load_workflow(self, id):
-        workflow = self.workflows.get(id, None)
-
-        if workflow is None:
-            with open(self.workflow_path(id), "r") as file:
-                workflow = load(file)
-
-            self.workflows[id] = workflow
-
-        return workflow
-
-
-    def load_all_workflows(self):
-        for id in os.listdir(self.workflows_dir):
-            self.load_workflow(Path(id).stem)
-
-        def sort_workflow(x):
-            return (x.get("order", 0), x["name"].casefold(), x["id"])
-
-        return sorted(self.workflows.values(), key=sort_workflow)
-
-
-    def save_workflow(self, id, json):
-        with open(self.workflow_path(id), "w") as file:
-            dump(json, file, indent=2)

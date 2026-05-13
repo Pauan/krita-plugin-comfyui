@@ -289,6 +289,27 @@ class Workflow(QObject):
             self.serialized = self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {})
 
 
+    def reload_workflow(self):
+        if self.id != "":
+            try:
+                info = self.settings.workflows.get(self.id)
+            except KeyError:
+                info = None
+
+            # If the workflow was deleted, revert back to the default.
+            if info is None:
+                return self.change_workflow("")
+
+            else:
+                assert info["id"] == self.id
+                self.graph = info["graph"]
+                self.layout = info["layout"]
+                self.update_metadata()
+                return True
+
+        return False
+
+
     def update_workflow(self, id):
         assert id is not None
         assert isinstance(id, str)
@@ -301,7 +322,7 @@ class Workflow(QObject):
                 self.layout = None
 
             else:
-                info = self.settings.load_workflow(self.id)
+                info = self.settings.workflows.get(self.id)
                 assert info["id"] == self.id
 
                 self.graph = info["graph"]
