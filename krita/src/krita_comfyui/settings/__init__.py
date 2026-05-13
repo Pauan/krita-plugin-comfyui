@@ -247,12 +247,27 @@ class KeyValueFolder(KeyValue):
             assert self.dict == snapshot
 
 
+def load_default_folder(folder):
+    folder = Path(__file__).parent / "defaults" / folder
+
+    defaults = {}
+
+    for filename in os.listdir(folder):
+        key = Path(filename).stem
+
+        with open(folder / filename, "r") as file:
+            defaults[key] = load(file)
+
+    return defaults
+
+
 class Settings(QObject):
     node_metadata_changed = pyqtSignal()
 
     default_settings = {}
+    default_bundles = {}
     default_presets = {}
-    default_workflows = {}
+    default_workflows = load_default_folder("workflows")
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -263,7 +278,7 @@ class Settings(QObject):
         self.cached_node_metadata = {}
 
         self.settings = KeyValueFile(self, self.dir / "settings.json", self.default_settings)
-        self.bundles = KeyValueFile(self, self.dir / "bundles.json", {})
+        self.bundles = KeyValueFile(self, self.dir / "bundles.json", self.default_bundles)
         self.presets = KeyValueFile(self, self.dir / "presets.json", self.default_presets)
         self.workflows = KeyValueFolder(self, self.dir / "workflows", self.default_workflows)
 

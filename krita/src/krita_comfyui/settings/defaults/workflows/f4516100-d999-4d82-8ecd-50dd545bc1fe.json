@@ -1,0 +1,1816 @@
+{
+  "name": "Anima",
+  "id": "f4516100-d999-4d82-8ecd-50dd545bc1fe",
+  "icon": "bookmarks",
+  "order": 0,
+
+  "layout": [
+    {
+      "type": "percentage",
+      "id": "image_strength",
+      "link_to": {
+        "node_id": "krita_comfyui: img2img",
+        "input": "strength"
+      },
+      "step": 0.05,
+      "prefix": "Image Strength: "
+    },
+    {
+      "type": "string",
+      "id": "prompt",
+      "multiline": true,
+      "tooltip": "Prompt",
+      "placeholder": "Prompt..."
+    },
+    {
+      "type": "group",
+      "id": "mask_regions_group",
+      "title": "Mask Regions",
+      "default": false,
+      "children": [
+        {
+          "type": "list",
+          "id": "mask_regions_list",
+          "label": "region",
+          "children": [
+            {
+              "type": "row",
+              "children": [
+                {
+                  "type": "boolean",
+                  "id": "mask_regions_enabled",
+                  "tooltip": "Whether the mask regions is enabled."
+                },
+                {
+                  "type": "layer_id",
+                  "id": "mask_regions_layer",
+                  "tooltip": "Mask Regions Layer Group",
+                  "enabled_if": {
+                    "id": "mask_regions_enabled",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "string",
+              "id": "mask_regions_prompt",
+              "multiline": true,
+              "tooltip": "Region prompt",
+              "placeholder": "Region prompt...",
+              "enabled_if": {
+                "id": "mask_regions_enabled",
+                "value": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "controlnet_group",
+      "title": "Control Nets",
+      "default": false,
+      "children": [
+        {
+          "type": "list",
+          "id": "controlnet_list",
+          "label": "control net",
+          "children": [
+            {
+              "type": "row",
+              "children": [
+                {
+                  "type": "boolean",
+                  "id": "controlnet_enabled",
+                  "tooltip": "Whether the control net is enabled."
+                },
+                {
+                  "type": "layer_id",
+                  "id": "controlnet_layer",
+                  "tooltip": "Control Net Layer",
+                  "enabled_if": {
+                    "id": "controlnet_enabled",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "combo",
+              "id": "controlnet_model",
+              "link_to": {
+                "node_id": "krita_comfyui: MakeControlNet",
+                "input": "model"
+              },
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              }
+            },
+            {
+              "type": "percentage",
+              "id": "controlnet_start",
+              "link_to": {
+                "node_id": "krita_comfyui: MakeControlNet",
+                "input": "start_percent"
+              },
+              "step": 0.05,
+              "prefix": "Start: ",
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              }
+            },
+            {
+              "type": "percentage",
+              "id": "controlnet_end",
+              "link_to": {
+                "node_id": "krita_comfyui: MakeControlNet",
+                "input": "end_percent"
+              },
+              "step": 0.05,
+              "prefix": "End: ",
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              }
+            },
+            {
+              "type": "percentage",
+              "id": "controlnet_strength",
+              "link_to": {
+                "node_id": "krita_comfyui: MakeControlNet",
+                "input": "strength"
+              },
+              "step": 0.05,
+              "prefix": "Strength: ",
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              }
+            },
+            {
+              "type": "boolean",
+              "id": "controlnet_invert",
+              "label": "Invert image",
+              "tooltip": "Black becomes white, white becomes black.",
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              },
+              "default": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "advanced",
+      "title": "Advanced",
+      "indent": true,
+      "default": false,
+      "children": [
+        {
+          "type": "combo",
+          "id": "checkpoint",
+          "link_to": {
+            "node_id": "UNETLoader",
+            "input": "unet_name"
+          }
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "combo",
+              "id": "sampler_name",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "sampler_name"
+              },
+              "default": "gradient_estimation"
+            },
+            {
+              "type": "combo",
+              "id": "scheduler",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "scheduler"
+              },
+              "default": "simple"
+            },
+            {
+              "type": "int",
+              "id": "steps",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "steps"
+              },
+              "default": 30,
+              "suffix": " steps"
+            }
+          ]
+        },
+        {
+          "type": "float",
+          "id": "prompt_weight",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "cfg"
+          },
+          "suffix": " prompt weight",
+          "default": 5.0
+        },
+        {
+          "type": "int",
+          "id": "batch_size",
+          "link_to": {
+            "node_id": "krita_comfyui: img2img",
+            "input": "batch_size"
+          },
+          "suffix": " batch size",
+          "default": 4
+        },
+        {
+          "type": "int",
+          "id": "feather",
+          "link_to": {
+            "node_id": "krita_comfyui: KritaSelectionFeather",
+            "input": "amount"
+          },
+          "suffix": "px feathering",
+          "default": 16
+        },
+        {
+          "type": "float",
+          "id": "detail_megapixels",
+          "link_to": {
+            "node_id": "krita_comfyui: Detail",
+            "input": [
+              "resize_type",
+              "scale total pixels",
+              "megapixels"
+            ]
+          },
+          "suffix": " megapixels"
+        },
+        {
+          "type": "string",
+          "id": "default_prompt",
+          "multiline": true,
+          "tooltip": "Default prompt",
+          "placeholder": "Default prompt..."
+        },
+        {
+          "type": "boolean",
+          "id": "debug",
+          "label": "Debug",
+          "default": false
+        }
+      ]
+    }
+  ],
+
+  "graph": {
+    "45": {
+      "inputs": {
+        "id": "prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiString",
+      "_meta": {
+        "title": "Krita UI String"
+      }
+    },
+    "46": {
+      "inputs": {
+        "text": [
+          "45",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: ParseLines",
+      "_meta": {
+        "title": "Parse Lines"
+      }
+    },
+    "47": {
+      "inputs": {
+        "jsons.json0": [
+          "48",
+          0
+        ],
+        "jsons.json1": [
+          "197",
+          0
+        ],
+        "jsons.json2": [
+          "46",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: ConcatenateJson",
+      "_meta": {
+        "title": "Concatenate JSON"
+      }
+    },
+    "48": {
+      "inputs": {
+        "text": "FILE: bundles.prompt"
+      },
+      "class_type": "prompt_helpers: ParseLines",
+      "_meta": {
+        "title": "Parse Lines"
+      }
+    },
+    "53": {
+      "inputs": {
+        "id": "controlnet_model"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "62": {
+      "inputs": {
+        "id": "controlnet_strength"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "63": {
+      "inputs": {
+        "id": "controlnet_start"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "64": {
+      "inputs": {
+        "id": "controlnet_end"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "65": {
+      "inputs": {
+        "switch": [
+          "275",
+          0
+        ],
+        "on_false": [
+          "272",
+          0
+        ],
+        "on_true": [
+          "279",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "70": {
+      "inputs": {
+        "id": "prompt_weight"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "71": {
+      "inputs": {
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "name": "ComfyUI [%index%]",
+        "images": [
+          "274",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "72": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvas",
+      "_meta": {
+        "title": "Krita Canvas"
+      }
+    },
+    "78": {
+      "inputs": {
+        "id": "image_strength"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "81": {
+      "inputs": {
+        "id": "sampler_name"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "82": {
+      "inputs": {
+        "id": "scheduler"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "83": {
+      "inputs": {
+        "id": "steps"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "88": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaSeed",
+      "_meta": {
+        "title": "Krita Seed"
+      }
+    },
+    "89": {
+      "inputs": {
+        "x": 0,
+        "y": 0,
+        "operation": "multiply",
+        "destination": [
+          "72",
+          1
+        ],
+        "source": [
+          "137",
+          0
+        ]
+      },
+      "class_type": "MaskComposite",
+      "_meta": {
+        "title": "MaskComposite"
+      }
+    },
+    "91": {
+      "inputs": {
+        "id": "checkpoint"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "106": {
+      "inputs": {
+        "mode": "flatten",
+        "layer_id": [
+          "107",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaLayers",
+      "_meta": {
+        "title": "Krita Layers"
+      }
+    },
+    "107": {
+      "inputs": {
+        "id": "mask_regions_layer"
+      },
+      "class_type": "krita_comfyui: KritaUiLayerId",
+      "_meta": {
+        "title": "Krita UI Layer Id"
+      }
+    },
+    "108": {
+      "inputs": {
+        "mode": "flatten",
+        "layer_id": [
+          "109",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaLayers",
+      "_meta": {
+        "title": "Krita Layers"
+      }
+    },
+    "109": {
+      "inputs": {
+        "id": "controlnet_layer"
+      },
+      "class_type": "krita_comfyui: KritaUiLayerId",
+      "_meta": {
+        "title": "Krita UI Layer Id"
+      }
+    },
+    "119": {
+      "inputs": {
+        "id": "detail_megapixels"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "126": {
+      "inputs": {
+        "image": [
+          "72",
+          0
+        ]
+      },
+      "class_type": "SplitImageWithAlpha",
+      "_meta": {
+        "title": "Split Image with Alpha"
+      }
+    },
+    "128": {
+      "inputs": {
+        "id": "batch_size"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "136": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaSelection",
+      "_meta": {
+        "title": "Krita Selection"
+      }
+    },
+    "137": {
+      "inputs": {
+        "selection": [
+          "258",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaSelectionMask",
+      "_meta": {
+        "title": "Krita Selection: Mask"
+      }
+    },
+    "138": {
+      "inputs": {
+        "round_up": 32,
+        "selection": [
+          "258",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaSelectionBounds",
+      "_meta": {
+        "title": "Krita Selection: Bounds"
+      }
+    },
+    "139": {
+      "inputs": {
+        "amount": [
+          "140",
+          0
+        ],
+        "mode": "outside",
+        "selection": [
+          "136",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaSelectionFeather",
+      "_meta": {
+        "title": "Krita Selection: Feather"
+      }
+    },
+    "140": {
+      "inputs": {
+        "id": "feather"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "142": {
+      "inputs": {
+        "id": "debug"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "153": {
+      "inputs": {
+        "enabled": [
+          "165",
+          0
+        ],
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "name": "3. Regions",
+        "masks": [
+          "256",
+          0
+        ],
+        "text": [
+          "106",
+          2
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "154": {
+      "inputs": {
+        "enabled": [
+          "142",
+          0
+        ],
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "name": "ControlNet",
+        "images": [
+          "284",
+          3
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "155": {
+      "inputs": {
+        "enabled": [
+          "166",
+          0
+        ],
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "name": "Selection",
+        "masks": [
+          "254",
+          0
+        ],
+        "text": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "157": {
+      "inputs": {
+        "enabled": [
+          "142",
+          0
+        ],
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "name": "Canvas",
+        "images": [
+          "248",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "158": {
+      "inputs": {
+        "enabled": [
+          "142",
+          0
+        ],
+        "x": 0,
+        "y": 0,
+        "name": "6. Seed",
+        "text": [
+          "88",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "161": {
+      "inputs": {
+        "id": "mask_regions_enabled"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "162": {
+      "inputs": {
+        "id": "controlnet_enabled"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "165": {
+      "inputs": {
+        "input1": [
+          "277",
+          0
+        ],
+        "input2": [
+          "142",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "166": {
+      "inputs": {
+        "input1": [
+          "136",
+          1
+        ],
+        "input2": [
+          "142",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "169": {
+      "inputs": {
+        "enabled": [
+          "142",
+          0
+        ],
+        "x": 0,
+        "y": 0,
+        "name": "1. Prompt Positive",
+        "text": [
+          "193",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "172": {
+      "inputs": {
+        "enabled": [
+          "142",
+          0
+        ],
+        "x": 0,
+        "y": 0,
+        "name": "2. Prompt Negative",
+        "text": [
+          "194",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "175": {
+      "inputs": {
+        "jsons.json0": [
+          "48",
+          0
+        ],
+        "jsons.json1": [
+          "177",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: ConcatenateJson",
+      "_meta": {
+        "title": "Concatenate JSON"
+      }
+    },
+    "176": {
+      "inputs": {
+        "id": "mask_regions_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiString",
+      "_meta": {
+        "title": "Krita UI String"
+      }
+    },
+    "177": {
+      "inputs": {
+        "text": [
+          "176",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: ParseLines",
+      "_meta": {
+        "title": "Parse Lines"
+      }
+    },
+    "178": {
+      "inputs": {
+        "prompt": [
+          "181",
+          1
+        ],
+        "strength": 1,
+        "isolated": false,
+        "add_to_global": true,
+        "mask": [
+          "256",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: RegionMask",
+      "_meta": {
+        "title": "Region Mask"
+      }
+    },
+    "180": {
+      "inputs": {
+        "json": [
+          "175",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: DebugJSON",
+      "_meta": {
+        "title": "Debug JSON"
+      }
+    },
+    "181": {
+      "inputs": {
+        "json_prompt": [
+          "180",
+          1
+        ]
+      },
+      "class_type": "prompt_helpers: DebugJSONPrompt",
+      "_meta": {
+        "title": "Debug JSON Prompt"
+      }
+    },
+    "182": {
+      "inputs": {
+        "prompt": [
+          "183",
+          1
+        ],
+        "strength": 1,
+        "isolated": false,
+        "add_to_global": true,
+        "mask": [
+          "256",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: RegionMask",
+      "_meta": {
+        "title": "Region Mask"
+      }
+    },
+    "183": {
+      "inputs": {
+        "json_prompt": [
+          "180",
+          2
+        ]
+      },
+      "class_type": "prompt_helpers: DebugJSONPrompt",
+      "_meta": {
+        "title": "Debug JSON Prompt"
+      }
+    },
+    "187": {
+      "inputs": {
+        "global_prompt": [
+          "193",
+          1
+        ],
+        "global_strength": 0.01,
+        "global_inverse_strength": 0,
+        "add_to_regions": true,
+        "combine_prompts": "String Concatenate",
+        "clip": [
+          "286",
+          0
+        ],
+        "regions": [
+          "271",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionsEncode",
+      "_meta": {
+        "title": "CLIP Regions Encode"
+      }
+    },
+    "190": {
+      "inputs": {
+        "global_prompt": [
+          "194",
+          1
+        ],
+        "global_strength": 0.01,
+        "global_inverse_strength": 0,
+        "add_to_regions": true,
+        "combine_prompts": "String Concatenate",
+        "clip": [
+          "286",
+          0
+        ],
+        "regions": [
+          "270",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionsEncode",
+      "_meta": {
+        "title": "CLIP Regions Encode"
+      }
+    },
+    "192": {
+      "inputs": {
+        "json": [
+          "47",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: DebugJSON",
+      "_meta": {
+        "title": "Debug JSON"
+      }
+    },
+    "193": {
+      "inputs": {
+        "json_prompt": [
+          "192",
+          1
+        ]
+      },
+      "class_type": "prompt_helpers: DebugJSONPrompt",
+      "_meta": {
+        "title": "Debug JSON Prompt"
+      }
+    },
+    "194": {
+      "inputs": {
+        "json_prompt": [
+          "192",
+          2
+        ]
+      },
+      "class_type": "prompt_helpers: DebugJSONPrompt",
+      "_meta": {
+        "title": "Debug JSON Prompt"
+      }
+    },
+    "196": {
+      "inputs": {
+        "id": "default_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiString",
+      "_meta": {
+        "title": "Krita UI String"
+      }
+    },
+    "197": {
+      "inputs": {
+        "text": [
+          "196",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: ParseLines",
+      "_meta": {
+        "title": "Parse Lines"
+      }
+    },
+    "207": {
+      "inputs": {
+        "samples": [
+          "232",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE Decode"
+      }
+    },
+    "216": {
+      "inputs": {
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "width": [
+          "138",
+          2
+        ],
+        "height": [
+          "138",
+          3
+        ]
+      },
+      "class_type": "PrimitiveBoundingBox",
+      "_meta": {
+        "title": "Bounding Box"
+      }
+    },
+    "224": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "138",
+          2
+        ],
+        "resize_type.height": [
+          "138",
+          3
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "area",
+        "input": [
+          "207",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "225": {
+      "inputs": {
+        "strength": [
+          "78",
+          0
+        ],
+        "batch_size": [
+          "128",
+          0
+        ],
+        "positive": [
+          "187",
+          0
+        ],
+        "negative": [
+          "190",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ],
+        "image": [
+          "248",
+          1
+        ],
+        "mask": [
+          "254",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: img2img",
+      "_meta": {
+        "title": "img2img"
+      }
+    },
+    "227": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "207",
+          0
+        ],
+        "on_true": [
+          "224",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "232": {
+      "inputs": {
+        "seed": [
+          "88",
+          0
+        ],
+        "steps": [
+          "83",
+          0
+        ],
+        "cfg": [
+          "70",
+          0
+        ],
+        "sampler_name": [
+          "81",
+          0
+        ],
+        "scheduler": [
+          "82",
+          0
+        ],
+        "denoise": [
+          "252",
+          0
+        ],
+        "model": [
+          "284",
+          0
+        ],
+        "positive": [
+          "284",
+          1
+        ],
+        "negative": [
+          "284",
+          2
+        ],
+        "latent_image": [
+          "253",
+          0
+        ]
+      },
+      "class_type": "KSampler",
+      "_meta": {
+        "title": "KSampler"
+      }
+    },
+    "248": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "scale_method": "lanczos",
+        "input": [
+          "126",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "249": {
+      "inputs": {
+        "strength": [
+          "78",
+          0
+        ],
+        "batch_size": [
+          "128",
+          0
+        ],
+        "positive": [
+          "187",
+          0
+        ],
+        "negative": [
+          "190",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ],
+        "image": [
+          "248",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: img2img",
+      "_meta": {
+        "title": "img2img"
+      }
+    },
+    "250": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "249",
+          0
+        ],
+        "on_true": [
+          "225",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "251": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "249",
+          1
+        ],
+        "on_true": [
+          "225",
+          1
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "252": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "249",
+          3
+        ],
+        "on_true": [
+          "225",
+          3
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "253": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "249",
+          2
+        ],
+        "on_true": [
+          "225",
+          2
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "254": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "scale_method": "lanczos",
+        "input": [
+          "137",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "256": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "scale_method": "lanczos",
+        "input": [
+          "106",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "257": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "scale_method": "lanczos",
+        "input": [
+          "280",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "258": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "136",
+          0
+        ],
+        "on_true": [
+          "139",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "259": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "260",
+          0
+        ],
+        "on_true": [
+          "119",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "260": {
+      "inputs": {
+        "value": 0
+      },
+      "class_type": "PrimitiveFloat",
+      "_meta": {
+        "title": "Float"
+      }
+    },
+    "261": {
+      "inputs": {
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "width": [
+          "138",
+          2
+        ],
+        "height": [
+          "138",
+          3
+        ],
+        "mask": [
+          "89",
+          0
+        ]
+      },
+      "class_type": "CropMask",
+      "_meta": {
+        "title": "CropMask"
+      }
+    },
+    "264": {
+      "inputs": {
+        "enabled": [
+          "165",
+          0
+        ],
+        "x": 0,
+        "y": 0,
+        "name": "4. Regions Positive",
+        "text": [
+          "181",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "265": {
+      "inputs": {
+        "enabled": [
+          "165",
+          0
+        ],
+        "x": 0,
+        "y": 0,
+        "name": "5. Regions Negative",
+        "text": [
+          "183",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "269": {
+      "inputs": {
+        "prompt": "",
+        "strength": 0,
+        "isolated": false,
+        "add_to_global": true
+      },
+      "class_type": "krita_comfyui: RegionMask",
+      "_meta": {
+        "title": "Region Mask"
+      }
+    },
+    "270": {
+      "inputs": {
+        "switch": [
+          "277",
+          0
+        ],
+        "on_false": [
+          "269",
+          0
+        ],
+        "on_true": [
+          "182",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "271": {
+      "inputs": {
+        "switch": [
+          "277",
+          0
+        ],
+        "on_false": [
+          "269",
+          0
+        ],
+        "on_true": [
+          "178",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "272": {
+      "inputs": {},
+      "class_type": "krita_comfyui: EmptyControlNet",
+      "_meta": {
+        "title": "Empty Control Net"
+      }
+    },
+    "274": {
+      "inputs": {
+        "image": [
+          "227",
+          0
+        ],
+        "alpha": [
+          "261",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: AddAlphaToImage",
+      "_meta": {
+        "title": "Add Alpha To Image"
+      }
+    },
+    "275": {
+      "inputs": {
+        "input": [
+          "162",
+          0
+        ],
+        "default": [
+          "276",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Default",
+      "_meta": {
+        "title": "Default"
+      }
+    },
+    "276": {
+      "inputs": {
+        "value": false
+      },
+      "class_type": "PrimitiveBoolean",
+      "_meta": {
+        "title": "Boolean"
+      }
+    },
+    "277": {
+      "inputs": {
+        "input": [
+          "161",
+          0
+        ],
+        "default": [
+          "278",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Default",
+      "_meta": {
+        "title": "Default"
+      }
+    },
+    "278": {
+      "inputs": {
+        "value": false
+      },
+      "class_type": "PrimitiveBoolean",
+      "_meta": {
+        "title": "Boolean"
+      }
+    },
+    "279": {
+      "inputs": {
+        "model": [
+          "53",
+          0
+        ],
+        "type": "Anima LLLite",
+        "strength": [
+          "62",
+          0
+        ],
+        "start_percent": [
+          "63",
+          0
+        ],
+        "end_percent": [
+          "64",
+          0
+        ],
+        "image": [
+          "282",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: MakeControlNet",
+      "_meta": {
+        "title": "Make Control Net"
+      }
+    },
+    "280": {
+      "inputs": {
+        "color": "#ffffff",
+        "image": [
+          "108",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: ReplaceTransparency",
+      "_meta": {
+        "title": "Image Replace Transparency"
+      }
+    },
+    "281": {
+      "inputs": {
+        "id": "controlnet_invert"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "282": {
+      "inputs": {
+        "switch": [
+          "281",
+          0
+        ],
+        "on_false": [
+          "257",
+          1
+        ],
+        "on_true": [
+          "283",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "283": {
+      "inputs": {
+        "image": [
+          "257",
+          1
+        ]
+      },
+      "class_type": "ImageInvert",
+      "_meta": {
+        "title": "Invert Image"
+      }
+    },
+    "284": {
+      "inputs": {
+        "model": [
+          "285",
+          0
+        ],
+        "positive": [
+          "250",
+          0
+        ],
+        "negative": [
+          "251",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ],
+        "control_nets": [
+          "65",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: ApplyControlNets",
+      "_meta": {
+        "title": "Apply Control Nets"
+      }
+    },
+    "285": {
+      "inputs": {
+        "unet_name": [
+          "91",
+          0
+        ],
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "Load Diffusion Model"
+      }
+    },
+    "286": {
+      "inputs": {
+        "clip_name": "qwen_3_06b_base.safetensors",
+        "type": "qwen_image",
+        "device": "default"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "Load CLIP"
+      }
+    },
+    "287": {
+      "inputs": {
+        "vae_name": "qwen_image_vae.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "Load VAE"
+      }
+    }
+  }
+}
