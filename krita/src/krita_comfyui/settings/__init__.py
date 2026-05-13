@@ -1,5 +1,6 @@
 import os
 import contextlib
+import functools
 from enum import Enum, auto
 from json import dump, dumps, load, loads
 from pathlib import Path
@@ -247,6 +248,46 @@ class KeyValueFolder(KeyValue):
             assert self.dict == snapshot
 
 
+@functools.total_ordering
+class WorkflowCmp:
+    def __init__(self, workflow):
+        self.is_default = workflow.get("is_default", False)
+        self.before = workflow.get("before", None)
+        self.name = workflow["name"].casefold()
+        self.id = workflow["id"]
+
+    def cmp(self, other):
+        print(self.name, other.name)
+
+        if self.is_default and not other.is_default:
+            return -1
+        elif other.is_default and not self.is_default:
+            return 1
+
+        if self.before is not None and self.before == other.id:
+            return -1
+        elif other.before is not None and other.before == self.id:
+            return 1
+
+        if self.name < other.name:
+            return -1
+        elif other.name < self.name:
+            return 1
+
+        if self.id < other.id:
+            return -1
+        elif other.id < self.id:
+            return 1
+
+        return 0
+
+    def __eq__(self, other):
+        return self.cmp(other) == 0
+
+    def __lt__(self, other):
+        return self.cmp(other) < 0
+
+
 def load_default_folder(folder):
     folder = Path(__file__).parent / "defaults" / folder
 
@@ -291,10 +332,10 @@ class Settings(QObject):
 
 
     def get_all_workflows(self):
-        def sort_workflow(x):
-            return (x.get("order", 0), x["name"].casefold(), x["id"])
-
-        return sorted(list(self.workflows.defaults.values()) + list(self.workflows.dict.values()), key=sort_workflow)
+        return sorted(
+            list(self.workflows.defaults.values()) + list(self.workflows.dict.values()),
+            key=WorkflowCmp,
+        )
 
 
     def snapshot(self):

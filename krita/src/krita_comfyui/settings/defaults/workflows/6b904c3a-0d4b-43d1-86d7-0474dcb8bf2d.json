@@ -1,0 +1,212 @@
+{
+  "name": "Upscale",
+  "id": "6b904c3a-0d4b-43d1-86d7-0474dcb8bf2d",
+  "icon": "transform_icons_liquify_resize",
+  "is_default": true,
+  "before": "b4633163-7028-4387-aa96-f494579ed707",
+
+  "layout": [
+    {
+      "type": "combo",
+      "id": "model",
+      "link_to": {
+        "node_id": "UpscaleModelLoader",
+        "input": "model_name"
+      },
+      "tooltip": "Model used for upscaling."
+    },
+    {
+      "type": "group",
+      "id": "advanced",
+      "title": "Advanced",
+      "indent": true,
+      "default": false,
+      "children": [
+        {
+          "type": "int",
+          "id": "multiplier",
+          "min": 1,
+          "max": 64,
+          "default": 2,
+          "suffix": " multiplier",
+          "tooltip": "How big the upscaled image should be relative to the original."
+        },
+        {
+          "type": "combo",
+          "id": "scale_method",
+          "link_to": {
+            "node_id": "ImageScale",
+            "input": "upscale_method"
+          },
+          "default": "lanczos",
+          "tooltip": "Algorithm used when resizing the image."
+        }
+      ]
+    }
+  ],
+
+  "graph": {
+    "1": {
+      "inputs": {
+        "model_name": [
+          "4",
+          0
+        ]
+      },
+      "class_type": "UpscaleModelLoader",
+      "_meta": {
+        "title": "Load Upscale Model"
+      }
+    },
+    "2": {
+      "inputs": {
+        "upscale_model": [
+          "1",
+          0
+        ],
+        "image": [
+          "15",
+          0
+        ]
+      },
+      "class_type": "ImageUpscaleWithModel",
+      "_meta": {
+        "title": "Upscale Image (using Model)"
+      }
+    },
+    "4": {
+      "inputs": {
+        "id": "model"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "6": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvas",
+      "_meta": {
+        "title": "Krita Canvas"
+      }
+    },
+    "8": {
+      "inputs": {
+        "id": "multiplier"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "9": {
+      "inputs": {
+        "int1": [
+          "6",
+          2
+        ],
+        "int2": [
+          "8",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: IntMultiply",
+      "_meta": {
+        "title": "multiply"
+      }
+    },
+    "10": {
+      "inputs": {
+        "int1": [
+          "6",
+          3
+        ],
+        "int2": [
+          "8",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: IntMultiply",
+      "_meta": {
+        "title": "multiply"
+      }
+    },
+    "11": {
+      "inputs": {
+        "image": [
+          "12",
+          0
+        ],
+        "alpha": [
+          "6",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: AddAlphaToImage",
+      "_meta": {
+        "title": "Add Alpha To Image"
+      }
+    },
+    "12": {
+      "inputs": {
+        "upscale_method": [
+          "13",
+          0
+        ],
+        "width": [
+          "9",
+          0
+        ],
+        "height": [
+          "10",
+          0
+        ],
+        "crop": "disabled",
+        "image": [
+          "2",
+          0
+        ]
+      },
+      "class_type": "ImageScale",
+      "_meta": {
+        "title": "Upscale Image"
+      }
+    },
+    "13": {
+      "inputs": {
+        "id": "scale_method"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "14": {
+      "inputs": {
+        "x": 0,
+        "y": 0,
+        "name": "Upscale [%index%]",
+        "images": [
+          "11",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "15": {
+      "inputs": {
+        "image": [
+          "6",
+          0
+        ]
+      },
+      "class_type": "SplitImageWithAlpha",
+      "_meta": {
+        "title": "Split Image with Alpha"
+      }
+    }
+  }
+}
