@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QProgressBar,
     QToolBar,
+    QListWidget,
     QLabel,
     QComboBox,
     QGroupBox,
@@ -20,6 +21,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QCompleter,
+    QStackedLayout,
 )
 
 
@@ -166,6 +168,13 @@ def make_row():
     return Layout(qlayout)
 
 
+def make_stack():
+    qlayout = QStackedLayout()
+    qlayout.setSpacing(0)
+    qlayout.setContentsMargins(0, 0, 0, 0)
+    return Layout(qlayout)
+
+
 class Toolbar:
     def __init__(self, qtoolbar):
         self.qtoolbar = qtoolbar
@@ -254,6 +263,9 @@ class Layout:
     def set_padding(self, left=0, top=0, right=0, bottom=0):
         self.qlayout.setContentsMargins(left, top, right, bottom)
 
+    def set_current_index(self, index):
+        self.qlayout.setCurrentIndex(index)
+
 
     def column(self):
         layout = make_column()
@@ -267,6 +279,12 @@ class Layout:
         self.layouts.append(layout)
         return Scope(layout)
 
+    def stack(self):
+        layout = make_stack()
+        self.qlayout.addLayout(layout.qlayout)
+        self.layouts.append(layout)
+        return Scope(layout)
+
 
     def stretch(self, stretch=1):
         self.qlayout.addStretch(stretch)
@@ -276,9 +294,16 @@ class Layout:
 
 
     def widget(self, widget, stretch=0):
-        self.qlayout.addWidget(widget, stretch)
+        if stretch == 0:
+            self.qlayout.addWidget(widget)
+        else:
+            self.qlayout.addWidget(widget, stretch)
         self.widgets.append(widget)
         return Scope(widget)
+
+
+    def list(self):
+        return self.widget(QListWidget())
 
 
     def button(self, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
@@ -454,5 +479,12 @@ class LayoutManager:
     def row(self):
         assert self.layout is None
         self.layout = make_row()
+        self.parent.setLayout(self.layout.qlayout)
+        return Scope(self.layout)
+
+
+    def stack(self):
+        assert self.layout is None
+        self.layout = make_stack()
         self.parent.setLayout(self.layout.qlayout)
         return Scope(self.layout)

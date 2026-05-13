@@ -3,6 +3,7 @@ from PyQt6.QtCore import QThread
 
 from .server import ComfyUIClient
 from .settings import Settings
+from .settings.dialog import SettingsDialog
 from .util.notify import NotifyWorker
 from . import util
 
@@ -21,6 +22,7 @@ class ComfyUIExtension(Extension):
         self.notify.moveToThread(self.thread)
 
         self.settings = Settings(self)
+        self.settings_dialog = SettingsDialog(self.settings)
 
         self.client = ComfyUIClient(self, self.settings, url="127.0.0.1:8188", reconnect_delay=10000)
 
@@ -29,6 +31,10 @@ class ComfyUIExtension(Extension):
         notifier = parent.notifier()
         notifier.setActive(True)
         notifier.applicationClosing.connect(self.shutdown)
+
+
+    def show_settings(self):
+        self.settings_dialog.show()
 
 
     def createActions(self, window):
@@ -55,3 +61,4 @@ class ComfyUIExtension(Extension):
         self.thread.quit()
         self.thread.deleteLater()
         self.notify.deleteLater()
+        self.settings_dialog.deleteLater()

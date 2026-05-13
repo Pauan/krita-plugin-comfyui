@@ -1,7 +1,8 @@
 import os
-from json import dump, load
+from json import dump, dumps, load, loads
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtWidgets import QMessageBox
 
 
 class InputMetadata:
@@ -76,14 +77,28 @@ class NodeMetadata:
             return metadata
 
 
+class Snapshot:
+    def __init__(self, settings, workflows):
+        self.settings = settings
+        self.workflows = workflows
+
+
 class Settings(QObject):
     node_metadata_changed = pyqtSignal()
+    settings_changed = pyqtSignal()
+
+
+    default_settings = {
+
+    }
 
 
     def __init__(self, parent):
         super().__init__(parent)
 
         self.dir = Path(Krita.getAppDataLocation()) / "krita_comfyui"
+
+        self.settings = self.load_settings()
 
         self.node_metadata = None
         self.cached_node_metadata = {}
@@ -95,6 +110,43 @@ class Settings(QObject):
         self.workflows = {}
 
         self.load_node_metadata()
+
+
+    # Creates a deep copy of the settings
+    def snapshot(self):
+        return Snapshot(loads(dumps(self.settings)), self.workflows)
+
+
+    def restore_snapshot(self, snapshot):
+        self.settings = snapshot.settings
+        self.save_settings()
+
+
+    def restore_defaults(self):
+        reply = QMessageBox.question(
+            self,
+            "Restore defaults",
+            "Are you sure you want to restore all defaults?\n\nThis will delete your bundles, presets, and workflows!",
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.settings = self.default_settings()
+            self.save_settings()
+
+
+    def load_settings(self):
+        try:
+            with open(self.dir / "settings.json", "r") as file:
+                return load(file)
+        except FileNotFoundError:
+            return {}
+
+
+    def save_settings(self):
+        with open(self.dir / "settings.json", "w") as file:
+            dump(self.settings, file, indent=2)
+
+        self.settings_changed.emit()
 
 
     def get_node_metadata(self, node_id):
@@ -167,5 +219,3 @@ class Settings(QObject):
     def save_workflow(self, id, json):
         with open(self.workflow_path(id), "w") as file:
             dump(json, file, indent=2)
-
-        self.all_workflows.add(id)
