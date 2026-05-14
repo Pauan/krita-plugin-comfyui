@@ -144,166 +144,59 @@ class WorkflowWidget(QWidget):
     def add_widget(self, workflow, parent, info):
         info = self.get_node_metadata(info)
 
-        enabled_if = info.get("enabled_if", None)
-
-        if enabled_if is not None:
-            enabled_if = InputEqual(
-                workflow.input(enabled_if["id"]),
-                enabled_if["value"],
-            )
-
-        visible_if = info.get("visible_if", None)
-
-        if visible_if is not None:
-            visible_if = InputEqual(
-                workflow.input(visible_if["id"]),
-                visible_if["value"],
-            )
-
         match info["type"]:
             case "layer_id":
-                input = workflow.input(info["id"])
-                self.ui_inputs.append((input, visible_if))
-
                 widget = UiCombo(
-                    input,
-                    visible_if=visible_if,
-                    enabled_if=enabled_if,
+                    workflow.input(info["id"]),
+                    visible_if=InputEqual.from_json(workflow, info, "visible_if"),
+                    enabled_if=InputEqual.from_json(workflow, info, "enabled_if"),
                     tooltip=info.get("tooltip", None),
                     options=self.layer_combo_options,
                 )
 
+                self.ui_inputs.append((widget.input, widget.visible_if))
                 self.layer_inputs.append(widget)
-
                 parent.widget(widget)
 
 
             case "combo":
-                input = workflow.input(info["id"])
-                self.ui_inputs.append((input, visible_if))
-
-                parent.widget(UiCombo(
-                    input,
-                    visible_if=visible_if,
-                    enabled_if=enabled_if,
-                    tooltip=info.get("tooltip", None),
-                    options=info.get("options", []),
-                ))
+                widget = UiCombo.from_json(workflow, info)
+                self.ui_inputs.append((widget.input, widget.visible_if))
+                parent.widget(widget)
 
 
             case "string":
-                input = workflow.input(info["id"])
-                self.ui_inputs.append((input, visible_if))
-
-                multiline = info.get("multiline", False)
-
-                if multiline:
-                    widget = UiStringMultiline(
-                        input,
-                        visible_if=visible_if,
-                        enabled_if=enabled_if,
-                        tooltip=info.get("tooltip", None),
-                        placeholder=info.get("placeholder", None),
-                        background_color=info.get("background_color", None),
-                        min_lines=info.get("min_lines", 2),
-                        max_lines=info.get("max_lines", 6),
-                    )
-
-                else:
-                    widget = UiString(
-                        input,
-                        visible_if=visible_if,
-                        enabled_if=enabled_if,
-                        tooltip=info.get("tooltip", None),
-                        placeholder=info.get("placeholder", None),
-                    )
-
+                widget = UiString.from_json(workflow, info)
+                self.ui_inputs.append((widget.input, widget.visible_if))
                 parent.widget(widget)
 
 
             case "boolean":
-                input = workflow.input(info["id"])
-                self.ui_inputs.append((input, visible_if))
-
-                parent.widget(UiBoolean(
-                    input,
-                    visible_if=visible_if,
-                    enabled_if=enabled_if,
-                    tooltip=info.get("tooltip", None),
-                    label=info.get("label", None),
-                    style=info.get("style", "switch"),
-                ))
+                widget = UiBoolean.from_json(workflow, info)
+                self.ui_inputs.append((widget.input, widget.visible_if))
+                parent.widget(widget)
 
 
             case "int":
-                input = workflow.input(info["id"])
-                self.ui_inputs.append((input, visible_if))
-
-                parent.widget(UiInt(
-                    input,
-                    visible_if=visible_if,
-                    enabled_if=enabled_if,
-                    tooltip=info.get("tooltip", None),
-                    slider=info.get("slider", False),
-                    # 32-bit signed integer
-                    min=info.get("min", -2147483648),
-                    max=info.get("max", 2147483647),
-                    step=info.get("step", 1),
-                    prefix=info.get("prefix", None),
-                    suffix=info.get("suffix", None),
-                ))
+                widget = UiInt.from_json(workflow, info)
+                self.ui_inputs.append((widget.input, widget.visible_if))
+                parent.widget(widget)
 
 
             case "float":
-                input = workflow.input(info["id"])
-                self.ui_inputs.append((input, visible_if))
-
-                parent.widget(UiFloat(
-                    input,
-                    visible_if=visible_if,
-                    enabled_if=enabled_if,
-                    tooltip=info.get("tooltip", None),
-                    slider=info.get("slider", False),
-                    # 53-bit signed integer, the maximum safe integer with a 64-bit float
-                    min=info.get("min", -9007199254740991.0),
-                    max=info.get("max", 9007199254740991.0),
-                    step=info.get("step", 0.01),
-                    multiplier=info.get("multiplier", None),
-                    prefix=info.get("prefix", None),
-                    suffix=info.get("suffix", None),
-                    decimals=info.get("decimals", 2),
-                ))
+                widget = UiFloat.from_json(workflow, info)
+                self.ui_inputs.append((widget.input, widget.visible_if))
+                parent.widget(widget)
 
 
             case "percentage":
-                input = workflow.input(info["id"])
-                self.ui_inputs.append((input, visible_if))
-
-                parent.widget(UiFloat(
-                    input,
-                    visible_if=visible_if,
-                    enabled_if=enabled_if,
-                    tooltip=info.get("tooltip", None),
-                    slider=info.get("slider", True),
-                    min=0.0,
-                    max=1.0,
-                    step=info.get("step", 0.01),
-                    multiplier=100.0,
-                    prefix=info.get("prefix", None),
-                    suffix="%",
-                    decimals=0,
-                ))
+                widget = UiFloat.from_json_percentage(workflow, info)
+                self.ui_inputs.append((widget.input, widget.visible_if))
+                parent.widget(widget)
 
 
             case "group":
-                assert enabled_if is None
-
-                widget = UiGroup(
-                    workflow.input(info["id"]),
-                    title=info.get("title", ""),
-                    indent=info.get("indent", False),
-                    visible_if=visible_if,
-                )
+                widget = UiGroup.from_json(workflow, info)
 
                 for child in info["children"]:
                     self.add_widget(workflow, widget.layout, child)
@@ -312,9 +205,9 @@ class WorkflowWidget(QWidget):
 
 
             case "row":
-                assert enabled_if is None
+                assert not "enabled_if" in info
 
-                widget = UiRow(visible_if=visible_if)
+                widget = UiRow.from_json(workflow, info)
 
                 for child in info["children"]:
                     self.add_widget(workflow, widget.layout, child)
@@ -323,13 +216,12 @@ class WorkflowWidget(QWidget):
 
 
             case "list":
-                assert enabled_if is None
-
                 widget = UiList(
                     workflow.input_list(info["id"]),
                     label=info.get("label", None),
 
-                    visible_if=visible_if,
+                    visible_if=InputEqual.from_json(workflow, info, "visible_if"),
+                    enabled_if=InputEqual.from_json(workflow, info, "enabled_if"),
 
                     # When an item is added, removed, or moved, it clears out all the
                     # existing widgets and remakes them from scratch.

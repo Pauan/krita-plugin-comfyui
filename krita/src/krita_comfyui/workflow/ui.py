@@ -21,8 +21,23 @@ class InputEqual:
         self.input = input
         self.value = value
 
+
+    @staticmethod
+    def from_json(workflow, json, name):
+        info = json.get(name, None)
+
+        if info is not None:
+            return InputEqual(
+                workflow.input(info["id"]),
+                info["value"],
+            )
+
+        return None
+
+
     def is_equal(self):
         return self.input.get() == self.value
+
 
     def when_equal(self, f):
         def listener():
@@ -51,20 +66,33 @@ class UiCombo(ComboBox):
         super().__init__()
 
         self.input = input
+        self.visible_if = visible_if
+        self.enabled_if = enabled_if
 
         self.activated.connect(self.on_changed)
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
 
-        if enabled_if is not None:
-            enabled_if.when_equal(self.setEnabled)
+        if self.enabled_if is not None:
+            self.enabled_if.when_equal(self.setEnabled)
 
         self.set_options(options)
 
         input.add_listener(self.sync)
+
+
+    @staticmethod
+    def from_json(workflow, json):
+        return UiCombo(
+            workflow.input(json["id"]),
+            visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, json, "enabled_if"),
+            tooltip=json.get("tooltip", None),
+            options=json.get("options", []),
+        )
 
 
     def on_changed(self):
@@ -115,7 +143,12 @@ class UiBoolean(QWidget):
     def __init__(self, input, visible_if, enabled_if, tooltip, label, style):
         super().__init__()
 
+        if style is None:
+            style = "switch"
+
         self.input = input
+        self.visible_if = visible_if
+        self.enabled_if = enabled_if
 
         self.layout_manager = LayoutManager(self)
 
@@ -152,14 +185,26 @@ class UiBoolean(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
 
-        if enabled_if is not None:
-            enabled_if.when_equal(self.setEnabled)
+        if self.enabled_if is not None:
+            self.enabled_if.when_equal(self.setEnabled)
 
         self.sync()
         input.add_listener(self.sync)
+
+
+    @staticmethod
+    def from_json(workflow, json):
+        return UiBoolean(
+            workflow.input(json["id"]),
+            visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, json, "enabled_if"),
+            tooltip=json.get("tooltip", None),
+            label=json.get("label", None),
+            style=json.get("style", None),
+        )
 
 
     # TODO this should be mouseClickEvent but it doesn't exist!
@@ -183,6 +228,8 @@ class UiString(QLineEdit):
         super().__init__()
 
         self.input = input
+        self.visible_if = visible_if
+        self.enabled_if = enabled_if
 
         self.textEdited.connect(self.on_changed)
 
@@ -191,14 +238,40 @@ class UiString(QLineEdit):
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
 
-        if enabled_if is not None:
-            enabled_if.when_equal(self.setEnabled)
+        if self.enabled_if is not None:
+            self.enabled_if.when_equal(self.setEnabled)
 
         self.sync()
         input.add_listener(self.sync)
+
+
+    @staticmethod
+    def from_json(workflow, json):
+        multiline = json.get("multiline", False)
+
+        if multiline:
+            return UiStringMultiline(
+                workflow.input(json["id"]),
+                visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+                enabled_if=InputEqual.from_json(workflow, json, "enabled_if"),
+                tooltip=json.get("tooltip", None),
+                placeholder=json.get("placeholder", None),
+                background_color=json.get("background_color", None),
+                min_lines=json.get("min_lines", None),
+                max_lines=json.get("max_lines", None),
+            )
+
+        else:
+            return UiString(
+                workflow.input(json["id"]),
+                visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+                enabled_if=InputEqual.from_json(workflow, json, "enabled_if"),
+                tooltip=json.get("tooltip", None),
+                placeholder=json.get("placeholder", None),
+            )
 
 
     def sync(self):
@@ -217,7 +290,15 @@ class UiStringMultiline(QPlainTextEdit):
     def __init__(self, input, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines):
         super().__init__()
 
+        if min_lines is None:
+            min_lines = 2
+
+        if max_lines is None:
+            max_lines = 6
+
         self.input = input
+        self.visible_if = visible_if
+        self.enabled_if = enabled_if
         self.min_lines = min_lines
         self.max_lines = max_lines
 
@@ -251,11 +332,11 @@ class UiStringMultiline(QPlainTextEdit):
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
 
-        if enabled_if is not None:
-            enabled_if.when_equal(self.setEnabled)
+        if self.enabled_if is not None:
+            self.enabled_if.when_equal(self.setEnabled)
 
         self.sync()
         input.add_listener(self.sync)
@@ -297,10 +378,18 @@ class UiStringMultiline(QPlainTextEdit):
 
 
 class UiGroup(QWidget):
-    def __init__(self, input, visible_if, title, indent):
+    def __init__(self, input, visible_if, enabled_if, title, indent):
         super().__init__()
 
+        if title is None:
+            title = ""
+
+        if indent is None:
+            indent = False
+
         self.input = input
+        self.visible_if = visible_if
+        self.enabled_if = enabled_if
 
         self.layout_manager = LayoutManager(self)
 
@@ -333,11 +422,25 @@ class UiGroup(QWidget):
                         column.set_padding(left=20)
                     self.layout = column
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
+
+        if self.enabled_if is not None:
+            self.enabled_if.when_equal(self.setEnabled)
 
         self.sync()
         input.add_listener(self.sync)
+
+
+    @staticmethod
+    def from_json(workflow, json):
+        return UiGroup(
+            workflow.input(json["id"]),
+            visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, json, "enabled_if"),
+            title=json.get("title", None),
+            indent=json.get("indent", None),
+        )
 
 
     def sync(self):
@@ -368,20 +471,46 @@ class UiRow(QWidget):
     def __init__(self, visible_if):
         super().__init__()
 
+        self.visible_if = visible_if
+
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.row() as row:
             self.layout = row
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
+
+
+    @staticmethod
+    def from_json(workflow, json):
+        return UiRow(
+            visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+        )
 
 
 class UiFloat(QWidget):
     def __init__(self, input, visible_if, enabled_if, slider, tooltip, min, max, step, decimals, multiplier, prefix, suffix):
         super().__init__()
 
+        # 53-bit signed integer, the maximum safe integer with a 64-bit float
+        if min is None:
+            min = -9007199254740991.0
+        if max is None:
+            max = 9007199254740991.0
+
+        if step is None:
+            step = 0.01
+
+        if decimals is None:
+            decimals = 2
+
+        if slider is None:
+            slider = False
+
         self.input = input
+        self.visible_if = visible_if
+        self.enabled_if = enabled_if
         self.min = min
         self.max = max
         self.step = step
@@ -438,14 +567,50 @@ class UiFloat(QWidget):
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
 
-        if enabled_if is not None:
-            enabled_if.when_equal(self.setEnabled)
+        if self.enabled_if is not None:
+            self.enabled_if.when_equal(self.setEnabled)
 
         self.sync()
         input.add_listener(self.sync)
+
+
+    @staticmethod
+    def from_json(workflow, json):
+        return UiFloat(
+            workflow.input(json["id"]),
+            visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, json, "enabled_if"),
+            tooltip=json.get("tooltip", None),
+            slider=json.get("slider", None),
+            min=json.get("min", None),
+            max=json.get("max", None),
+            step=json.get("step", None),
+            multiplier=json.get("multiplier", None),
+            prefix=json.get("prefix", None),
+            suffix=json.get("suffix", None),
+            decimals=json.get("decimals", None),
+        )
+
+
+    @staticmethod
+    def from_json_percentage(workflow, json):
+        return UiFloat(
+            workflow.input(json["id"]),
+            visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, json, "enabled_if"),
+            tooltip=json.get("tooltip", None),
+            slider=json.get("slider", True),
+            min=0.0,
+            max=1.0,
+            step=json.get("step", None),
+            multiplier=100.0,
+            prefix=json.get("prefix", None),
+            suffix="%",
+            decimals=0,
+        )
 
 
     def sync(self):
@@ -500,7 +665,21 @@ class UiInt(QWidget):
     def __init__(self, input, visible_if, enabled_if, slider, tooltip, min, max, step, prefix, suffix):
         super().__init__()
 
+        # 32-bit signed integer
+        if min is None:
+            min = -2147483648
+        if max is None:
+            max = 2147483647
+
+        if step is None:
+            step = 1
+
+        if slider is None:
+            slider = False
+
         self.input = input
+        self.visible_if = visible_if
+        self.enabled_if = enabled_if
         self.min = min
         self.max = max
         self.step = step
@@ -551,14 +730,30 @@ class UiInt(QWidget):
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
 
-        if enabled_if is not None:
-            enabled_if.when_equal(self.setEnabled)
+        if self.enabled_if is not None:
+            self.enabled_if.when_equal(self.setEnabled)
 
         self.sync()
         input.add_listener(self.sync)
+
+
+    @staticmethod
+    def from_json(workflow, json):
+        return UiInt(
+            workflow.input(json["id"]),
+            visible_if=InputEqual.from_json(workflow, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, json, "enabled_if"),
+            tooltip=json.get("tooltip", None),
+            slider=json.get("slider", None),
+            min=json.get("min", None),
+            max=json.get("max", None),
+            step=json.get("step", None),
+            prefix=json.get("prefix", None),
+            suffix=json.get("suffix", None),
+        )
 
 
     def sync(self):
@@ -659,10 +854,12 @@ class UiListChild(QFrame):
 
 # TODO it should sync when the input changes
 class UiList(QWidget):
-    def __init__(self, input, visible_if, label, trigger_refresh):
+    def __init__(self, input, visible_if, enabled_if, label, trigger_refresh):
         super().__init__()
 
         self.input = input
+        self.visible_if = visible_if
+        self.enabled_if = enabled_if
         self.label = label
         self.trigger_refresh = trigger_refresh
 
@@ -673,8 +870,11 @@ class UiList(QWidget):
         with self.layout_manager.column() as column:
             self.layout = column
 
-        if visible_if is not None:
-            visible_if.when_equal(Visibility(self).set_visible)
+        if self.visible_if is not None:
+            self.visible_if.when_equal(Visibility(self).set_visible)
+
+        if self.enabled_if is not None:
+            self.enabled_if.when_equal(self.setEnabled)
 
 
     def move_child_up(self, index):
