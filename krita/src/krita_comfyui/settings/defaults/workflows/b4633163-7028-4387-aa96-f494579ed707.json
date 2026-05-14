@@ -30,23 +30,33 @@
         "value": false
       },
       "options": [
-        { "label": "Depth", "value": "DepthAnythingV2Preprocessor" },
+        { "label": "Canny", "value": "CannyEdgePreprocessor" },
         { "separator": true },
-        { "label": "Normal Map", "value": "DSINE-NormalMapPreprocessor" },
-        { "separator": true },
-        { "label": "Pose (Animal)", "value": "AnimalPosePreprocessor" },
-        { "label": "Pose (Human)", "value": "DWPreprocessor" },
-        { "separator": true },
-        { "label": "Segment (Anime Face)", "value": "AnimeFace_SemSegPreprocessor" },
+        { "label": "Lineart", "value": "LineArtPreprocessor" },
+        { "label": "Lineart (Any)", "value": "AnyLineArtPreprocessor_aux" },
+        { "label": "Lineart (Anime)", "value": "AnimeLineArtPreprocessor" },
+        { "label": "Lineart (Manga)", "value": "Manga2Anime_LineArt_Preprocessor" },
         { "separator": true },
         { "label": "Scribble", "value": "FakeScribblePreprocessor" },
         { "label": "Scribble (HED)", "value": "HEDPreprocessor" },
         { "label": "Scribble (PiDI)", "value": "PiDiNetPreprocessor" },
         { "label": "Scribble (TEED)", "value": "TEEDPreprocessor" },
         { "label": "Scribble (XDoG)", "value": "Scribble_XDoG_Preprocessor" },
-        { "separator": true }
+        { "separator": true },
+        { "label": "Pose (Human)", "value": "DWPreprocessor" },
+        { "label": "Pose (Animal)", "value": "AnimalPosePreprocessor" },
+        { "separator": true },
+        { "label": "Depth", "value": "DepthAnythingV2Preprocessor" },
+        { "label": "Normal Map", "value": "DSINE-NormalMapPreprocessor" }
       ],
       "tooltip": "Model used for upscaling."
+    },
+    {
+      "type": "boolean",
+      "id": "invert",
+      "default": false,
+      "label": "Invert image",
+      "tooltip": "Whether to invert the image. Black becomes white and white becomes black."
     },
     {
       "type": "group",
@@ -77,6 +87,7 @@
           "type": "boolean",
           "id": "show_all",
           "default": false,
+          "label": "Show all models",
           "tooltip": "Shows all of the models."
         }
       ]
@@ -132,7 +143,7 @@
         ],
         "crop": "disabled",
         "image": [
-          "25",
+          "34",
           0
         ]
       },
@@ -260,6 +271,47 @@
       "class_type": "Basic data handling: CastToFloat",
       "_meta": {
         "title": "to FLOAT"
+      }
+    },
+    "33": {
+      "inputs": {
+        "image": [
+          "25",
+          0
+        ]
+      },
+      "class_type": "ImageInvert",
+      "_meta": {
+        "title": "Invert Image"
+      }
+    },
+    "34": {
+      "inputs": {
+        "switch": [
+          "35",
+          0
+        ],
+        "on_false": [
+          "25",
+          0
+        ],
+        "on_true": [
+          "33",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "35": {
+      "inputs": {
+        "id": "invert"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
       }
     }
   }

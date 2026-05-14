@@ -85,8 +85,11 @@ class UiCombo(ComboBox):
             for option in options:
                 if option.get("separator", False):
                     self.insertSeparator(self.count())
+                    self.insertSeparator(self.count())
+
                 elif option.get("icon", None) is not None:
                     self.addItem(Krita.icon(option["icon"]), option["label"], option["value"])
+
                 else:
                     self.addItem(option["label"], option["value"])
 
@@ -107,7 +110,6 @@ class UiBoolean(QWidget):
                 with row.widget(Toggle()) as checkbox:
                     self.checkbox = checkbox
                     checkbox.checkStateChanged.connect(self.on_changed)
-                    checkbox.setChecked(self.input.get())
 
                 if label is not None:
                     row.label(text=label)
@@ -116,7 +118,6 @@ class UiBoolean(QWidget):
                 with row.widget(QCheckBox()) as checkbox:
                     self.checkbox = checkbox
                     checkbox.checkStateChanged.connect(self.on_changed)
-                    checkbox.setChecked(self.input.get())
                     checkbox.setStyleSheet("""
                         QCheckBox {
                             spacing: 4px;
@@ -143,12 +144,20 @@ class UiBoolean(QWidget):
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
 
+        self.sync()
+        input.add_listener(self.sync)
+
 
     # TODO this should be mouseClickEvent but it doesn't exist!
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.checkbox.setChecked(not self.checkbox.isChecked())
         super().mousePressEvent(event)
+
+
+    def sync(self):
+        with BlockSignals(self.checkbox):
+            self.checkbox.setChecked(self.input.get())
 
 
     def on_changed(self):
@@ -160,8 +169,6 @@ class UiString(QLineEdit):
         super().__init__()
 
         self.input = input
-
-        self.setText(self.input.get())
 
         self.textEdited.connect(self.on_changed)
 
@@ -176,6 +183,13 @@ class UiString(QLineEdit):
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
 
+        self.sync()
+        input.add_listener(self.sync)
+
+    def sync(self):
+        with BlockSignals(self):
+            self.setText(self.input.get())
+
     def on_changed(self):
         self.input.set(self.text())
 
@@ -187,8 +201,6 @@ class UiStringMultiline(QPlainTextEdit):
         self.input = input
         self.min_lines = min_lines
         self.max_lines = max_lines
-
-        self.set_text(self.input.get())
 
         self.textChanged.connect(self.on_changed)
 
@@ -226,22 +238,32 @@ class UiStringMultiline(QPlainTextEdit):
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
 
+        self.sync()
+        input.add_listener(self.sync)
+
+
+    def sync(self):
+        with BlockSignals(self):
+            text = self.input.get()
+            self.resize(text)
+            self.setPlainText(text)
+
+
     def get_pixel_height(self, lines):
         metrics = QFontMetricsF(self.document().defaultFont())
         return math.ceil(metrics.lineSpacing() * (lines + 1))
 
+
     def resize(self, text):
         lines = max(self.min_lines, min(number_of_lines(text) + 1, self.max_lines))
         self.setFixedHeight(self.get_pixel_height(lines))
+
 
     def on_changed(self):
         text = self.toPlainText()
         self.resize(text)
         self.input.set(text)
 
-    def set_text(self, text):
-        self.resize(text)
-        self.setPlainText(text)
 
     def wheelEvent(self, event):
         super().wheelEvent(event)
@@ -276,7 +298,6 @@ class UiGroup(QWidget):
                 """)
                 #button.setAutoRaise(True)
                 button.setCheckable(True)
-                button.setChecked(self.input.get())
                 button.setText(title)
                 button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
                 button.toggled.connect(self.on_toggled)
@@ -295,7 +316,15 @@ class UiGroup(QWidget):
         if visible_if is not None:
             visible_if.when_equal(self.setVisible)
 
-        self.update()
+        self.sync()
+        input.add_listener(self.sync)
+
+
+    def sync(self):
+        # TODO maybe it shouldn't block signals for the container?
+        with BlockSignals(self.container), BlockSignals(self.toggle_button):
+            self.toggle_button.setChecked(self.input.get())
+            self.update()
 
 
     def update(self):
@@ -350,8 +379,6 @@ class UiFloat(QWidget):
 
         self.layout_manager = LayoutManager(self)
 
-        display_value = round(clamp(self.input.get(), self.min, self.max) * self.multiplier, self.decimals)
-
         # TODO maybe we don't need a LayoutManager ?
         with self.layout_manager.column() as column:
             if slider:
@@ -374,7 +401,6 @@ class UiFloat(QWidget):
                     widget.installEventFilter(self.block_wheel)
 
                     widget.setSingleStep(self.step * self.multiplier)
-                    widget.setValue(display_value)
                     widget.draggingFinished.connect(self.on_drag_end)
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
@@ -393,7 +419,6 @@ class UiFloat(QWidget):
                     widget.setRange(min * self.multiplier, max * self.multiplier)
                     widget.setSingleStep(step * self.multiplier)
                     widget.setDecimals(self.decimals)
-                    widget.setValue(display_value)
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
 
@@ -402,6 +427,15 @@ class UiFloat(QWidget):
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
+
+        self.sync()
+        input.add_listener(self.sync)
+
+
+    def sync(self):
+        with BlockSignals(self.value_widget):
+            display_value = round(clamp(self.input.get(), self.min, self.max) * self.multiplier, self.decimals)
+            self.value_widget.setValue(display_value)
 
 
     def get_real_value(self):
@@ -481,7 +515,6 @@ class UiInt(QWidget):
                     widget.installEventFilter(self.block_wheel)
 
                     widget.setSingleStep(step)
-                    widget.setValue(clamp(self.input.get(), min, max))
                     widget.draggingFinished.connect(self.on_drag_end)
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
@@ -499,7 +532,6 @@ class UiInt(QWidget):
 
                     widget.setRange(min, max)
                     widget.setSingleStep(step)
-                    widget.setValue(clamp(self.input.get(), min, max))
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
 
@@ -508,6 +540,14 @@ class UiInt(QWidget):
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
+
+        self.sync()
+        input.add_listener(self.sync)
+
+
+    def sync(self):
+        with BlockSignals(self.value_widget):
+            self.value_widget.setValue(clamp(self.input.get(), self.min, self.max))
 
 
     def get_real_value(self):
@@ -601,6 +641,7 @@ class UiListChild(QFrame):
             self.list.remove_child(self.index)
 
 
+# TODO it should sync when the input changes
 class UiList(QWidget):
     def __init__(self, input, visible_if, label, trigger_refresh):
         super().__init__()

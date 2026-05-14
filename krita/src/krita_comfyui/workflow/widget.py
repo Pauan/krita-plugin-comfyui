@@ -163,7 +163,7 @@ class WorkflowWidget(QWidget):
         match info["type"]:
             case "layer_id":
                 input = workflow.input(info["id"])
-                self.ui_inputs.append(input)
+                self.ui_inputs.append((input, visible_if))
 
                 widget = UiCombo(
                     input,
@@ -180,7 +180,7 @@ class WorkflowWidget(QWidget):
 
             case "combo":
                 input = workflow.input(info["id"])
-                self.ui_inputs.append(input)
+                self.ui_inputs.append((input, visible_if))
 
                 parent.widget(UiCombo(
                     input,
@@ -193,7 +193,7 @@ class WorkflowWidget(QWidget):
 
             case "string":
                 input = workflow.input(info["id"])
-                self.ui_inputs.append(input)
+                self.ui_inputs.append((input, visible_if))
 
                 multiline = info.get("multiline", False)
 
@@ -223,7 +223,7 @@ class WorkflowWidget(QWidget):
 
             case "boolean":
                 input = workflow.input(info["id"])
-                self.ui_inputs.append(input)
+                self.ui_inputs.append((input, visible_if))
 
                 parent.widget(UiBoolean(
                     input,
@@ -237,7 +237,7 @@ class WorkflowWidget(QWidget):
 
             case "int":
                 input = workflow.input(info["id"])
-                self.ui_inputs.append(input)
+                self.ui_inputs.append((input, visible_if))
 
                 parent.widget(UiInt(
                     input,
@@ -256,7 +256,7 @@ class WorkflowWidget(QWidget):
 
             case "float":
                 input = workflow.input(info["id"])
-                self.ui_inputs.append(input)
+                self.ui_inputs.append((input, visible_if))
 
                 parent.widget(UiFloat(
                     input,
@@ -277,7 +277,7 @@ class WorkflowWidget(QWidget):
 
             case "percentage":
                 input = workflow.input(info["id"])
-                self.ui_inputs.append(input)
+                self.ui_inputs.append((input, visible_if))
 
                 parent.widget(UiFloat(
                     input,
@@ -440,8 +440,10 @@ class WorkflowWidget(QWidget):
             ui_values[id] = []
 
         # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
-        for input in self.ui_inputs:
-            ui_values[input.id].append(input.value)
+        for input, visible_if in self.ui_inputs:
+            # TODO maybe do this for enabled_if too ?
+            if visible_if is None or visible_if.is_equal():
+                ui_values[input.id].append(input.value)
 
         try:
             graph = self.workflow.to_graph(ui_values, defaults)
