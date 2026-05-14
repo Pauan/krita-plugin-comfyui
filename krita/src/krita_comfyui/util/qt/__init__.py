@@ -273,21 +273,47 @@ class Layout:
         self.qlayout.setCurrentIndex(index)
 
 
-    def column(self):
+    def column(self, stretch=0, align=None):
         layout = make_column()
-        self.qlayout.addLayout(layout.qlayout)
+
+        if stretch == 0:
+            self.qlayout.addLayout(layout.qlayout)
+        else:
+            self.qlayout.addLayout(layout.qlayout, stretch)
+
+        if align is not None:
+            assert self.qlayout.setAlignment(layout.qlayout, align)
+
         self.layouts.append(layout)
         return Scope(layout)
 
-    def row(self):
+
+    def row(self, stretch=0, align=None):
         layout = make_row()
-        self.qlayout.addLayout(layout.qlayout)
+
+        if stretch == 0:
+            self.qlayout.addLayout(layout.qlayout)
+        else:
+            self.qlayout.addLayout(layout.qlayout, stretch)
+
+        if align is not None:
+            assert self.qlayout.setAlignment(layout.qlayout, align)
+
         self.layouts.append(layout)
         return Scope(layout)
 
-    def stack(self):
+
+    def stack(self, stretch=0, align=None):
         layout = make_stack()
-        self.qlayout.addLayout(layout.qlayout)
+
+        if stretch == 0:
+            self.qlayout.addLayout(layout.qlayout)
+        else:
+            self.qlayout.addLayout(layout.qlayout, stretch)
+
+        if align is not None:
+            assert self.qlayout.setAlignment(layout.qlayout, align)
+
         self.layouts.append(layout)
         return Scope(layout)
 
@@ -339,6 +365,13 @@ class Layout:
         widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         widget.setContentsMargins(0, 0, 0, 0)
+
+        widget.setStyleSheet("""
+            QToolBar {
+                padding: 0px;
+                margin: 3px;
+            }
+        """)
 
         if tooltip is not None:
             widget.setToolTip(tooltip)

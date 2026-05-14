@@ -215,8 +215,10 @@ class UiBoolean(QWidget):
 
 
     def sync(self):
-        with BlockSignals(self.checkbox):
-            self.checkbox.setChecked(self.input.get())
+        checked = self.input.get()
+
+        if self.checkbox.isChecked() != checked:
+            self.checkbox.setChecked(checked)
 
 
     def on_changed(self):
@@ -419,7 +421,9 @@ class UiGroup(QWidget):
                 with layout.column() as column:
                     if indent:
                         # TODO figure out a way to calculate this automatically
-                        column.set_padding(left=20)
+                        column.set_padding(top=3, left=20)
+                    else:
+                        column.set_padding(top=3)
                     self.layout = column
 
         if self.visible_if is not None:
@@ -805,27 +809,32 @@ class UiListChild(QFrame):
         self.list = list
         self.index = index
 
+        self.setContentsMargins(0, 0, 0, 0)
+
         self.setFrameShape(QFrame.Shape.Panel)
         self.setFrameShadow(QFrame.Shadow.Raised)
 
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.row() as row:
-            with row.toolbar(orientation=Qt.Orientation.Vertical) as toolbar:
-                with toolbar.tool_button(icon=Krita.icon("arrow-up"), tooltip="Move Up") as button:
-                    self.move_up_button = button
-                    button.clicked.connect(self.move_up)
+            row.set_padding(right=1)
 
-                with toolbar.tool_button(icon=Krita.icon("arrow-down"), tooltip="Move Down") as button:
-                    self.move_down_button = button
-                    button.clicked.connect(self.move_down)
+            with row.column(align=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop) as column:
+                with column.toolbar(orientation=Qt.Orientation.Vertical) as toolbar:
+                    with toolbar.tool_button(icon=Krita.icon("arrow-up"), tooltip="Move Up") as button:
+                        self.move_up_button = button
+                        button.clicked.connect(self.move_up)
 
-                toolbar.separator()
+                    with toolbar.tool_button(icon=Krita.icon("arrow-down"), tooltip="Move Down") as button:
+                        self.move_down_button = button
+                        button.clicked.connect(self.move_down)
 
-                with toolbar.tool_button(icon=Krita.icon("window-close"), tooltip="Delete") as button:
-                    button.clicked.connect(self.remove)
+                    toolbar.separator()
 
-            with row.column() as column:
+                    with toolbar.tool_button(icon=Krita.icon("window-close"), tooltip="Delete") as button:
+                        button.clicked.connect(self.remove)
+
+            with row.column(stretch=1, align=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop) as column:
                 self.layout = column
 
 
@@ -899,7 +908,7 @@ class UiList(QWidget):
             if index == 0:
                 self.layout.spacer(2)
             else:
-                self.layout.spacer(4)
+                self.layout.spacer(3)
 
             with self.layout.widget(UiListChild(self, index)) as child:
                 self.children.append(child)

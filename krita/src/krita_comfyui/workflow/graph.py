@@ -131,8 +131,8 @@ class WorkflowGraph:
         self.cached_bounds = None
         self.cached_canvas = None
         self.cached_selection = None
-        self.cached_layers = None
-        self.cached_layer_images = None
+        self.cached_layers = {}
+        self.cached_layer_images = {}
 
         # We only evaluate each node one time and cache its output.
         self.cached_outputs = {}

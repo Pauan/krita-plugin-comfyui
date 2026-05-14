@@ -69,7 +69,7 @@
         {
           "type": "float",
           "id": "multiplier",
-          "min": 1.0,
+          "min": 0.0,
           "default": 1.0,
           "suffix": " multiplier",
           "tooltip": "Resolution of the filtering process, relative to the original image size."

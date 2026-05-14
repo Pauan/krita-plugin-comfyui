@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
     QWidget,
+    QFrame,
 )
 from ..util import number_of_decimals
 from ..util.krita import DocumentManager
@@ -72,7 +73,7 @@ class WorkflowWidget(QWidget):
 
         with self.layout.column() as column:
             with column.row() as row:
-                row.set_padding(left=2, right=2, bottom=4)
+                row.set_padding(left=1, right=1, bottom=2)
 
                 with row.widget(WorkflowSelector(tooltip="Workflow")) as combo:
                     self.workflow_selector = combo
@@ -82,6 +83,9 @@ class WorkflowWidget(QWidget):
                     button.clicked.connect(self.open_settings)
 
             with column.scroll() as scroll:
+                scroll.setFrameShape(QFrame.Shape.Panel)
+                scroll.setFrameShadow(QFrame.Shadow.Sunken)
+
                 widget = QWidget()
                 layout = LayoutManager(widget)
 
@@ -89,8 +93,10 @@ class WorkflowWidget(QWidget):
                 widget.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred))
 
                 with layout.column() as column:
-                    column.set_padding(left=2, right=2)
-                    self.widgets = column
+                    column.set_padding(left=2, right=2, top=3)
+
+                    with column.column(align=Qt.AlignmentFlag.AlignTop) as column:
+                        self.widgets = column
 
                 scroll.setWidget(widget)
 
@@ -254,8 +260,6 @@ class WorkflowWidget(QWidget):
         if self.workflow.layout is not None:
             for widget in self.workflow.layout:
                 self.add_widget(self.workflow, self.widgets, widget)
-
-        self.widgets.stretch()
 
 
     def get_layer_combo_options(self):

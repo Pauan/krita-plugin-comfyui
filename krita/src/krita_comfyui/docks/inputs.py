@@ -123,12 +123,8 @@ class QueueWidget(QWidget):
         self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
-            with column.row() as row:
-                row.stretch()
-
+            with column.row(align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop) as row:
                 row.label(text="Queue")
-
-                row.stretch()
 
                 #with self.layout.tool_button() as button:
                     #button.setIcon(Krita.icon("animation_pause"))
@@ -181,17 +177,14 @@ class InputsWidget(QWidget):
             self.workflow.can_run_changed.connect(self.update_run_button)
             column.widget(self.workflow)
 
-            #with self.layout.column() as inputs:
-                #column.addLayout(inputs)
-
             with column.row() as row:
-                row.set_padding(left=10, right=2, bottom=2)
+                row.set_padding(left=9, right=1, bottom=1, top=1)
 
                 with row.progress_bar(minimum=0, maximum=1000000, tooltip="Progress") as progress:
                     self.progress_bar = progress
                     progress.setValue(0)
 
-                with row.tool_button(tooltip="Run workflow in ComfyUI") as button:
+                with row.tool_button() as button:
                     self.run_button = button
 
                     self.queue_menu = QMenu(self)
@@ -226,7 +219,14 @@ class InputsWidget(QWidget):
 
 
     def update_run_button(self):
-        self.run_button.setEnabled(self.extension.client.is_connected and self.workflow.can_run())
+        can_run = self.extension.client.is_connected and self.workflow.can_run()
+
+        self.run_button.setEnabled(can_run)
+
+        if can_run:
+            self.run_button.setToolTip("Run workflow in ComfyUI")
+        else:
+            self.run_button.setToolTip("Not connected to ComfyUI")
 
 
     def update(self):
