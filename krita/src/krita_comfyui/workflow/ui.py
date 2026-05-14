@@ -16,130 +16,89 @@ from ..util.qt.toggle import Toggle
 from ..util import number_of_lines, lerp, normalize, clamp
 
 
-class EnabledIf:
+class InputEqual:
     def __init__(self, input, value):
         self.input = input
         self.value = value
 
-    def is_enabled(self):
+    def is_equal(self):
         return self.input.get() == self.value
 
-    def add_listener(self, f):
-        self.input.add_listener(f)
+    def when_equal(self, f):
+        def listener():
+            f(self.is_equal())
+
+        self.input.add_listener(listener)
+        listener()
 
 
-class UiLayerId(ComboBox):
-    def __init__(self, input, enabled_if, layers, tooltip):
+class UiCombo(ComboBox):
+    def __init__(self, input, visible_if, enabled_if, tooltip, options):
         super().__init__()
 
         self.input = input
-        self.enabled_if = enabled_if
 
         self.activated.connect(self.on_changed)
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        self.set_layers(layers)
+        self.set_options(options)
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
 
+        if enabled_if is not None:
+            enabled_if.when_equal(self.setEnabled)
 
-    def update_enabled(self):
-        self.setEnabled(self.enabled_if.is_enabled())
+        input.add_listener(self.sync)
 
 
     def on_changed(self):
         selected = self.currentData()
-
-        if selected is None:
-            selected = ""
-
-        self.input.set(selected)
-
-
-    def set_layers(self, layers):
-        with BlockSignals(self):
-            self.clear()
-
-            self.addItem("", "")
-
-            for layer in layers:
-                if layer is None:
-                    self.insertSeparator(self.count())
-                else:
-                    self.addItem(layer.type.icon(), layer.name, layer.id)
-
-            selected_id = self.input.get()
-
-            if selected_id == "":
-                index = 0
-            else:
-                index = self.findData(selected_id, flags=Qt.MatchFlag.MatchExactly)
-
-            if self.currentIndex() != index:
-                self.setCurrentIndex(index)
-
-            self.resize_dropdown()
-
-
-class UiCombo(ComboBox):
-    def __init__(self, input, enabled_if, tooltip, values):
-        super().__init__()
-
-        self.input = input
-        self.enabled_if = enabled_if
-
-        self.activated.connect(self.on_changed)
-
-        self.setToolTip(self.input.format_tooltip(tooltip))
-
-        self.set_values(values)
-
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
-
-
-    def update_enabled(self):
-        self.setEnabled(self.enabled_if.is_enabled())
-
-
-    def on_changed(self):
-        selected = self.currentText()
         assert selected is not None
+        assert isinstance(selected, str)
         self.input.set(selected)
 
 
-    def set_values(self, values):
+    def sync(self):
         with BlockSignals(self):
-            self.clear()
-
-            self.addItem("")
-
-            for value in values:
-                self.addItem(value)
-
             selected_value = self.input.get()
 
             if selected_value == "":
                 index = 0
             else:
-                index = self.findText(selected_value, flags=Qt.MatchFlag.MatchExactly)
+                index = self.findData(selected_value, flags=Qt.MatchFlag.MatchExactly)
+
+            if index < 0:
+                index = 0
 
             if self.currentIndex() != index:
                 self.setCurrentIndex(index)
 
+
+    def set_options(self, options):
+        with BlockSignals(self):
+            self.clear()
+
+            self.addItem("", "")
+
+            for option in options:
+                if option.get("separator", False):
+                    self.insertSeparator(self.count())
+                elif option.get("icon", None) is not None:
+                    self.addItem(Krita.icon(option["icon"]), option["label"], option["value"])
+                else:
+                    self.addItem(option["label"], option["value"])
+
+            self.sync()
             self.resize_dropdown()
 
 
 class UiBoolean(QWidget):
-    def __init__(self, input, enabled_if, tooltip, label, style):
+    def __init__(self, input, visible_if, enabled_if, tooltip, label, style):
         super().__init__()
 
         self.input = input
-        self.enabled_if = enabled_if
 
         self.layout_manager = LayoutManager(self)
 
@@ -178,9 +137,11 @@ class UiBoolean(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
+
+        if enabled_if is not None:
+            enabled_if.when_equal(self.setEnabled)
 
 
     # TODO this should be mouseClickEvent but it doesn't exist!
@@ -190,20 +151,15 @@ class UiBoolean(QWidget):
         super().mousePressEvent(event)
 
 
-    def update_enabled(self):
-        self.setEnabled(self.enabled_if.is_enabled())
-
-
     def on_changed(self):
         self.input.set(self.checkbox.isChecked())
 
 
 class UiString(QLineEdit):
-    def __init__(self, input, enabled_if, placeholder, tooltip):
+    def __init__(self, input, visible_if, enabled_if, placeholder, tooltip):
         super().__init__()
 
         self.input = input
-        self.enabled_if = enabled_if
 
         self.setText(self.input.get())
 
@@ -214,25 +170,23 @@ class UiString(QLineEdit):
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
 
-    def update_enabled(self):
-        self.setEnabled(self.enabled_if.is_enabled())
+        if enabled_if is not None:
+            enabled_if.when_equal(self.setEnabled)
 
     def on_changed(self):
         self.input.set(self.text())
 
 
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, input, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines):
+    def __init__(self, input, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines):
         super().__init__()
 
         self.input = input
         self.min_lines = min_lines
         self.max_lines = max_lines
-        self.enabled_if = enabled_if
 
         self.set_text(self.input.get())
 
@@ -266,12 +220,11 @@ class UiStringMultiline(QPlainTextEdit):
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
 
-    def update_enabled(self):
-        self.setEnabled(self.enabled_if.is_enabled())
+        if enabled_if is not None:
+            enabled_if.when_equal(self.setEnabled)
 
     def get_pixel_height(self, lines):
         metrics = QFontMetricsF(self.document().defaultFont())
@@ -302,7 +255,7 @@ class UiStringMultiline(QPlainTextEdit):
 
 
 class UiGroup(QWidget):
-    def __init__(self, input, title, indent):
+    def __init__(self, input, visible_if, title, indent):
         super().__init__()
 
         self.input = input
@@ -339,6 +292,9 @@ class UiGroup(QWidget):
                         column.set_padding(left=20)
                     self.layout = column
 
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
+
         self.update()
 
 
@@ -364,7 +320,7 @@ class UiGroup(QWidget):
 
 
 class UiRow(QWidget):
-    def __init__(self):
+    def __init__(self, visible_if):
         super().__init__()
 
         self.layout_manager = LayoutManager(self)
@@ -372,9 +328,12 @@ class UiRow(QWidget):
         with self.layout_manager.row() as row:
             self.layout = row
 
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
+
 
 class UiFloat(QWidget):
-    def __init__(self, input, enabled_if, slider, tooltip, min, max, step, decimals, multiplier, prefix, suffix):
+    def __init__(self, input, visible_if, enabled_if, slider, tooltip, min, max, step, decimals, multiplier, prefix, suffix):
         super().__init__()
 
         self.input = input
@@ -383,7 +342,6 @@ class UiFloat(QWidget):
         self.step = step
         self.decimals = decimals
         self.multiplier = multiplier
-        self.enabled_if = enabled_if
 
         if self.multiplier is None:
             self.multiplier = 1.0
@@ -439,13 +397,11 @@ class UiFloat(QWidget):
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
 
-
-    def update_enabled(self):
-        self.setEnabled(self.enabled_if.is_enabled())
+        if enabled_if is not None:
+            enabled_if.when_equal(self.setEnabled)
 
 
     def get_real_value(self):
@@ -491,14 +447,13 @@ class UiFloat(QWidget):
 
 
 class UiInt(QWidget):
-    def __init__(self, input, enabled_if, slider, tooltip, min, max, step, prefix, suffix):
+    def __init__(self, input, visible_if, enabled_if, slider, tooltip, min, max, step, prefix, suffix):
         super().__init__()
 
         self.input = input
         self.min = min
         self.max = max
         self.step = step
-        self.enabled_if = enabled_if
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
@@ -548,13 +503,11 @@ class UiInt(QWidget):
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
 
-        if self.enabled_if is not None:
-            self.update_enabled()
-            self.enabled_if.add_listener(self.update_enabled)
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
 
-
-    def update_enabled(self):
-        self.setEnabled(self.enabled_if.is_enabled())
+        if enabled_if is not None:
+            enabled_if.when_equal(self.setEnabled)
 
 
     def get_real_value(self):
@@ -649,7 +602,7 @@ class UiListChild(QFrame):
 
 
 class UiList(QWidget):
-    def __init__(self, input, label, trigger_refresh):
+    def __init__(self, input, visible_if, label, trigger_refresh):
         super().__init__()
 
         self.input = input
@@ -662,6 +615,9 @@ class UiList(QWidget):
 
         with self.layout_manager.column() as column:
             self.layout = column
+
+        if visible_if is not None:
+            visible_if.when_equal(self.setVisible)
 
 
     def move_child_up(self, index):

@@ -12,6 +12,40 @@
         "node_id": "AIO_Preprocessor",
         "input": "preprocessor"
       },
+      "visible_if": {
+        "id": "show_all",
+        "value": true
+      },
+      "tooltip": "Model used for upscaling."
+    },
+    {
+      "type": "combo",
+      "id": "model",
+      "link_to": {
+        "node_id": "AIO_Preprocessor",
+        "input": "preprocessor"
+      },
+      "visible_if": {
+        "id": "show_all",
+        "value": false
+      },
+      "options": [
+        { "label": "Depth", "value": "DepthAnythingV2Preprocessor" },
+        { "separator": true },
+        { "label": "Normal Map", "value": "DSINE-NormalMapPreprocessor" },
+        { "separator": true },
+        { "label": "Pose (Animal)", "value": "AnimalPosePreprocessor" },
+        { "label": "Pose (Human)", "value": "DWPreprocessor" },
+        { "separator": true },
+        { "label": "Segment (Anime Face)", "value": "AnimeFace_SemSegPreprocessor" },
+        { "separator": true },
+        { "label": "Scribble", "value": "FakeScribblePreprocessor" },
+        { "label": "Scribble (HED)", "value": "HEDPreprocessor" },
+        { "label": "Scribble (PiDI)", "value": "PiDiNetPreprocessor" },
+        { "label": "Scribble (TEED)", "value": "TEEDPreprocessor" },
+        { "label": "Scribble (XDoG)", "value": "Scribble_XDoG_Preprocessor" },
+        { "separator": true }
+      ],
       "tooltip": "Model used for upscaling."
     },
     {
@@ -22,11 +56,10 @@
       "default": false,
       "children": [
         {
-          "type": "int",
+          "type": "float",
           "id": "multiplier",
-          "min": 1,
-          "max": 64,
-          "default": 1,
+          "min": 1.0,
+          "default": 1.0,
           "suffix": " multiplier",
           "tooltip": "Resolution of the filtering process, relative to the original image size."
         },
@@ -39,6 +72,12 @@
           },
           "default": "lanczos",
           "tooltip": "Algorithm used when resizing the image."
+        },
+        {
+          "type": "boolean",
+          "id": "show_all",
+          "default": false,
+          "tooltip": "Shows all of the models."
         }
       ]
     }
@@ -59,15 +98,6 @@
       "class_type": "krita_comfyui: KritaCanvas",
       "_meta": {
         "title": "Krita Canvas"
-      }
-    },
-    "8": {
-      "inputs": {
-        "id": "multiplier"
-      },
-      "class_type": "krita_comfyui: KritaUiInt",
-      "_meta": {
-        "title": "Krita UI Int"
       }
     },
     "11": {
@@ -183,32 +213,53 @@
         "title": "AIO Aux Preprocessor"
       }
     },
-    "26": {
-      "inputs": {
-        "int1": [
-          "24",
-          0
-        ],
-        "int2": [
-          "8",
-          0
-        ]
-      },
-      "class_type": "Basic data handling: IntMultiply",
-      "_meta": {
-        "title": "multiply"
-      }
-    },
     "27": {
       "inputs": {
         "input": [
-          "26",
+          "30",
           0
         ]
       },
       "class_type": "Basic data handling: CastToInt",
       "_meta": {
         "title": "to INT"
+      }
+    },
+    "29": {
+      "inputs": {
+        "id": "multiplier"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "30": {
+      "inputs": {
+        "float1": [
+          "31",
+          0
+        ],
+        "float2": [
+          "29",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: FloatMultiply",
+      "_meta": {
+        "title": "multiply"
+      }
+    },
+    "31": {
+      "inputs": {
+        "input": [
+          "24",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: CastToFloat",
+      "_meta": {
+        "title": "to FLOAT"
       }
     }
   }

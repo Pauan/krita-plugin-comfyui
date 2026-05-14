@@ -11,7 +11,7 @@ from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
 from .graph import WorkflowError
-from .ui import EnabledIf, UiLayerId, UiCombo, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList
+from .ui import InputEqual, UiCombo, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList
 
 
 class WorkflowSelector(ComboBox):
@@ -66,6 +66,7 @@ class WorkflowWidget(QWidget):
         self.error.setSizeGripEnabled(True)
         self.error.setTextFormat(Qt.TextFormat.PlainText)
 
+        self.layer_combo_options = self.get_layer_combo_options()
         self.ui_inputs = []
         self.layer_inputs = []
 
@@ -114,7 +115,7 @@ class WorkflowWidget(QWidget):
 
             # Combo values
             try:
-                new_info["values"] = metadata.info["options"]
+                new_info["options"] = [{ "label": option, "value": option } for option in metadata.info["options"]]
             except KeyError:
                 pass
 
@@ -146,9 +147,17 @@ class WorkflowWidget(QWidget):
         enabled_if = info.get("enabled_if", None)
 
         if enabled_if is not None:
-            enabled_if = EnabledIf(
+            enabled_if = InputEqual(
                 workflow.input(enabled_if["id"]),
                 enabled_if["value"],
+            )
+
+        visible_if = info.get("visible_if", None)
+
+        if visible_if is not None:
+            visible_if = InputEqual(
+                workflow.input(visible_if["id"]),
+                visible_if["value"],
             )
 
         match info["type"]:
@@ -156,11 +165,12 @@ class WorkflowWidget(QWidget):
                 input = workflow.input(info["id"])
                 self.ui_inputs.append(input)
 
-                widget = UiLayerId(
+                widget = UiCombo(
                     input,
+                    visible_if=visible_if,
                     enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
-                    layers=self.document.layers,
+                    options=self.layer_combo_options,
                 )
 
                 self.layer_inputs.append(widget)
@@ -174,9 +184,10 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiCombo(
                     input,
+                    visible_if=visible_if,
                     enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
-                    values=info.get("values", []),
+                    options=info.get("options", []),
                 ))
 
 
@@ -189,6 +200,7 @@ class WorkflowWidget(QWidget):
                 if multiline:
                     widget = UiStringMultiline(
                         input,
+                        visible_if=visible_if,
                         enabled_if=enabled_if,
                         tooltip=info.get("tooltip", None),
                         placeholder=info.get("placeholder", None),
@@ -200,6 +212,7 @@ class WorkflowWidget(QWidget):
                 else:
                     widget = UiString(
                         input,
+                        visible_if=visible_if,
                         enabled_if=enabled_if,
                         tooltip=info.get("tooltip", None),
                         placeholder=info.get("placeholder", None),
@@ -214,6 +227,7 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiBoolean(
                     input,
+                    visible_if=visible_if,
                     enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     label=info.get("label", None),
@@ -227,6 +241,7 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiInt(
                     input,
+                    visible_if=visible_if,
                     enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
@@ -245,11 +260,13 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiFloat(
                     input,
+                    visible_if=visible_if,
                     enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", False),
-                    min=info.get("min", 0.0),
-                    max=info.get("max", 1.0),
+                    # 53-bit signed integer, the maximum safe integer with a 64-bit float
+                    min=info.get("min", -9007199254740991.0),
+                    max=info.get("max", 9007199254740991.0),
                     step=info.get("step", 0.01),
                     multiplier=info.get("multiplier", None),
                     prefix=info.get("prefix", None),
@@ -264,6 +281,7 @@ class WorkflowWidget(QWidget):
 
                 parent.widget(UiFloat(
                     input,
+                    visible_if=visible_if,
                     enabled_if=enabled_if,
                     tooltip=info.get("tooltip", None),
                     slider=info.get("slider", True),
@@ -284,6 +302,7 @@ class WorkflowWidget(QWidget):
                     workflow.input(info["id"]),
                     title=info.get("title", ""),
                     indent=info.get("indent", False),
+                    visible_if=visible_if,
                 )
 
                 for child in info["children"]:
@@ -295,7 +314,7 @@ class WorkflowWidget(QWidget):
             case "row":
                 assert enabled_if is None
 
-                widget = UiRow()
+                widget = UiRow(visible_if=visible_if)
 
                 for child in info["children"]:
                     self.add_widget(workflow, widget.layout, child)
@@ -309,6 +328,8 @@ class WorkflowWidget(QWidget):
                 widget = UiList(
                     workflow.input_list(info["id"]),
                     label=info.get("label", None),
+
+                    visible_if=visible_if,
 
                     # When an item is added, removed, or moved, it clears out all the
                     # existing widgets and remakes them from scratch.
@@ -345,13 +366,29 @@ class WorkflowWidget(QWidget):
         self.widgets.stretch()
 
 
+    def get_layer_combo_options(self):
+        options = []
+
+        for layer in self.document.layers:
+            if layer is None:
+                options.append({ "separator": True })
+            else:
+                options.append({
+                    "icon": layer.type.icon(),
+                    "label": layer.name,
+                    "value": layer.id,
+                })
+
+        return options
+
+
     def update_layer_inputs(self):
         print("Updating layers")
 
-        layers = self.document.layers
+        self.layer_combo_options = self.get_layer_combo_options()
 
         for input in self.layer_inputs:
-            input.set_layers(layers)
+            input.set_options(self.layer_combo_options)
 
 
     def on_workflows_changed(self):

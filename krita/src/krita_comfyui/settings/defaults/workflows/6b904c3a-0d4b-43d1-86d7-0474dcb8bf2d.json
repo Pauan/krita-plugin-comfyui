@@ -26,7 +26,6 @@
           "type": "int",
           "id": "multiplier",
           "min": 1,
-          "max": 64,
           "default": 2,
           "suffix": " multiplier",
           "tooltip": "How big the upscaled image should be relative to the original."
