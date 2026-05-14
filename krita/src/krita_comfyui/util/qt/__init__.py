@@ -60,6 +60,12 @@ class ComboBox(QComboBox):
         self.setCompleter(completer)
 
 
+    # Resizes the dropdown automatically when it's displayed.
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.resize_dropdown()
+
+
     # Resizes the dropdown so it fits all of the items
     def resize_dropdown(self):
         view = self.view()

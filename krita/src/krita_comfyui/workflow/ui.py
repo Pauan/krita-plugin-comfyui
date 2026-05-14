@@ -32,6 +32,20 @@ class InputEqual:
         listener()
 
 
+# If we call `widget.setVisible(True)` it will cause
+# really bad flickering, so we use this class to avoid
+# calling `widget.setVisible(True)` unless needed.
+class Visibility:
+    def __init__(self, widget):
+        self.widget = widget
+        self.is_visible = True
+
+    def set_visible(self, visible):
+        if self.is_visible != visible:
+            self.is_visible = visible
+            self.widget.setVisible(visible)
+
+
 class UiCombo(ComboBox):
     def __init__(self, input, visible_if, enabled_if, tooltip, options):
         super().__init__()
@@ -43,7 +57,7 @@ class UiCombo(ComboBox):
         self.setToolTip(self.input.format_tooltip(tooltip))
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
@@ -61,18 +75,18 @@ class UiCombo(ComboBox):
 
 
     def sync(self):
-        with BlockSignals(self):
-            selected_value = self.input.get()
+        selected_value = self.input.get()
 
-            if selected_value == "":
-                index = 0
-            else:
-                index = self.findData(selected_value, flags=Qt.MatchFlag.MatchExactly)
+        if selected_value == "":
+            index = 0
+        else:
+            index = self.findData(selected_value, flags=Qt.MatchFlag.MatchExactly)
 
-            if index < 0:
-                index = 0
+        if index < 0:
+            index = 0
 
-            if self.currentIndex() != index:
+        if self.currentIndex() != index:
+            with BlockSignals(self):
                 self.setCurrentIndex(index)
 
 
@@ -139,7 +153,7 @@ class UiBoolean(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
@@ -178,7 +192,7 @@ class UiString(QLineEdit):
         self.setToolTip(self.input.format_tooltip(tooltip))
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
@@ -238,7 +252,7 @@ class UiStringMultiline(QPlainTextEdit):
         self.setToolTip(self.input.format_tooltip(tooltip))
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
@@ -320,7 +334,7 @@ class UiGroup(QWidget):
                     self.layout = column
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
         self.sync()
         input.add_listener(self.sync)
@@ -360,7 +374,7 @@ class UiRow(QWidget):
             self.layout = row
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
 
 class UiFloat(QWidget):
@@ -425,7 +439,7 @@ class UiFloat(QWidget):
                     self.value_widget = widget
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
@@ -538,7 +552,7 @@ class UiInt(QWidget):
                     self.value_widget = widget
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
@@ -660,7 +674,7 @@ class UiList(QWidget):
             self.layout = column
 
         if visible_if is not None:
-            visible_if.when_equal(self.setVisible)
+            visible_if.when_equal(Visibility(self).set_visible)
 
 
     def move_child_up(self, index):
