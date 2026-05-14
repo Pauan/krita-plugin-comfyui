@@ -12,6 +12,10 @@ def zip_inputs(*inputs):
     yield from zip_lists([x.values for x in inputs])
 
 
+def is_link(value):
+    return isinstance(value, list) and len(value) == 2 and isinstance(value[0], str) and isinstance(value[1], int)
+
+
 def check_booleans(inputs):
     all_true = True
     all_false = True

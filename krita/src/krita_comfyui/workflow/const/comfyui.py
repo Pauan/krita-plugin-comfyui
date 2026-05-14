@@ -1,9 +1,18 @@
-from . import Link, zip_inputs, check_booleans
+from . import Link, is_link, zip_inputs, check_booleans
+
+
+class Constant:
+    def __init__(self, value):
+        self.value = value
+
+    def get_outputs(self, workflow, node_id, node):
+        return (
+            Link([self.value]),
+        )
 
 
 class Unary:
-    def __init__(self, type, input, evaluate):
-        self.type = type
+    def __init__(self, input, evaluate):
         self.input = input
         self.evaluate = evaluate
 
@@ -12,7 +21,7 @@ class Unary:
         outputs = []
 
         for input in workflow.evaluate_link(node["inputs"][self.input]).values:
-            if isinstance(input, self.type):
+            if not is_link(input):
                 outputs.append(self.evaluate(input))
             else:
                 inputs = {}
@@ -25,8 +34,7 @@ class Unary:
 
 
 class Binary:
-    def __init__(self, type, left, right, evaluate):
-        self.type = type
+    def __init__(self, left, right, evaluate):
         self.left = left
         self.right = right
         self.evaluate = evaluate
@@ -39,7 +47,7 @@ class Binary:
         outputs = []
 
         for left, right in zip_inputs(left, right):
-            if isinstance(left, self.type) and isinstance(right, self.type):
+            if not is_link(left) and not is_link(right):
                 outputs.append(self.evaluate(left, right))
             else:
                 inputs = {}

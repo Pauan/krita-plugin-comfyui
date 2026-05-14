@@ -1,0 +1,215 @@
+{
+  "name": "Filter",
+  "id": "b4633163-7028-4387-aa96-f494579ed707",
+  "icon": "krita_tool_gradient",
+  "is_default": true,
+
+  "layout": [
+    {
+      "type": "combo",
+      "id": "model",
+      "link_to": {
+        "node_id": "AIO_Preprocessor",
+        "input": "preprocessor"
+      },
+      "tooltip": "Model used for upscaling."
+    },
+    {
+      "type": "group",
+      "id": "advanced",
+      "title": "Advanced",
+      "indent": true,
+      "default": false,
+      "children": [
+        {
+          "type": "int",
+          "id": "multiplier",
+          "min": 1,
+          "max": 64,
+          "default": 1,
+          "suffix": " multiplier",
+          "tooltip": "Resolution of the filtering process, relative to the original image size."
+        },
+        {
+          "type": "combo",
+          "id": "scale_method",
+          "link_to": {
+            "node_id": "ImageScale",
+            "input": "upscale_method"
+          },
+          "default": "lanczos",
+          "tooltip": "Algorithm used when resizing the image."
+        }
+      ]
+    }
+  ],
+
+  "graph": {
+    "4": {
+      "inputs": {
+        "id": "model"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "6": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvas",
+      "_meta": {
+        "title": "Krita Canvas"
+      }
+    },
+    "8": {
+      "inputs": {
+        "id": "multiplier"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "11": {
+      "inputs": {
+        "image": [
+          "12",
+          0
+        ],
+        "alpha": [
+          "6",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: AddAlphaToImage",
+      "_meta": {
+        "title": "Add Alpha To Image"
+      }
+    },
+    "12": {
+      "inputs": {
+        "upscale_method": [
+          "13",
+          0
+        ],
+        "width": [
+          "6",
+          2
+        ],
+        "height": [
+          "6",
+          3
+        ],
+        "crop": "disabled",
+        "image": [
+          "25",
+          0
+        ]
+      },
+      "class_type": "ImageScale",
+      "_meta": {
+        "title": "Upscale Image"
+      }
+    },
+    "13": {
+      "inputs": {
+        "id": "scale_method"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "14": {
+      "inputs": {
+        "x": 0,
+        "y": 0,
+        "name": "Filter [%index%]",
+        "images": [
+          "11",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "15": {
+      "inputs": {
+        "image": [
+          "6",
+          0
+        ]
+      },
+      "class_type": "SplitImageWithAlpha",
+      "_meta": {
+        "title": "Split Image with Alpha"
+      }
+    },
+    "24": {
+      "inputs": {
+        "value1": [
+          "6",
+          2
+        ],
+        "value2": [
+          "6",
+          3
+        ]
+      },
+      "class_type": "Basic data handling: MathMin",
+      "_meta": {
+        "title": "min"
+      }
+    },
+    "25": {
+      "inputs": {
+        "preprocessor": [
+          "4",
+          0
+        ],
+        "resolution": [
+          "27",
+          0
+        ],
+        "image": [
+          "15",
+          0
+        ]
+      },
+      "class_type": "AIO_Preprocessor",
+      "_meta": {
+        "title": "AIO Aux Preprocessor"
+      }
+    },
+    "26": {
+      "inputs": {
+        "int1": [
+          "24",
+          0
+        ],
+        "int2": [
+          "8",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: IntMultiply",
+      "_meta": {
+        "title": "multiply"
+      }
+    },
+    "27": {
+      "inputs": {
+        "input": [
+          "26",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: CastToInt",
+      "_meta": {
+        "title": "to INT"
+      }
+    }
+  }
+}

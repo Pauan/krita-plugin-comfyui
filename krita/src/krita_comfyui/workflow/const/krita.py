@@ -36,25 +36,22 @@ class KritaUi:
 
 
 class KritaCanvas:
-    def __init__(self):
-        self.canvas = None
-
     def get_outputs(self, workflow, node_id, node):
-        if self.canvas is None:
+        if workflow.cached_canvas is None:
             bounds = workflow.bounds()
 
             image = workflow.document.canvas(bounds)
 
             (image, mask) = workflow.graph.image(image)
 
-            self.canvas = (
+            workflow.cached_canvas = (
                 Link([image]),
                 Link([mask]),
                 Link([bounds.width]),
                 Link([bounds.height]),
             )
 
-        return self.canvas
+        return workflow.cached_canvas
 
 
 class KritaDebug:
@@ -84,23 +81,18 @@ class KritaDebug:
 
 
 class KritaLayers:
-    def __init__(self):
-        self.layers = {}
-        self.layer_image = {}
-
-
     def get_layer_image(self, workflow, layer):
-        image = self.layer_image.get(layer.id, None)
+        image = workflow.cached_layer_images.get(layer.id, None)
 
         if image is None:
             image = workflow.graph.image(layer.image(workflow.bounds()))
-            self.layer_image[layer.id] = image
+            workflow.cached_layer_images[layer.id] = image
 
         return image
 
 
     def get_layers(self, workflow, layer_id, mode):
-        layers = self.layers.get((layer_id, mode), None)
+        layers = workflow.cached_layers.get((layer_id, mode), None)
 
         if layers is None:
             images = []
@@ -134,7 +126,7 @@ class KritaLayers:
                 raise WorkflowError("mode must be individual or flatten")
 
             layers = (images, masks, names)
-            self.layers[(layer_id, mode)] = layers
+            workflow.cached_layers[(layer_id, mode)] = layers
 
         return layers
 

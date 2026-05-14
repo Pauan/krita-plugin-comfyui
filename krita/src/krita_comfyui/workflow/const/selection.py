@@ -3,11 +3,8 @@ from . import WorkflowError, Link, zip_inputs
 
 
 class KritaSelection:
-    def __init__(self):
-        self.selection = None
-
     def get_outputs(self, workflow, node_id, node):
-        if self.selection is None:
+        if workflow.cached_selection is None:
             bounds = workflow.bounds()
 
             selection = workflow.document.selection()
@@ -23,12 +20,12 @@ class KritaSelection:
                 else:
                     active = True
 
-            self.selection = (
+            workflow.cached_selection = (
                 Link([selection]),
                 Link([active]),
             )
 
-        return self.selection
+        return workflow.cached_selection
 
 
 class KritaSelectionBorder:
