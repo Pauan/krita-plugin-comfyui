@@ -257,8 +257,6 @@ class WorkflowCmp:
         self.id = workflow["id"]
 
     def cmp(self, other):
-        print(self.name, other.name)
-
         if self.is_default and not other.is_default:
             return -1
         elif other.is_default and not self.is_default:

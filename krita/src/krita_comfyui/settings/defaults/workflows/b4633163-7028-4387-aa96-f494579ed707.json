@@ -33,6 +33,7 @@
         { "label": "Canny", "value": "CannyEdgePreprocessor" },
         { "separator": true },
         { "label": "Lineart", "value": "LineArtPreprocessor" },
+        { "label": "Lineart (Standard)", "value": "LineartStandardPreprocessor" },
         { "label": "Lineart (Any)", "value": "AnyLineArtPreprocessor_aux" },
         { "label": "Lineart (Anime)", "value": "AnimeLineArtPreprocessor" },
         { "label": "Lineart (Manga)", "value": "Manga2Anime_LineArt_Preprocessor" },

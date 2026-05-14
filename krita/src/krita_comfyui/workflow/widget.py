@@ -374,7 +374,7 @@ class WorkflowWidget(QWidget):
                 options.append({ "separator": True })
             else:
                 options.append({
-                    "icon": layer.type.icon(),
+                    "icon": layer.type.icon_name(),
                     "label": layer.name,
                     "value": layer.id,
                 })
@@ -383,8 +383,6 @@ class WorkflowWidget(QWidget):
 
 
     def update_layer_inputs(self):
-        print("Updating layers")
-
         self.layer_combo_options = self.get_layer_combo_options()
 
         for input in self.layer_inputs:
@@ -412,9 +410,12 @@ class WorkflowWidget(QWidget):
 
     def on_document_changed(self):
         if self.workflow.change_document(self.document.current()):
+            self.layer_combo_options = self.get_layer_combo_options()
             self.update_widgets()
             self.workflow_selector.set_selected(self.workflow.id)
             self.can_run_changed.emit()
+        else:
+            self.update_layer_inputs()
 
 
     def can_run(self):

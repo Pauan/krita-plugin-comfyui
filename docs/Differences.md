@@ -9,6 +9,8 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * You can now apply an output to an existing layer.
 
+* You can now use every processor filter in [comfyui_controlnet_aux](https://github.com/Fannovel16/comfyui_controlnet_aux).
+
 ## Bug fixes
 
 * You can now access the Inputs and Outputs even when the ComfyUI server is dead.

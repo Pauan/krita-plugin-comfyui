@@ -670,20 +670,23 @@ class LayerType(Enum):
     transform = "transformmask"
     colorize = "colorizemask"
 
-    def icon(self):
+    def icon_name(self):
         match self:
-            case LayerType.paint: return Krita.icon("paintLayer")
-            case LayerType.vector: return Krita.icon("vectorLayer")
-            case LayerType.group: return Krita.icon("groupLayer")
-            case LayerType.file: return Krita.icon("fileLayer")
-            case LayerType.clone: return Krita.icon("cloneLayer")
-            case LayerType.fill: return Krita.icon("fillLayer")
-            case LayerType.filter: return Krita.icon("filterLayer")
-            case LayerType.transparency: return Krita.icon("transparencyMask")
-            case LayerType.selection: return Krita.icon("selectionMask")
-            case LayerType.filtermask: return Krita.icon("filterMask")
-            case LayerType.transform: return Krita.icon("transformMask")
-            case LayerType.colorize: return Krita.icon("colorizeMask")
+            case LayerType.paint: return "paintLayer"
+            case LayerType.vector: return "vectorLayer"
+            case LayerType.group: return "groupLayer"
+            case LayerType.file: return "fileLayer"
+            case LayerType.clone: return "cloneLayer"
+            case LayerType.fill: return "fillLayer"
+            case LayerType.filter: return "filterLayer"
+            case LayerType.transparency: return "transparencyMask"
+            case LayerType.selection: return "selectionMask"
+            case LayerType.filtermask: return "filterMask"
+            case LayerType.transform: return "transformMask"
+            case LayerType.colorize: return "colorizeMask"
+
+    def icon(self):
+        return Krita.icon(self.icon_name())
 
     def is_group(self):
         return self in (LayerType.group,)

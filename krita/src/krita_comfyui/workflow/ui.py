@@ -42,13 +42,13 @@ class UiCombo(ComboBox):
 
         self.setToolTip(self.input.format_tooltip(tooltip))
 
-        self.set_options(options)
-
         if visible_if is not None:
             visible_if.when_equal(self.setVisible)
 
         if enabled_if is not None:
             enabled_if.when_equal(self.setEnabled)
+
+        self.set_options(options)
 
         input.add_listener(self.sync)
 
@@ -186,9 +186,14 @@ class UiString(QLineEdit):
         self.sync()
         input.add_listener(self.sync)
 
+
     def sync(self):
-        with BlockSignals(self):
-            self.setText(self.input.get())
+        text = self.input.get()
+
+        if text != self.text():
+            with BlockSignals(self):
+                self.setText(text)
+
 
     def on_changed(self):
         self.input.set(self.text())
@@ -243,10 +248,13 @@ class UiStringMultiline(QPlainTextEdit):
 
 
     def sync(self):
-        with BlockSignals(self):
-            text = self.input.get()
-            self.resize(text)
-            self.setPlainText(text)
+        text = self.input.get()
+
+        self.resize(text)
+
+        if text != self.toPlainText():
+            with BlockSignals(self):
+                self.setPlainText(text)
 
 
     def get_pixel_height(self, lines):
@@ -260,9 +268,7 @@ class UiStringMultiline(QPlainTextEdit):
 
 
     def on_changed(self):
-        text = self.toPlainText()
-        self.resize(text)
-        self.input.set(text)
+        self.input.set(self.toPlainText())
 
 
     def wheelEvent(self, event):
@@ -321,14 +327,12 @@ class UiGroup(QWidget):
 
 
     def sync(self):
-        # TODO maybe it shouldn't block signals for the container?
-        with BlockSignals(self.container), BlockSignals(self.toggle_button):
-            self.toggle_button.setChecked(self.input.get())
-            self.update()
+        checked = self.input.get()
 
+        with BlockSignals(self.toggle_button):
+            self.toggle_button.setChecked(checked)
 
-    def update(self):
-        if self.toggle_button.isChecked():
+        if checked:
             self.toggle_button.setArrowType(Qt.ArrowType.DownArrow)
             self.toggle_button.setToolTip("Close group...")
             self.container.show()
@@ -344,8 +348,6 @@ class UiGroup(QWidget):
             self.input.reset_to_default()
         else:
             self.input.set(checked)
-
-        self.update()
 
 
 class UiRow(QWidget):
