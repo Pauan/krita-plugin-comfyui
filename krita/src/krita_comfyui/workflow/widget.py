@@ -68,8 +68,8 @@ class WorkflowWidget(QWidget):
         self.error.setTextFormat(Qt.TextFormat.PlainText)
 
         self.layer_combo_options = self.get_layer_combo_options()
-        self.ui_inputs = []
-        self.layer_inputs = []
+        self.ui_widgets = []
+        self.ui_layer_inputs = []
 
         with self.layout.column() as column:
             with column.row() as row:
@@ -96,7 +96,7 @@ class WorkflowWidget(QWidget):
                     column.set_padding(left=2, right=2, top=3)
 
                     with column.column(align=Qt.AlignmentFlag.AlignTop) as widgets:
-                        self.widgets = widgets
+                        self.widgets_container = widgets
 
                     column.stretch()
 
@@ -155,51 +155,51 @@ class WorkflowWidget(QWidget):
         match info["type"]:
             case "layer_id":
                 widget = UiCombo(
-                    workflow.input(info["id"]),
+                    value=workflow.input(info["id"]),
                     visible_if=InputEqual.from_json(workflow, info, "visible_if"),
                     enabled_if=InputEqual.from_json(workflow, info, "enabled_if"),
                     tooltip=info.get("tooltip", None),
                     options=self.layer_combo_options,
                 )
 
-                self.ui_inputs.append((widget.input, widget.visible_if))
-                self.layer_inputs.append(widget)
+                self.ui_widgets.append(widget)
+                self.ui_layer_inputs.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "combo":
                 widget = UiCombo.from_json(workflow, info)
-                self.ui_inputs.append((widget.input, widget.visible_if))
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "string":
                 widget = UiString.from_json(workflow, info)
-                self.ui_inputs.append((widget.input, widget.visible_if))
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "boolean":
                 widget = UiBoolean.from_json(workflow, info)
-                self.ui_inputs.append((widget.input, widget.visible_if))
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "int":
                 widget = UiInt.from_json(workflow, info)
-                self.ui_inputs.append((widget.input, widget.visible_if))
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "float":
                 widget = UiFloat.from_json(workflow, info)
-                self.ui_inputs.append((widget.input, widget.visible_if))
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "percentage":
                 widget = UiFloat.from_json_percentage(workflow, info)
-                self.ui_inputs.append((widget.input, widget.visible_if))
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
@@ -209,6 +209,7 @@ class WorkflowWidget(QWidget):
                 for child in info["children"]:
                     self.add_widget(workflow, widget.layout, child, default_stretch)
 
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
@@ -220,6 +221,7 @@ class WorkflowWidget(QWidget):
                 for child in info["children"]:
                     self.add_widget(workflow, widget.layout, child, default_stretch)
 
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
@@ -243,6 +245,7 @@ class WorkflowWidget(QWidget):
                     for child in info["children"]:
                         self.add_widget(workflow, layout, child, default_stretch)
 
+                self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
             case _:
@@ -255,13 +258,18 @@ class WorkflowWidget(QWidget):
 
 
     def update_widgets(self):
-        self.widgets.clear()
-        self.ui_inputs = []
-        self.layer_inputs = []
+        # Cleanup the old widgets.
+        for widget in self.ui_widgets:
+            widget.inputs.stop()
+
+        self.ui_widgets = []
+        self.ui_layer_inputs = []
+
+        self.widgets_container.clear()
 
         if self.workflow.layout is not None:
             for widget in self.workflow.layout:
-                self.add_widget(self.workflow, self.widgets, widget, 0)
+                self.add_widget(self.workflow, self.widgets_container, widget, 0)
 
 
     def get_layer_combo_options(self):
@@ -283,7 +291,7 @@ class WorkflowWidget(QWidget):
     def update_layer_inputs(self):
         self.layer_combo_options = self.get_layer_combo_options()
 
-        for input in self.layer_inputs:
+        for input in self.ui_layer_inputs:
             input.set_options(self.layer_combo_options)
 
 
@@ -339,10 +347,15 @@ class WorkflowWidget(QWidget):
             ui_values[id] = []
 
         # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
-        for input, visible_if in self.ui_inputs:
-            # TODO maybe do this for enabled_if too ?
-            if visible_if is None or visible_if.is_equal():
-                ui_values[input.id].append(input.value)
+        for widget in self.ui_widgets:
+            inputs = widget.inputs
+
+            input = inputs.value
+
+            if input is not None:
+                # TODO maybe do this for enabled_if too ?
+                if inputs.visible_if is None or inputs.visible_if.is_equal():
+                    ui_values[input.id].append(input.value)
 
         try:
             graph = self.workflow.to_graph(ui_values, defaults)

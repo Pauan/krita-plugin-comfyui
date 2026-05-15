@@ -12,6 +12,15 @@ def all_children(children):
             yield from all_children(children)
 
 
+class Listener:
+    def __init__(self, input, listener):
+        self.input = input
+        self.listener = listener
+
+    def stop(self):
+        self.input.listeners.remove(self.listener)
+
+
 class Input:
     def __init__(self, root, serialized, id):
         metadata = root.metadata[id]
@@ -34,6 +43,7 @@ class Input:
 
     def add_listener(self, f):
         self.listeners.append(f)
+        return Listener(self, f)
 
     def notify_listeners(self):
         for listener in self.listeners:
