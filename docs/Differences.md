@@ -47,6 +47,8 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
    You can still change values by holding Shift or Ctrl while using the mouse wheel.
 
+* You can lock the dock to a specific width.
+
 * Minor improvements to error messages.
 
 
@@ -105,4 +107,4 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * Instead of storing a gigantic JSON blob of data inside of `.kra`, it stores only the minimum data that is needed.
 
-* Fully supports Krita 6 and PyQt 6.
+* Written from the ground up for Krita 6 and PyQt 6.

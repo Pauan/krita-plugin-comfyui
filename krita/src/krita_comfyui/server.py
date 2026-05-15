@@ -110,29 +110,39 @@ class GraphState(Enum):
     def is_error(self):
         return self == GraphState.Error
 
+    def status_text(self):
+        match self:
+            case GraphState.Idle: return "Pending"
+            case GraphState.Sent | GraphState.Executing: return "Running"
+            case GraphState.Cancelled: return "Cancelled"
+            case GraphState.Error: return "Errored"
+            case GraphState.Done: return "Finished"
+
     def button_icon(self):
-        if self == GraphState.Idle:
-            return Krita.icon("media-playback-start")
-        elif self == GraphState.Sent or self == GraphState.Executing:
-            return Krita.icon("media-record")
-        elif self == GraphState.Cancelled:
-            return Krita.icon("dialog-cancel")
-        elif self == GraphState.Error:
-            return Krita.icon("warning")
-        else:
-            return Krita.icon("dialog-ok")
+        match self:
+            case GraphState.Idle:
+                return Krita.icon("media-playback-start")
+            case GraphState.Sent | GraphState.Executing:
+                return Krita.icon("media-record")
+            case GraphState.Cancelled:
+                return Krita.icon("dialog-cancel")
+            case GraphState.Error:
+                return Krita.icon("warning")
+            case GraphState.Done:
+                return Krita.icon("dialog-ok")
 
     def status_icon(self):
-        if self == GraphState.Idle:
-            return Krita.icon("animation_pause")
-        elif self == GraphState.Sent or GraphState.Executing:
-            return Krita.icon("media-record")
-        elif self == GraphState.Cancelled:
-            return Krita.icon("dialog-cancel")
-        elif self == GraphState.Error:
-            return Krita.icon("warning")
-        else:
-            return Krita.icon("dialog-ok")
+        match self:
+            case GraphState.Idle:
+                return Krita.icon("animation_pause")
+            case GraphState.Sent | GraphState.Executing:
+                return Krita.icon("media-record")
+            case GraphState.Cancelled:
+                return Krita.icon("dialog-cancel")
+            case GraphState.Error:
+                return Krita.icon("warning")
+            case GraphState.Done:
+                return Krita.icon("dialog-ok")
 
 
 class GraphInfo:

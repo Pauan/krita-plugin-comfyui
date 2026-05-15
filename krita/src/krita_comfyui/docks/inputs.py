@@ -26,7 +26,7 @@ class JobWidget(QWidget):
         with self.layout.row() as row:
             row.spacer(4)
 
-            with row.label(tooltip="Status") as label:
+            with row.label() as label:
                 self.icon = label
 
             row.spacer(6)
@@ -48,6 +48,7 @@ class JobWidget(QWidget):
     def update_info(self, info):
         self.info = info
 
+        self.icon.setToolTip(self.info.state.status_text())
         self.icon.setPixmap(self.info.state.status_icon().pixmap(16, 16))
 
         self.update_progress_bar(self.progress)
