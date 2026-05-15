@@ -61,7 +61,6 @@ class WorkflowWidget(QWidget):
         self.layout = LayoutManager(self)
 
         self.workflow = Workflow(self.extension.settings)
-        self.workflow.setParent(self)
 
         self.error = MessageBox(QMessageBox.Icon.Critical, "Workflow error", "", parent=self)
         self.error.setSizeGripEnabled(True)
@@ -149,15 +148,15 @@ class WorkflowWidget(QWidget):
             return new_info
 
 
-    def add_widget(self, workflow, parent, info, default_stretch):
+    def add_widget(self, storage, parent, info, default_stretch):
         info = self.get_node_metadata(info)
 
         match info["type"]:
             case "layer_id":
                 widget = UiCombo(
-                    value=workflow.input(info["id"]),
-                    visible_if=InputEqual.from_json(workflow, info, "visible_if"),
-                    enabled_if=InputEqual.from_json(workflow, info, "enabled_if"),
+                    value=storage.item(info["id"]),
+                    visible_if=InputEqual.from_json(storage, info, "visible_if"),
+                    enabled_if=InputEqual.from_json(storage, info, "enabled_if"),
                     tooltip=info.get("tooltip", None),
                     options=self.layer_combo_options,
                 )
@@ -168,46 +167,46 @@ class WorkflowWidget(QWidget):
 
 
             case "combo":
-                widget = UiCombo.from_json(workflow, info)
+                widget = UiCombo.from_json(storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "string":
-                widget = UiString.from_json(workflow, info)
+                widget = UiString.from_json(storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "boolean":
-                widget = UiBoolean.from_json(workflow, info)
+                widget = UiBoolean.from_json(storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "int":
-                widget = UiInt.from_json(workflow, info)
+                widget = UiInt.from_json(storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "float":
-                widget = UiFloat.from_json(workflow, info)
+                widget = UiFloat.from_json(storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "percentage":
-                widget = UiFloat.from_json_percentage(workflow, info)
+                widget = UiFloat.from_json_percentage(storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "group":
-                widget = UiGroup.from_json(workflow, info)
+                widget = UiGroup.from_json(storage, info)
 
                 for child in info["children"]:
-                    self.add_widget(workflow, widget.layout, child, default_stretch)
+                    self.add_widget(storage, widget.layout, child, default_stretch)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -216,10 +215,10 @@ class WorkflowWidget(QWidget):
             case "row":
                 assert not "enabled_if" in info
 
-                widget = UiRow.from_json(workflow, info)
+                widget = UiRow.from_json(storage, info)
 
                 for child in info["children"]:
-                    self.add_widget(workflow, widget.layout, child, default_stretch)
+                    self.add_widget(storage, widget.layout, child, default_stretch)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -227,11 +226,11 @@ class WorkflowWidget(QWidget):
 
             case "list":
                 widget = UiList(
-                    workflow.input_list(info["id"]),
+                    values=storage.item_list(info["id"]),
                     label=info.get("label", None),
 
-                    visible_if=InputEqual.from_json(workflow, info, "visible_if"),
-                    enabled_if=InputEqual.from_json(workflow, info, "enabled_if"),
+                    visible_if=InputEqual.from_json(storage, info, "visible_if"),
+                    enabled_if=InputEqual.from_json(storage, info, "enabled_if"),
 
                     # When an item is added, removed, or moved, it clears out all the
                     # existing widgets and remakes them from scratch.
@@ -241,9 +240,9 @@ class WorkflowWidget(QWidget):
                     trigger_refresh=self.update_widgets,
                 )
 
-                for (workflow, layout) in widget.make_children():
+                for storage, layout in widget.make_children():
                     for child in info["children"]:
-                        self.add_widget(workflow, layout, child, default_stretch)
+                        self.add_widget(storage, layout, child, default_stretch)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))

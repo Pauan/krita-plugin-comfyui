@@ -230,6 +230,13 @@
           "default": 5.0
         },
         {
+          "type": "string",
+          "id": "default_prompt",
+          "multiline": true,
+          "tooltip": "Default prompt",
+          "placeholder": "Default prompt..."
+        },
+        {
           "type": "int",
           "id": "batch_size",
           "link_to": {
@@ -261,13 +268,6 @@
             ]
           },
           "suffix": " megapixels"
-        },
-        {
-          "type": "string",
-          "id": "default_prompt",
-          "multiline": true,
-          "tooltip": "Default prompt",
-          "placeholder": "Default prompt..."
         },
         {
           "type": "boolean",
