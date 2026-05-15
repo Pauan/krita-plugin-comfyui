@@ -5,9 +5,11 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 ## New features
 
-* You can now open an output in a new document.
+* You can now open an output image in a new document.
 
-* You can now apply an output to an existing layer.
+* You can now apply an output image to an existing layer.
+
+* Detailing is done automatically when inpainting. No more need for a separate face / hand detailer.
 
 * You can now use every processor filter in [comfyui_controlnet_aux](https://github.com/Fannovel16/comfyui_controlnet_aux).
 
@@ -15,7 +17,7 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * You can now access the Inputs and Outputs even when the ComfyUI server is dead.
 
-* Clicking on an output to preview it is much more responsive and robust.
+* Clicking on an output image to preview it is much more responsive and robust.
 
 * Progress bar is more accurate.
 
@@ -37,7 +39,7 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
    You can still get the old experience by stacking the Inputs on top of the Outputs.
 
-* Double click no longer applies the output, instead use right click.
+* Double click no longer applies the output image. Use right click to apply.
 
 * Auto-completion within combo boxes is improved.
 

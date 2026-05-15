@@ -194,6 +194,7 @@
                 "node_id": "KSampler",
                 "input": "sampler_name"
               },
+              "stretch": 1,
               "default": "gradient_estimation"
             },
             {
@@ -203,6 +204,7 @@
                 "node_id": "KSampler",
                 "input": "scheduler"
               },
+              "stretch": 1,
               "default": "simple"
             },
             {
