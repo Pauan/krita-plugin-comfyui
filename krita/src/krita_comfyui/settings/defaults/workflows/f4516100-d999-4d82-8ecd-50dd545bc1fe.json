@@ -46,6 +46,7 @@
                   "type": "layer_id",
                   "id": "mask_regions_layer",
                   "tooltip": "Mask Regions Layer Group",
+                  "stretch": 1,
                   "enabled_if": {
                     "id": "mask_regions_enabled",
                     "value": true
@@ -91,6 +92,7 @@
                   "type": "layer_id",
                   "id": "controlnet_layer",
                   "tooltip": "Control Net Layer",
+                  "stretch": 1,
                   "enabled_if": {
                     "id": "controlnet_enabled",
                     "value": true

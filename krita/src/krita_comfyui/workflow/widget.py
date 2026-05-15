@@ -95,8 +95,10 @@ class WorkflowWidget(QWidget):
                 with layout.column() as column:
                     column.set_padding(left=2, right=2, top=3)
 
-                    with column.column(align=Qt.AlignmentFlag.AlignTop) as column:
-                        self.widgets = column
+                    with column.column(align=Qt.AlignmentFlag.AlignTop) as widgets:
+                        self.widgets = widgets
+
+                    column.stretch()
 
                 scroll.setWidget(widget)
 
@@ -147,7 +149,7 @@ class WorkflowWidget(QWidget):
             return new_info
 
 
-    def add_widget(self, workflow, parent, info):
+    def add_widget(self, workflow, parent, info, default_stretch):
         info = self.get_node_metadata(info)
 
         match info["type"]:
@@ -162,52 +164,52 @@ class WorkflowWidget(QWidget):
 
                 self.ui_inputs.append((widget.input, widget.visible_if))
                 self.layer_inputs.append(widget)
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "combo":
                 widget = UiCombo.from_json(workflow, info)
                 self.ui_inputs.append((widget.input, widget.visible_if))
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "string":
                 widget = UiString.from_json(workflow, info)
                 self.ui_inputs.append((widget.input, widget.visible_if))
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "boolean":
                 widget = UiBoolean.from_json(workflow, info)
                 self.ui_inputs.append((widget.input, widget.visible_if))
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "int":
                 widget = UiInt.from_json(workflow, info)
                 self.ui_inputs.append((widget.input, widget.visible_if))
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "float":
                 widget = UiFloat.from_json(workflow, info)
                 self.ui_inputs.append((widget.input, widget.visible_if))
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "percentage":
                 widget = UiFloat.from_json_percentage(workflow, info)
                 self.ui_inputs.append((widget.input, widget.visible_if))
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "group":
                 widget = UiGroup.from_json(workflow, info)
 
                 for child in info["children"]:
-                    self.add_widget(workflow, widget.layout, child)
+                    self.add_widget(workflow, widget.layout, child, default_stretch)
 
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "row":
@@ -216,9 +218,9 @@ class WorkflowWidget(QWidget):
                 widget = UiRow.from_json(workflow, info)
 
                 for child in info["children"]:
-                    self.add_widget(workflow, widget.layout, child)
+                    self.add_widget(workflow, widget.layout, child, default_stretch)
 
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "list":
@@ -239,9 +241,9 @@ class WorkflowWidget(QWidget):
 
                 for (workflow, layout) in widget.make_children():
                     for child in info["children"]:
-                        self.add_widget(workflow, layout, child)
+                        self.add_widget(workflow, layout, child, default_stretch)
 
-                parent.widget(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
             case _:
                 raise RuntimeError(f"Unknown widget type {info["type"]}")
@@ -259,7 +261,7 @@ class WorkflowWidget(QWidget):
 
         if self.workflow.layout is not None:
             for widget in self.workflow.layout:
-                self.add_widget(self.workflow, self.widgets, widget)
+                self.add_widget(self.workflow, self.widgets, widget, 0)
 
 
     def get_layer_combo_options(self):

@@ -1,8 +1,9 @@
 import re
 import math
-from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt
+from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import (
+    QWidget,
     QToolButton,
     QPushButton,
     QMessageBox,
@@ -23,6 +24,7 @@ from PyQt6.QtWidgets import (
     QCompleter,
     QStackedLayout,
 )
+from .toggle import Toggle
 
 
 RE_SPACE = re.compile(r" +")
@@ -36,6 +38,19 @@ class Completer(QCompleter):
     def splitPath(self, path):
         self.model().setFilterRegularExpression(r".*\b.*".join(QRegularExpression.escape(x) for x in re.split(RE_SPACE, path.strip())))
         return []
+
+
+# This causes the mouse wheel event to be blocked, but only when Shift / Alt / Ctrl are not being pressed.
+class BlockMouseWheel(QObject):
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Wheel:
+            modifiers = event.modifiers()
+
+            if modifiers == Qt.KeyboardModifier.NoModifier:
+                event.ignore()
+                return True
+
+        return super().eventFilter(obj, event)
 
 
 class ComboBox(QComboBox):
@@ -88,17 +103,62 @@ class ComboBox(QComboBox):
         view.setMinimumWidth(icon_size + column_width + scrollbar_width)
 
 
-# This causes the mouse wheel event to be blocked, but only when Shift / Alt / Ctrl are not being pressed.
-class BlockMouseWheel(QObject):
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.Wheel:
-            modifiers = event.modifiers()
+class BooleanSwitch(QWidget):
+    changed = pyqtSignal(Qt.CheckState)
 
-            if modifiers == Qt.KeyboardModifier.NoModifier:
-                event.ignore()
-                return True
+    def __init__(self, tooltip, label, style):
+        super().__init__()
 
-        return super().eventFilter(obj, event)
+        self.layout_manager = LayoutManager(self)
+
+        with self.layout_manager.row() as row:
+            if style == "switch":
+                with row.widget(Toggle()) as checkbox:
+                    self.checkbox = checkbox
+                    checkbox.checkStateChanged.connect(self.changed)
+
+                if label is not None:
+                    row.label(text=label)
+
+            elif style == "checkbox":
+                with row.widget(QCheckBox()) as checkbox:
+                    self.checkbox = checkbox
+                    checkbox.checkStateChanged.connect(self.changed)
+                    checkbox.setStyleSheet("""
+                        QCheckBox {
+                            spacing: 4px;
+                        }
+                        QCheckBox::indicator {
+                            width: 24px;
+                            height: 24px;
+                        }
+                    """)
+
+                    if label is not None:
+                        checkbox.setText(label)
+
+            else:
+                raise RuntimeError("style must be switch or checkbox")
+
+        self.setToolTip(tooltip)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+
+
+    def isChecked(self):
+        return self.checkbox.isChecked()
+
+
+    def setChecked(self, checked):
+        if self.checkbox.isChecked() != checked:
+            self.checkbox.setChecked(checked)
+
+
+    # TODO this should be mouseClickEvent but it doesn't exist!
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.checkbox.setChecked(not self.checkbox.isChecked())
+        super().mousePressEvent(event)
 
 
 class Slider(QSlider):

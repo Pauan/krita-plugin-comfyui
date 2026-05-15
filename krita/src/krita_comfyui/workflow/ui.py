@@ -7,12 +7,9 @@ from PyQt6.QtWidgets import (
     QFrame,
     QLineEdit,
     QPlainTextEdit,
-    QCheckBox,
     QMessageBox,
-    QSizePolicy,
 )
-from ..util.qt import BlockSignals, LayoutManager, ComboBox, BlockMouseWheel
-from ..util.qt.toggle import Toggle
+from ..util.qt import BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
 from ..util import number_of_lines, lerp, normalize, clamp
 
 
@@ -150,49 +147,36 @@ class UiBoolean(QWidget):
         self.visible_if = visible_if
         self.enabled_if = enabled_if
 
+        self.checkbox = BooleanSwitch(
+            tooltip=self.input.format_tooltip(tooltip),
+            label=label,
+            style=style,
+        )
+
+        self.checkbox.changed.connect(self.on_changed)
+
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.row() as row:
-            if style == "switch":
-                with row.widget(Toggle()) as checkbox:
-                    self.checkbox = checkbox
-                    checkbox.checkStateChanged.connect(self.on_changed)
-
-                if label is not None:
-                    row.label(text=label)
-
-            elif style == "checkbox":
-                with row.widget(QCheckBox()) as checkbox:
-                    self.checkbox = checkbox
-                    checkbox.checkStateChanged.connect(self.on_changed)
-                    checkbox.setStyleSheet("""
-                        QCheckBox {
-                            spacing: 4px;
-                        }
-                        QCheckBox::indicator {
-                            width: 24px;
-                            height: 24px;
-                        }
-                    """)
-
-                    if label is not None:
-                        checkbox.setText(label)
-
-            else:
-                raise RuntimeError("style must be switch or checkbox")
-
-        self.setToolTip(self.input.format_tooltip(tooltip))
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+            row.widget(self.checkbox)
+            row.stretch()
 
         if self.visible_if is not None:
             self.visible_if.when_equal(Visibility(self).set_visible)
 
         if self.enabled_if is not None:
-            self.enabled_if.when_equal(self.setEnabled)
+            self.enabled_if.when_equal(self.checkbox.setEnabled)
 
         self.sync()
         input.add_listener(self.sync)
+
+
+    def sync(self):
+        self.checkbox.setChecked(self.input.get())
+
+
+    def on_changed(self):
+        self.input.set(self.checkbox.isChecked())
 
 
     @staticmethod
@@ -205,24 +189,6 @@ class UiBoolean(QWidget):
             label=json.get("label", None),
             style=json.get("style", None),
         )
-
-
-    # TODO this should be mouseClickEvent but it doesn't exist!
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.checkbox.setChecked(not self.checkbox.isChecked())
-        super().mousePressEvent(event)
-
-
-    def sync(self):
-        checked = self.input.get()
-
-        if self.checkbox.isChecked() != checked:
-            self.checkbox.setChecked(checked)
-
-
-    def on_changed(self):
-        self.input.set(self.checkbox.isChecked())
 
 
 class UiString(QLineEdit):
@@ -307,12 +273,9 @@ class UiStringMultiline(QPlainTextEdit):
         self.textChanged.connect(self.on_changed)
 
         self.setTabChangesFocus(True)
-        #self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
-        #self.setContentsMargins(0, 0, 0, 0)
         self.setFrameStyle(QFrame.Shape.StyledPanel)
-        #self.setFrameStyle(QFrame.Shape.NoFrame)
 
         if background_color is None:
             background_color = ""
@@ -834,7 +797,7 @@ class UiListChild(QFrame):
                     with toolbar.tool_button(icon=Krita.icon("window-close"), tooltip="Delete") as button:
                         button.clicked.connect(self.remove)
 
-            with row.column(stretch=1, align=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop) as column:
+            with row.column(stretch=1, align=Qt.AlignmentFlag.AlignTop) as column:
                 self.layout = column
 
 
