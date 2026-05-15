@@ -376,6 +376,8 @@ class ImageWidget(QListWidget):
     image_padding = 1
     spacer_height = 4
 
+    number_of_images = 4
+
     def __init__(self, document):
         super().__init__()
 
@@ -412,6 +414,7 @@ class ImageWidget(QListWidget):
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setDragEnabled(False)
         self.setMouseTracking(True)
+        self.setFixedWidth(self.get_total_width())
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
@@ -435,6 +438,18 @@ class ImageWidget(QListWidget):
             self.setCursor(Qt.CursorShape.PointingHandCursor)
         else:
             self.setCursor(Qt.CursorShape.ArrowCursor)
+
+
+    def image_total_size(self):
+        return self.image_size + (self.image_padding * 2)
+
+
+    def get_total_width(self):
+        images = self.image_total_size() * self.number_of_images
+
+        scrollbar_width = self.verticalScrollBar().sizeHint().width()
+
+        return scrollbar_width + images + 1
 
 
     def load_document(self):
@@ -729,7 +744,9 @@ class ImageWidget(QListWidget):
 
                     item = QListWidgetItem(self.thumbnail(info["image"], applied=info["applied"]), None)
 
-                    item.setSizeHint(QSize(self.image_size + (self.image_padding * 2), self.image_size + (self.image_padding * 2)))
+                    size = self.image_total_size()
+
+                    item.setSizeHint(QSize(size, size))
 
                     item.setData(Qt.ItemDataRole.UserRole, {
                         "uuid": info["uuid"],
@@ -777,6 +794,8 @@ class ImageWidget(QListWidget):
 class OutputsWidget(QWidget):
     def __init__(self):
         super().__init__()
+
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred))
 
         self.document = DocumentManager(self)
         self.layout = LayoutManager(self)

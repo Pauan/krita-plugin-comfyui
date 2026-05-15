@@ -124,7 +124,7 @@ class QueueWidget(QWidget):
 
         with self.layout.column() as column:
             with column.row(align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop) as row:
-                row.label(text="Queue")
+                row.label(text="Job Queue")
 
                 #with self.layout.tool_button() as button:
                     #button.setIcon(Krita.icon("animation_pause"))
