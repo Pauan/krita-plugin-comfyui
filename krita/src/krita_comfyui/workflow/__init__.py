@@ -1,3 +1,4 @@
+import json
 from ..util.storage import Storage, Metadata
 from .graph import WorkflowGraph, WorkflowError
 
@@ -116,13 +117,13 @@ class Workflow(Storage):
                     old_metadata = self.metadata.get(id, None)
 
                     if old_metadata is not None:
-                        old_default = old_metadata["default"]
-                        if old_default != default:
-                            raise WorkflowError(f"The id \"{id}\" has two different defaults:\n    {old_default}\n    {default}")
-
                         old_type = old_metadata["type"]
                         if old_type != type:
                             raise WorkflowError(f"The id \"{id}\" has two different types:\n    {old_type}\n    {type}")
+
+                        old_default = old_metadata["default"]
+                        if old_default != default:
+                            raise WorkflowError(f"The id \"{id}\" has two different defaults:\n    {json.dumps(old_default)}\n    {json.dumps(default)}")
 
                     self.metadata[id] = {
                         "default": default,

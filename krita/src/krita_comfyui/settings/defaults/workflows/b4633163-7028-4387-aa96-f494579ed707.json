@@ -16,6 +16,7 @@
         "id": "show_all",
         "value": true
       },
+      "default": "",
       "tooltip": "Model used for upscaling."
     },
     {
@@ -29,6 +30,8 @@
         "id": "show_all",
         "value": false
       },
+      "default": "",
+      "tooltip": "Model used for upscaling.",
       "options": [
         { "label": "Canny", "value": "CannyEdgePreprocessor" },
         { "separator": true },
@@ -49,8 +52,7 @@
         { "separator": true },
         { "label": "Depth", "value": "DepthAnythingV2Preprocessor" },
         { "label": "Normal Map", "value": "DSINE-NormalMapPreprocessor" }
-      ],
-      "tooltip": "Model used for upscaling."
+      ]
     },
     {
       "type": "boolean",

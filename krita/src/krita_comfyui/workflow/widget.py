@@ -1,3 +1,4 @@
+import contextlib
 from krita import DockWidget
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -103,8 +104,9 @@ class WorkflowWidget(QWidget):
 
         self.update_workflow_selector()
 
-        if self.workflow.change_document(self.document.current()):
-            self.update_widgets()
+        with self.catch_errors():
+            if self.workflow.change_document(self.document.current()):
+                self.update_widgets()
 
 
     # If the widget has a link_to, we need to fetch the
@@ -295,32 +297,36 @@ class WorkflowWidget(QWidget):
 
 
     def on_workflows_changed(self, id):
-        if self.workflow.reload_workflow(id):
-            self.update_widgets()
+        with self.catch_errors():
+            if self.workflow.reload_workflow(id):
+                self.update_widgets()
 
-        self.update_workflow_selector()
+            self.update_workflow_selector()
 
 
     def on_metadata_changed(self):
-        if self.workflow.change_metadata():
-            # Various `link_to` stuff might have changed, so we have to remake all of the widgets.
-            self.update_widgets()
+        with self.catch_errors():
+            if self.workflow.change_metadata():
+                # Various `link_to` stuff might have changed, so we have to remake all of the widgets.
+                self.update_widgets()
 
 
     def on_workflow_changed(self):
-        if self.workflow.change_workflow(self.workflow_selector.currentData()):
-            self.update_widgets()
-            self.can_run_changed.emit()
+        with self.catch_errors():
+            if self.workflow.change_workflow(self.workflow_selector.currentData()):
+                self.update_widgets()
+                self.can_run_changed.emit()
 
 
     def on_document_changed(self):
-        if self.workflow.change_document(self.document.current()):
-            self.layer_combo_options = self.get_layer_combo_options()
-            self.update_widgets()
-            self.workflow_selector.set_selected(self.workflow.id)
-            self.can_run_changed.emit()
-        else:
-            self.update_layer_inputs()
+        with self.catch_errors():
+            if self.workflow.change_document(self.document.current()):
+                self.layer_combo_options = self.get_layer_combo_options()
+                self.update_widgets()
+                self.workflow_selector.set_selected(self.workflow.id)
+                self.can_run_changed.emit()
+            else:
+                self.update_layer_inputs()
 
 
     def can_run(self):
@@ -336,6 +342,14 @@ class WorkflowWidget(QWidget):
             self.error.setDetailedText(backtrace)
 
         self.error.exec()
+
+
+    @contextlib.contextmanager
+    def catch_errors(self):
+        try:
+            yield
+        except WorkflowError as e:
+            self.show_error(message=str(e))
 
 
     def run_workflow(self):
@@ -358,14 +372,9 @@ class WorkflowWidget(QWidget):
                         "is_default": input.value == input.default,
                     })
 
-        try:
+        with self.catch_errors():
             graph = self.workflow.to_graph(ui_values)
-
-        except WorkflowError as e:
-            self.show_error(message=str(e))
-            return
-
-        self.extension.client.execute_graph(graph)
+            self.extension.client.execute_graph(graph)
 
 
     def open_settings(self):
