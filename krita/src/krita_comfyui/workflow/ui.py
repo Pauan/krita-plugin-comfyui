@@ -72,7 +72,7 @@ class Inputs:
             if tooltip is not None:
                 widget.setToolTip(self.format_tooltip(tooltip))
 
-            self.listeners.append(self.value.add_listener(widget.sync))
+            self.listeners.append(self.value.add_listener(lambda old, new: widget.sync()))
 
 
 # If we call `widget.setVisible(True)` it will cause
