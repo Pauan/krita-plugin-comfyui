@@ -4,6 +4,7 @@ from json import dump, dumps, load, loads
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QMessageBox
+from ..util.qt import BlockSignals
 from ..util.storage import Storage, Metadata
 
 
@@ -108,16 +109,23 @@ class SettingsFile(Storage):
 
 
 class Workflows(QObject):
-    changed = pyqtSignal(str)
+    changed = pyqtSignal()
 
-    def __init__(self, parent, folder, defaults):
+    def __init__(self, parent, settings, order, folder, defaults):
         super().__init__(parent)
 
         os.makedirs(folder, exist_ok=True)
 
+        self.settings = settings
+        self.order = order
         self.folder = folder
         self.defaults = defaults
         self.files = self._load(folder)
+
+        self._process_order()
+
+        self.settings.add_listener(lambda old, new: self.changed.emit())
+        self.order.add_listener(lambda old, new: self.changed.emit())
 
 
     @staticmethod
@@ -125,19 +133,65 @@ class Workflows(QObject):
         files = {}
 
         for filename in os.listdir(folder):
-            key = Path(filename).stem
+            id = Path(filename).stem
 
             with open(folder / filename, "r") as file:
-                files[key] = load(file)
+                files[id] = load(file)
 
         return files
 
 
+    def _process_order(self):
+        new_order = []
+        seen = set()
+        last_default = 0
+
+        for id in self.order.get():
+            # Removes duplicate IDs.
+            if not id in seen:
+                try:
+                    workflow = self.get(id)
+                    new_order.append(id)
+                    seen.add(id)
+
+                    if workflow.get("is_default", False):
+                        last_default = len(new_order)
+
+                # Removes any IDs that don't exist.
+                except KeyError:
+                    pass
+
+        # Adds default workflows that aren't in the order.
+        for id in self.defaults.keys():
+            if not id in seen:
+                new_order.insert(last_default, id)
+                last_default += 1
+
+        # Adds user workflows that aren't in the order.
+        for id in self.files.keys():
+            if not id in seen:
+                new_order.append(id)
+
+        print(new_order)
+
+        self.order.set(new_order)
+
+
     def get_all(self):
-        return sorted(
-            list(self.defaults.values()) + list(self.files.values()),
-            key=WorkflowCmp,
-        )
+        workflows = []
+
+        settings = self.settings.get()
+
+        for id in self.order.get():
+            try:
+                is_hidden = settings[id]["hidden"]
+            except KeyError:
+                is_hidden = False
+
+            if not is_hidden:
+                workflows.append(self.get(id))
+
+        return workflows
 
 
     def get(self, filename):
@@ -161,7 +215,10 @@ class Workflows(QObject):
             with open(self.folder / (filename + ".json"), "w") as file:
                 dump(value, file, indent=2)
 
-            self.changed.emit(filename)
+            self.changed.emit()
+            return True
+
+        return False
 
 
     def remove(self, filename):
@@ -172,14 +229,24 @@ class Workflows(QObject):
         except FileNotFoundError:
             pass
 
-        self.changed.emit(filename)
+        self.changed.emit()
+        return True
 
 
     def clear(self):
         if self.files != {}:
-            for filename in self.files.keys():
-                self.remove(filename)
+            changed = False
+
+            with BlockSignals(self):
+                for filename in self.files.keys():
+                    if self.remove(filename):
+                        changed = True
+
             assert self.files == {}
+
+            if changed:
+                self.changed.emit()
+
             return True
         return False
 
@@ -194,52 +261,22 @@ class Workflows(QObject):
 
 
     def restore_snapshot(self, snapshots):
-        for filename in self.files.keys():
-            if not filename in snapshots:
-                self.remove(filename)
+        changed = False
 
-        for filename, snapshot in snapshots.items():
-            self.set(filename, snapshot)
+        with BlockSignals(self):
+            for filename in self.files.keys():
+                if not filename in snapshots:
+                    if self.remove(filename):
+                        changed = True
+
+            for filename, snapshot in snapshots.items():
+                if self.set(filename, snapshot):
+                    changed = True
 
         assert self.files == snapshots
 
-
-@functools.total_ordering
-class WorkflowCmp:
-    def __init__(self, workflow):
-        self.is_default = workflow.get("is_default", False)
-        self.before = workflow.get("before", None)
-        self.name = workflow["name"].casefold()
-        self.id = workflow["id"]
-
-    def cmp(self, other):
-        if self.is_default and not other.is_default:
-            return -1
-        elif other.is_default and not self.is_default:
-            return 1
-
-        if self.before is not None and self.before == other.id:
-            return -1
-        elif other.before is not None and other.before == self.id:
-            return 1
-
-        if self.name < other.name:
-            return -1
-        elif other.name < self.name:
-            return 1
-
-        if self.id < other.id:
-            return -1
-        elif other.id < self.id:
-            return 1
-
-        return 0
-
-    def __eq__(self, other):
-        return self.cmp(other) == 0
-
-    def __lt__(self, other):
-        return self.cmp(other) < 0
+        if changed:
+            self.changed.emit()
 
 
 def load_default_file(filename):
@@ -285,7 +322,14 @@ class Settings(QObject):
         self.settings = SettingsFile(self.dir / "settings.json", self.default_settings)
         self.bundles = SettingsFile(self.dir / "bundles.json", self.default_bundles)
         self.presets = SettingsFile(self.dir / "presets.json", self.default_presets)
-        self.workflows = Workflows(self, self.dir / "workflows", self.default_workflows)
+
+        self.workflows = Workflows(
+            self,
+            settings=self.settings.item("workflows"),
+            order=self.settings.item("workflow_order"),
+            folder=self.dir / "workflows",
+            defaults=self.default_workflows,
+        )
 
         self.load_node_metadata()
 

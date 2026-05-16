@@ -657,6 +657,7 @@ class Image:
 
 
 class LayerType(Enum):
+    empty = ""
     paint = "paintlayer"
     vector = "vectorlayer"
     group = "grouplayer"

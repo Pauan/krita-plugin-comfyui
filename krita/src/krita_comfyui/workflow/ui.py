@@ -37,11 +37,7 @@ class InputEqual:
 
 
     def when_equal(self, f):
-        def on_change():
-            f(self.is_equal())
-
-        on_change()
-        return self.input.add_listener(on_change)
+        return self.input.with_value(lambda value: f(value == self.value))
 
 
 class Inputs:

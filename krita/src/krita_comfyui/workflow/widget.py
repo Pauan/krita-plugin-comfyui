@@ -296,9 +296,9 @@ class WorkflowWidget(QWidget):
             input.set_options(self.layer_combo_options)
 
 
-    def on_workflows_changed(self, id):
+    def on_workflows_changed(self):
         with self.catch_errors():
-            if self.workflow.reload_workflow(id):
+            if self.workflow.reload_workflow():
                 self.update_widgets()
 
             self.update_workflow_selector()

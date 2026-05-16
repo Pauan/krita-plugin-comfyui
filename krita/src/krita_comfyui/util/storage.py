@@ -40,9 +40,20 @@ class Item:
         return Listener(self, f)
 
 
-    def notify_listeners(self):
-        for listener in self.listeners:
-            listener()
+    def notify_listeners(self, old_value):
+        new_value = self.value
+
+        if old_value != new_value:
+            for listener in self.listeners:
+                listener(old_value, new_value)
+
+
+    def with_value(self, f):
+        def on_change(old, new):
+            assert self.value == new
+            f(new)
+        f(self.value)
+        return self.add_listener(on_change)
 
 
     def disconnect(self):
@@ -73,8 +84,8 @@ class Item:
             if should_save:
                 self.root.save()
 
-        if notify_listeners and old_value != self.value:
-            self.notify_listeners()
+        if notify_listeners:
+            self.notify_listeners(old_value)
 
 
     def reset_to_default(self, *, save=True, notify_listeners=True):
@@ -91,8 +102,8 @@ class Item:
             del self.serialized[self.id]
             self.root.save()
 
-        if notify_listeners and old_value != self.value:
-            self.notify_listeners()
+        if notify_listeners:
+            self.notify_listeners(old_value)
 
 
     def change_default(self, new_default):

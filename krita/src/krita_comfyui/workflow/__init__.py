@@ -166,8 +166,8 @@ class Workflow(Storage):
         return False
 
 
-    def reload_workflow(self, id):
-        if self.id == id and self.id != "":
+    def reload_workflow(self):
+        if self.id != "":
             try:
                 info = self.settings.workflows.get(self.id)
             except KeyError:
@@ -179,11 +179,16 @@ class Workflow(Storage):
 
             else:
                 assert info["id"] == self.id
-                self.graph = info["graph"]
-                self.layout = info["layout"]
-                self._update_metadata()
-                self.disconnect_items()
-                return True
+
+                new_graph = info["graph"]
+                new_layout = info["layout"]
+
+                if self.graph != new_graph or self.layout != new_layout:
+                    self.graph = new_graph
+                    self.layout = new_layout
+                    self._update_metadata()
+                    self.disconnect_items()
+                    return True
 
         return False
 
