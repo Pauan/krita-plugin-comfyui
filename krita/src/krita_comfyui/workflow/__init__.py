@@ -23,7 +23,7 @@ class Workflow(Storage):
         self.graph = None
         self.layout = None
 
-        self.defaults = {}
+        self.all_keys = set()
         self.metadata = {}
 
 
@@ -102,7 +102,7 @@ class Workflow(Storage):
 
     def _update_metadata(self):
         self.metadata = {}
-        self.defaults = {}
+        self.all_keys = set()
 
         if self.layout is not None:
             # We look for every widget in the layout and get the default.
@@ -110,23 +110,15 @@ class Workflow(Storage):
                 id = widget.get("id", None)
 
                 if id is not None:
-                    if id in self.metadata:
-                        raise WorkflowError(f"The id \"{id}\" is used multiple times.")
-
                     default = self._get_default_for_widget(widget)
                     type = self._get_type_for_widget(widget)
 
-                    metadata = {
+                    self.metadata[id] = {
                         "default": default,
                         "type": type,
                     }
 
-                    full_id = Workflow._full_id(type, id)
-
-                    assert not full_id in self.defaults
-
-                    self.metadata[id] = metadata
-                    self.defaults[full_id] = default
+                    self.all_keys.add(Workflow._full_id(type, id))
 
 
     def _update_serialized(self):
@@ -232,11 +224,7 @@ class Workflow(Storage):
         return self.document is not None and self.id != "" and self.graph is not None
 
 
-    def get_defaults(self):
-        return self.defaults
-
-
-    def to_graph(self, ui_values, defaults):
+    def to_graph(self, ui_values):
         if self.document is None:
             raise WorkflowError("Krita does not have an opened image")
 
@@ -251,13 +239,10 @@ class Workflow(Storage):
         print("Running graph")
         print(json.dumps(ui_values, indent=2))
         print("")
-        print(json.dumps(defaults, indent=2))
-        print("")
 
         return WorkflowGraph(
             document=self.document,
             json=self.graph,
             seed=seed,
             ui_values=ui_values,
-            defaults=defaults,
         ).evaluate()

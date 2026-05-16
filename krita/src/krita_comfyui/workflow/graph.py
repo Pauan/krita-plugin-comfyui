@@ -23,12 +23,12 @@ class NormalOutputs:
 
 # The node IDs which can be constant evaluated.
 CONST_NODES = {
-    "krita_comfyui: KritaUiBoolean": krita.KritaUi("boolean"),
-    "krita_comfyui: KritaUiCombo": krita.KritaUi("combo"),
-    "krita_comfyui: KritaUiFloat": krita.KritaUi("float"),
-    "krita_comfyui: KritaUiInt": krita.KritaUi("int"),
-    "krita_comfyui: KritaUiLayerId": krita.KritaUi("layer_id"),
-    "krita_comfyui: KritaUiString": krita.KritaUi("string"),
+    "krita_comfyui: KritaUiBoolean": krita.KritaUi("boolean", ["value", "is_default"]),
+    "krita_comfyui: KritaUiCombo": krita.KritaUi("combo", ["value", "is_default"]),
+    "krita_comfyui: KritaUiFloat": krita.KritaUi("float", ["value", "is_default"]),
+    "krita_comfyui: KritaUiInt": krita.KritaUi("int", ["value", "is_default"]),
+    "krita_comfyui: KritaUiLayerId": krita.KritaUi("layer_id", ["value", "is_default"]),
+    "krita_comfyui: KritaUiString": krita.KritaUi("string", ["value", "is_default"]),
 
     "krita_comfyui: KritaCanvas": krita.KritaCanvas(),
     "krita_comfyui: KritaLayers": krita.KritaLayers(),
@@ -119,12 +119,11 @@ CONST_NODES = {
 
 
 class WorkflowGraph:
-    def __init__(self, document, json, seed, ui_values, defaults):
+    def __init__(self, document, json, seed, ui_values):
         self.document = document
         self.json = json
         self.seed = seed
         self.ui_values = ui_values
-        self.defaults = defaults
 
         self.graph = Graph()
 

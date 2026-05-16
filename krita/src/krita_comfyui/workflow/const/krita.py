@@ -9,30 +9,27 @@ class UiLink(Link):
 
 # Evaluates a UI widget to a constant value
 class KritaUi:
-    def __init__(self, type):
+    def __init__(self, type, outputs):
         self.type = type
+        self.outputs = outputs
 
     def get_id(self, id):
         return f"{self.type}/{id}"
 
     def get_outputs(self, workflow, node_id, node):
         ids = []
-        outputs = []
-        is_default = []
+        links = tuple(UiLink([], ids) for _ in self.outputs)
 
         for id in workflow.evaluate_link(node["inputs"]["id"]).values:
             id = self.get_id(id)
             values = workflow.get_ui_values(id)
-            default = workflow.defaults[id]
 
             ids.append(id)
-            outputs.extend(values)
-            is_default.extend(value == default for value in values)
 
-        return (
-            UiLink(outputs, ids),
-            UiLink(is_default, ids),
-        )
+            for link, key in zip(links, self.outputs):
+                link.values.extend(value[key] for value in values)
+
+        return links
 
 
 class KritaCanvas:

@@ -339,10 +339,9 @@ class WorkflowWidget(QWidget):
 
 
     def run_workflow(self):
-        defaults = self.workflow.get_defaults()
         ui_values = {}
 
-        for id in defaults.keys():
+        for id in self.workflow.all_keys:
             ui_values[id] = []
 
         # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
@@ -354,10 +353,13 @@ class WorkflowWidget(QWidget):
             if input is not None:
                 # TODO maybe do this for enabled_if too ?
                 if inputs.visible_if is None or inputs.visible_if.is_equal():
-                    ui_values[input.id].append(input.value)
+                    ui_values[input.id].append({
+                        "value": input.value,
+                        "is_default": input.value == input.default,
+                    })
 
         try:
-            graph = self.workflow.to_graph(ui_values, defaults)
+            graph = self.workflow.to_graph(ui_values)
 
         except WorkflowError as e:
             self.show_error(message=str(e))
