@@ -186,13 +186,20 @@ class Workflows(QObject):
                     pass
 
         # Adds default workflows that aren't in the order.
-        for id in self.defaults.keys():
+        for id in self.order.default:
             if not id in seen:
                 new_order.insert(last_default, id)
                 last_default += 1
 
+        for id in self.defaults.keys():
+            assert id in seen
+
+        def sort_files(file):
+            value = file[1]
+            return (value["name"].casefold(), value["id"])
+
         # Adds user workflows that aren't in the order.
-        for id in self.files.keys():
+        for id, _ in sorted(self.files.items(), key=sort_files):
             if not id in seen:
                 new_order.append(id)
 
