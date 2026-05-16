@@ -154,11 +154,17 @@ class Workflow(Storage):
                 self.layout = None
 
             else:
-                info = self.settings.workflows.get(self.id)
-                assert info["id"] == self.id
+                workflow = self.settings.workflows.get(self.id)
 
-                self.graph = info["graph"]
-                self.layout = info["layout"]
+                assert workflow.id() == self.id
+
+                # If the workflow is hidden, revert back to the default.
+                if workflow.is_hidden():
+                    return self.change_workflow("")
+
+                else:
+                    self.graph = workflow.graph()
+                    self.layout = workflow.layout()
 
             self._update_metadata()
             return True
@@ -169,19 +175,19 @@ class Workflow(Storage):
     def reload_workflow(self):
         if self.id != "":
             try:
-                info = self.settings.workflows.get(self.id)
+                workflow = self.settings.workflows.get(self.id)
             except KeyError:
-                info = None
+                workflow = None
 
-            # If the workflow was deleted, revert back to the default.
-            if info is None:
+            # If the workflow was deleted or hidden, revert back to the default.
+            if workflow is None or workflow.is_hidden():
                 return self.change_workflow("")
 
             else:
-                assert info["id"] == self.id
+                assert workflow.id() == self.id
 
-                new_graph = info["graph"]
-                new_layout = info["layout"]
+                new_graph = workflow.graph()
+                new_layout = workflow.layout()
 
                 if self.graph != new_graph or self.layout != new_layout:
                     self.graph = new_graph

@@ -108,6 +108,30 @@ class SettingsFile(Storage):
             dump(self.serialized, file, indent=2)
 
 
+class Workflow:
+    def __init__(self, settings, file):
+        self.settings = settings
+        self.file = file
+
+    def id(self):
+        return self.file["id"]
+
+    def icon(self):
+        return self.file["icon"]
+
+    def name(self):
+        return self.file["name"]
+
+    def layout(self):
+        return self.file["layout"]
+
+    def graph(self):
+        return self.file["graph"]
+
+    def is_hidden(self):
+        return self.settings.get("hidden", False)
+
+
 class Workflows(QObject):
     changed = pyqtSignal()
 
@@ -150,7 +174,7 @@ class Workflows(QObject):
             # Removes duplicate IDs.
             if not id in seen:
                 try:
-                    workflow = self.get(id)
+                    workflow = self._get_file(id)
                     new_order.append(id)
                     seen.add(id)
 
@@ -172,47 +196,38 @@ class Workflows(QObject):
             if not id in seen:
                 new_order.append(id)
 
-        print(new_order)
-
         self.order.set(new_order)
 
 
-    def get_all(self):
-        workflows = []
-
-        settings = self.settings.get()
-
-        for id in self.order.get():
-            try:
-                is_hidden = settings[id]["hidden"]
-            except KeyError:
-                is_hidden = False
-
-            if not is_hidden:
-                workflows.append(self.get(id))
-
-        return workflows
-
-
-    def get(self, filename):
+    def _get_file(self, id):
         try:
-            return self.defaults[filename]
+            return self.defaults[id]
         except KeyError:
-            return self.files[filename]
+            return self.files[id]
 
 
-    def set(self, filename, value):
-        assert not filename in self.defaults
+    def get_all(self):
+        return [self.get(id) for id in self.order.get()]
+
+
+    def get(self, id):
+        file = self._get_file(id)
+        settings = self.settings.get()
+        return Workflow(settings.get(id, {}), file)
+
+
+    def set(self, id, value):
+        assert not id in self.defaults
 
         try:
-            should_save = self.files[filename] != value
+            should_save = self.files[id] != value
         except KeyError:
             should_save = True
 
         if should_save:
-            self.files[filename] = value
+            self.files[id] = value
 
-            with open(self.folder / (filename + ".json"), "w") as file:
+            with open(self.folder / (id + ".json"), "w") as file:
                 dump(value, file, indent=2)
 
             self.changed.emit()
@@ -221,11 +236,11 @@ class Workflows(QObject):
         return False
 
 
-    def remove(self, filename):
-        del self.files[filename]
+    def remove(self, id):
+        del self.files[id]
 
         try:
-            os.remove(self.folder / (filename + ".json"))
+            os.remove(self.folder / (id + ".json"))
         except FileNotFoundError:
             pass
 
@@ -238,8 +253,8 @@ class Workflows(QObject):
             changed = False
 
             with BlockSignals(self):
-                for filename in self.files.keys():
-                    if self.remove(filename):
+                for id in self.files.keys():
+                    if self.remove(id):
                         changed = True
 
             assert self.files == {}
@@ -254,8 +269,8 @@ class Workflows(QObject):
     def snapshot(self):
         snapshots = {}
 
-        for filename, value in self.files.items():
-            snapshots[filename] = loads(dumps(value))
+        for id, value in self.files.items():
+            snapshots[id] = loads(dumps(value))
 
         return snapshots
 
@@ -264,13 +279,13 @@ class Workflows(QObject):
         changed = False
 
         with BlockSignals(self):
-            for filename in self.files.keys():
-                if not filename in snapshots:
-                    if self.remove(filename):
+            for id in self.files.keys():
+                if not id in snapshots:
+                    if self.remove(id):
                         changed = True
 
-            for filename, snapshot in snapshots.items():
-                if self.set(filename, snapshot):
+            for id, snapshot in snapshots.items():
+                if self.set(id, snapshot):
                     changed = True
 
         assert self.files == snapshots
@@ -295,10 +310,10 @@ def load_default_folder(folder):
     defaults = {}
 
     for filename in os.listdir(folder):
-        key = Path(filename).stem
+        id = Path(filename).stem
 
         with open(folder / filename, "r") as file:
-            defaults[key] = load(file)
+            defaults[id] = load(file)
 
     return defaults
 

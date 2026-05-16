@@ -29,7 +29,8 @@ class WorkflowSelector(ComboBox):
             self.addItem("", "")
 
             for workflow in values:
-                self.addItem(Krita.icon(workflow["icon"]), workflow["name"], workflow["id"])
+                if not workflow.is_hidden():
+                    self.addItem(Krita.icon(workflow.icon()), workflow.name(), workflow.id())
 
             self.resize_dropdown()
 
