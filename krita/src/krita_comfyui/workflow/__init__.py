@@ -113,6 +113,17 @@ class Workflow(Storage):
                     default = self._get_default_for_widget(widget)
                     type = self._get_type_for_widget(widget)
 
+                    old_metadata = self.metadata.get(id, None)
+
+                    if old_metadata is not None:
+                        old_default = old_metadata["default"]
+                        if old_default != default:
+                            raise WorkflowError(f"The id \"{id}\" has two different defaults:\n    {old_default}\n    {default}")
+
+                        old_type = old_metadata["type"]
+                        if old_type != type:
+                            raise WorkflowError(f"The id \"{id}\" has two different types:\n    {old_type}\n    {type}")
+
                     self.metadata[id] = {
                         "default": default,
                         "type": type,
