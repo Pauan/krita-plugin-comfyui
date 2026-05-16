@@ -162,8 +162,8 @@ class Workflow(Storage):
         return False
 
 
-    def reload_workflow(self):
-        if self.id != "":
+    def reload_workflow(self, id):
+        if self.id == id and self.id != "":
             try:
                 info = self.settings.workflows.get(self.id)
             except KeyError:

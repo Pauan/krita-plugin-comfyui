@@ -1,6 +1,5 @@
 import json
 import contextlib
-from enum import Enum, auto
 
 
 class Listener:
@@ -247,10 +246,40 @@ class Metadata:
         return self.default
 
 
-class SaveState(Enum):
-    SHOULD_SAVE = auto()
-    DELAY_SAVE = auto()
-    DID_SAVE = auto()
+class SaveState:
+    def __init__(self):
+        self.enabled = True
+        self.delayed = False
+        self.did_save = False
+
+
+    def try_save(self):
+        if self.enabled:
+            if self.delayed:
+                self.did_save = True
+            else:
+                return True
+        return False
+
+
+    def start_delay(self):
+        delayed = self.delayed
+        self.delayed = True
+        return delayed
+
+
+    def end_delay(self, delayed):
+        # If we attempted to save, then now it's time to actually save.
+        if self.enabled and self.did_save:
+            self.did_save = False
+            # We restore the old state before we save, so that way if
+            # delay_save is nested, it will wait until the outer-most
+            # delay_save is finished before saving.
+            self.delayed = delayed
+            return True
+        else:
+            self.delayed = delayed
+            return False
 
 
 class Storage(DictBase):
@@ -269,35 +298,30 @@ class Storage(DictBase):
 
     def __init__(self, serialized):
         super().__init__(self, serialized)
-        self.save_state = SaveState.SHOULD_SAVE
+        self.save_state = SaveState()
 
 
     @contextlib.contextmanager
     def delay_save(self):
-        save_state = self.save_state
-
-        # This temporarily stops it from saving.
-        self.save_state = SaveState.DELAY_SAVE
-
+        delayed = self.save_state.start_delay()
         try:
             yield
         finally:
-            # If we attempted to save, then now it's time to actually save.
-            if self.save_state == SaveState.DID_SAVE:
-                # We restore the old state before we save, so that way if
-                # delay_save is nested, it will wait until the outer-most
-                # delay_save is finished before saving.
-                self.save_state = save_state
+            if self.save_state.end_delay(delayed):
                 self.save()
-            else:
-                self.save_state = save_state
+
+
+    def stop(self):
+        self.disconnect_items()
+        self.root = None
+        self.serialized = None
+        self.items = None
+        self.save_state.enabled = False
 
 
     def save(self):
-        if self.save_state == SaveState.SHOULD_SAVE:
+        if self.save_state.try_save():
             self._save()
-        else:
-            self.save_state = SaveState.DID_SAVE
 
 
     def disconnect_items(self):
