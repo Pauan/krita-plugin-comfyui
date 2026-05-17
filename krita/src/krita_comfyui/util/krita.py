@@ -1,4 +1,5 @@
 import krita
+import math
 from pathlib import Path
 from enum import Enum
 from PyQt6 import sip
@@ -116,6 +117,48 @@ class DocumentManager(QObject):
             self.document_changed.emit()
 
 
+class Axis:
+    def __init__(self, min, max):
+        self.min = min
+        self.max = max
+
+
+    def length(self):
+        return self.max - self.min
+
+
+    def round_to_multiple(self, multiple):
+        length = self.length()
+        rounded = round_to_multiple(length, multiple)
+        half = math.ceil(float(rounded - length) * 0.5)
+        min = self.min - half
+        max = min + rounded
+        return Axis(min, max)
+
+
+    # Shifts the axis to be within the parent's bounds.
+    def shift_within_parent(self, parent):
+        extra = parent.min - self.min
+
+        # Shifts the axis to the right
+        if extra > 0:
+            return Axis(
+                self.min + extra,
+                clamp(self.max + extra, parent.min, parent.max),
+            )
+
+        extra = self.max - parent.max
+
+        # Shifts the axis to the left
+        if extra > 0:
+            return Axis(
+                clamp(self.min - extra, parent.min, parent.max),
+                self.max - extra,
+            )
+
+        return self
+
+
 class Bounds(NamedTuple):
     x: int
     y: int
@@ -129,6 +172,13 @@ class Bounds(NamedTuple):
 
     def to_qrect(self):
         return QRect(self.x, self.y, self.width, self.height)
+
+
+    def x_axis(self):
+        return Axis(self.x, self.x + self.width)
+
+    def y_axis(self):
+        return Axis(self.y, self.y + self.height)
 
 
     def check_within_bounds(self, parent):
@@ -147,25 +197,13 @@ class Bounds(NamedTuple):
         bounds = self.clamp_to_parent(parent)
 
         if multiple > 1:
-            # Increases the bounds to the right and bottom
-            width = round_to_multiple(bounds.width, multiple)
-            height = round_to_multiple(bounds.height, multiple)
+            x_axis = self.x_axis().round_to_multiple(multiple).shift_within_parent(parent.x_axis())
+            y_axis = self.y_axis().round_to_multiple(multiple).shift_within_parent(parent.y_axis())
 
-            parent_right = parent.x + parent.width
-            parent_bottom = parent.y + parent.height
+            assert x_axis.max >= x_axis.min
+            assert y_axis.max >= y_axis.min
 
-            # Clamp if it goes outside of the parent
-            right = clamp(bounds.x + width, parent.x, parent_right)
-            bottom = clamp(bounds.y + height, parent.y, parent_bottom)
-
-            # If the bounds was clamped, increases the bounds to the left and top
-            left = clamp(right - width, parent.x, parent_right)
-            top = clamp(bottom - height, parent.y, parent_bottom)
-
-            assert right >= left
-            assert bottom >= top
-
-            bounds = Bounds(left, top, right - left, bottom - top).check_within_bounds(parent)
+            bounds = Bounds(x_axis.min, y_axis.min, x_axis.length(), y_axis.length()).check_within_bounds(parent)
 
         return bounds
 
