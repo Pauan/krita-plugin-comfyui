@@ -279,6 +279,8 @@ class TextWidget(QWidget):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
 
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
+
         self.layout = LayoutManager(self)
 
         self.setStyleSheet("""

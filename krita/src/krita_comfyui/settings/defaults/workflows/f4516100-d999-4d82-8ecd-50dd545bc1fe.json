@@ -270,10 +270,21 @@
           "suffix": " megapixels"
         },
         {
-          "type": "boolean",
-          "id": "debug",
-          "label": "Debug",
-          "default": false
+          "type": "row",
+          "children": [
+            {
+              "type": "boolean",
+              "id": "debug_text",
+              "label": "Debug text",
+              "default": false
+            },
+            {
+              "type": "boolean",
+              "id": "debug_images",
+              "label": "Debug images",
+              "default": false
+            }
+          ]
         }
       ]
     }
@@ -628,7 +639,7 @@
     },
     "142": {
       "inputs": {
-        "id": "debug"
+        "id": "debug_images"
       },
       "class_type": "krita_comfyui: KritaUiBoolean",
       "_meta": {
@@ -707,10 +718,6 @@
         "masks": [
           "254",
           0
-        ],
-        "text": [
-          "216",
-          0
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -746,7 +753,7 @@
     "158": {
       "inputs": {
         "enabled": [
-          "142",
+          "291",
           0
         ],
         "x": 0,
@@ -815,15 +822,15 @@
     "169": {
       "inputs": {
         "enabled": [
-          "142",
+          "291",
           0
         ],
         "x": 0,
         "y": 0,
         "name": "1. Prompt Positive",
         "text": [
-          "193",
-          1
+          "289",
+          0
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -834,14 +841,14 @@
     "172": {
       "inputs": {
         "enabled": [
-          "142",
+          "291",
           0
         ],
         "x": 0,
         "y": 0,
         "name": "2. Prompt Negative",
         "text": [
-          "194",
+          "289",
           1
         ]
       },
@@ -890,8 +897,8 @@
     "178": {
       "inputs": {
         "prompt": [
-          "181",
-          1
+          "290",
+          0
         ],
         "strength": 1,
         "isolated": false,
@@ -904,36 +911,12 @@
       "class_type": "krita_comfyui: RegionMask",
       "_meta": {
         "title": "Region Mask"
-      }
-    },
-    "180": {
-      "inputs": {
-        "json": [
-          "175",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: DebugJSON",
-      "_meta": {
-        "title": "Debug JSON"
-      }
-    },
-    "181": {
-      "inputs": {
-        "json_prompt": [
-          "180",
-          1
-        ]
-      },
-      "class_type": "prompt_helpers: DebugJSONPrompt",
-      "_meta": {
-        "title": "Debug JSON Prompt"
       }
     },
     "182": {
       "inputs": {
         "prompt": [
-          "183",
+          "290",
           1
         ],
         "strength": 1,
@@ -949,31 +932,19 @@
         "title": "Region Mask"
       }
     },
-    "183": {
-      "inputs": {
-        "json_prompt": [
-          "180",
-          2
-        ]
-      },
-      "class_type": "prompt_helpers: DebugJSONPrompt",
-      "_meta": {
-        "title": "Debug JSON Prompt"
-      }
-    },
     "187": {
       "inputs": {
         "global_prompt": [
-          "193",
-          1
+          "289",
+          0
         ],
         "global_strength": 0.01,
         "global_inverse_strength": 0,
         "add_to_regions": true,
         "combine_prompts": "String Concatenate",
         "clip": [
-          "286",
-          0
+          "288",
+          1
         ],
         "regions": [
           "271",
@@ -988,7 +959,7 @@
     "190": {
       "inputs": {
         "global_prompt": [
-          "194",
+          "289",
           1
         ],
         "global_strength": 0.01,
@@ -996,8 +967,8 @@
         "add_to_regions": true,
         "combine_prompts": "String Concatenate",
         "clip": [
-          "286",
-          0
+          "288",
+          1
         ],
         "regions": [
           "270",
@@ -1007,42 +978,6 @@
       "class_type": "krita_comfyui: RegionsEncode",
       "_meta": {
         "title": "CLIP Regions Encode"
-      }
-    },
-    "192": {
-      "inputs": {
-        "json": [
-          "47",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: DebugJSON",
-      "_meta": {
-        "title": "Debug JSON"
-      }
-    },
-    "193": {
-      "inputs": {
-        "json_prompt": [
-          "192",
-          1
-        ]
-      },
-      "class_type": "prompt_helpers: DebugJSONPrompt",
-      "_meta": {
-        "title": "Debug JSON Prompt"
-      }
-    },
-    "194": {
-      "inputs": {
-        "json_prompt": [
-          "192",
-          2
-        ]
-      },
-      "class_type": "prompt_helpers: DebugJSONPrompt",
-      "_meta": {
-        "title": "Debug JSON Prompt"
       }
     },
     "196": {
@@ -1513,15 +1448,15 @@
     "264": {
       "inputs": {
         "enabled": [
-          "165",
+          "292",
           0
         ],
         "x": 0,
         "y": 0,
         "name": "4. Regions Positive",
         "text": [
-          "181",
-          1
+          "290",
+          0
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -1532,14 +1467,14 @@
     "265": {
       "inputs": {
         "enabled": [
-          "165",
+          "292",
           0
         ],
         "x": 0,
         "y": 0,
         "name": "5. Regions Negative",
         "text": [
-          "183",
+          "290",
           1
         ]
       },
@@ -1759,7 +1694,7 @@
     "284": {
       "inputs": {
         "model": [
-          "285",
+          "288",
           0
         ],
         "positive": [
@@ -1815,6 +1750,110 @@
       "class_type": "VAELoader",
       "_meta": {
         "title": "Load VAE"
+      }
+    },
+    "288": {
+      "inputs": {
+        "model": [
+          "285",
+          0
+        ],
+        "clip": [
+          "286",
+          0
+        ],
+        "loras": [
+          "289",
+          2
+        ]
+      },
+      "class_type": "prompt_helpers: ApplyLoras",
+      "_meta": {
+        "title": "Apply Loras"
+      }
+    },
+    "289": {
+      "inputs": {
+        "json": [
+          "47",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: ProcessJSON",
+      "_meta": {
+        "title": "Process JSON"
+      }
+    },
+    "290": {
+      "inputs": {
+        "json": [
+          "175",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: ProcessJSON",
+      "_meta": {
+        "title": "Process JSON"
+      }
+    },
+    "291": {
+      "inputs": {
+        "id": "debug_text"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "292": {
+      "inputs": {
+        "input1": [
+          "277",
+          0
+        ],
+        "input2": [
+          "291",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "293": {
+      "inputs": {
+        "enabled": [
+          "295",
+          0
+        ],
+        "x": 0,
+        "y": 0,
+        "name": "Selection",
+        "text": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "295": {
+      "inputs": {
+        "input1": [
+          "136",
+          1
+        ],
+        "input2": [
+          "291",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
       }
     }
   }

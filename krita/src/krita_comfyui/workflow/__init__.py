@@ -24,7 +24,7 @@ class Workflow(Storage):
         self.graph = None
         self.layout = None
 
-        self.all_keys = set()
+        self.layout_ids = set()
         self.metadata = {}
 
 
@@ -103,7 +103,7 @@ class Workflow(Storage):
 
     def _update_metadata(self):
         self.metadata = {}
-        self.all_keys = set()
+        self.layout_ids = set()
 
         if self.layout is not None:
             # We look for every widget in the layout and get the default.
@@ -130,7 +130,7 @@ class Workflow(Storage):
                         "type": type,
                     }
 
-                    self.all_keys.add(Workflow._full_id(type, id))
+                    self.layout_ids.add(Workflow._full_id(type, id))
 
 
     def _update_serialized(self):

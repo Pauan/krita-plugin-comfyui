@@ -135,6 +135,9 @@ class DictBase:
             return item
 
 
+    def keys(self):
+        return self.serialized.keys()
+
     def item(self, id, *, default=None):
         return self._make_item(id, default, self.root.ITEM_CLASS)
 

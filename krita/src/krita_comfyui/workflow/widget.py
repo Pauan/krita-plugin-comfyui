@@ -356,7 +356,7 @@ class WorkflowWidget(QWidget):
     def run_workflow(self):
         ui_values = {}
 
-        for id in self.workflow.all_keys:
+        for id in self.workflow.layout_ids:
             ui_values[id] = []
 
         # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
