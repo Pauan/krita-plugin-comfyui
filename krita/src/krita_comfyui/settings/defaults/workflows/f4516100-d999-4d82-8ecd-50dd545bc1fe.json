@@ -600,7 +600,7 @@
     },
     "138": {
       "inputs": {
-        "round_up": 32,
+        "round_up": 8,
         "selection": [
           "258",
           0
@@ -660,7 +660,7 @@
           "138",
           1
         ],
-        "name": "3. Regions",
+        "name": "4. Regions",
         "masks": [
           "256",
           0
@@ -758,7 +758,7 @@
         ],
         "x": 0,
         "y": 0,
-        "name": "6. Seed",
+        "name": "1. Seed",
         "text": [
           "88",
           0
@@ -827,7 +827,7 @@
         ],
         "x": 0,
         "y": 0,
-        "name": "1. Prompt Positive",
+        "name": "2. Prompt Positive",
         "text": [
           "289",
           0
@@ -846,7 +846,7 @@
         ],
         "x": 0,
         "y": 0,
-        "name": "2. Prompt Negative",
+        "name": "3. Prompt Negative",
         "text": [
           "289",
           1
@@ -1180,6 +1180,7 @@
           0
         ],
         "scale_method": "lanczos",
+        "round_up": 8,
         "input": [
           "126",
           0
@@ -1314,6 +1315,7 @@
           0
         ],
         "scale_method": "lanczos",
+        "round_up": 8,
         "input": [
           "137",
           0
@@ -1336,6 +1338,7 @@
           0
         ],
         "scale_method": "lanczos",
+        "round_up": 8,
         "input": [
           "106",
           1
@@ -1358,6 +1361,7 @@
           0
         ],
         "scale_method": "lanczos",
+        "round_up": 8,
         "input": [
           "280",
           0
@@ -1453,7 +1457,7 @@
         ],
         "x": 0,
         "y": 0,
-        "name": "4. Regions Positive",
+        "name": "5. Regions Positive",
         "text": [
           "290",
           0
@@ -1472,7 +1476,7 @@
         ],
         "x": 0,
         "y": 0,
-        "name": "5. Regions Negative",
+        "name": "6. Regions Negative",
         "text": [
           "290",
           1
@@ -1829,7 +1833,7 @@
         ],
         "x": 0,
         "y": 0,
-        "name": "Selection",
+        "name": "7. Selection",
         "text": [
           "216",
           0
@@ -1854,6 +1858,54 @@
       "class_type": "Basic data handling: Boolean And",
       "_meta": {
         "title": "and"
+      }
+    },
+    "296": {
+      "inputs": {
+        "image": [
+          "248",
+          1
+        ]
+      },
+      "class_type": "GetImageSize",
+      "_meta": {
+        "title": "Get Image Size"
+      }
+    },
+    "297": {
+      "inputs": {
+        "enabled": [
+          "295",
+          0
+        ],
+        "x": 0,
+        "y": 0,
+        "name": "8. Selection Detail",
+        "text": [
+          "298",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "298": {
+      "inputs": {
+        "fstring": "width: {a}\nheight: {b}",
+        "a": [
+          "296",
+          0
+        ],
+        "b": [
+          "296",
+          1
+        ]
+      },
+      "class_type": "FormattedString",
+      "_meta": {
+        "title": "Formatted String"
       }
     }
   }

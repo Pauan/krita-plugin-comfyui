@@ -1,7 +1,7 @@
 import math
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
-from .util import timestamp, decode_image, decode_mask, encode_image, serialize_any, zip_lists, graph_list, is_image, get_size
+from .util import timestamp, decode_image, decode_mask, encode_image, serialize_any, zip_lists, graph_list, is_image, get_size, round_to_multiple
 
 
 def always_execute():
@@ -445,7 +445,7 @@ class KritaSelectionBounds(io.ComfyNode):
             description="Retrieves the bounds of the Krita selection.",
             inputs=[
                 Selection.Input("selection"),
-                io.Int.Input("round_up", min=1, default=32, tooltip="Rounds up to the nearest multiple. Set to 1 to disable rounding."),
+                io.Int.Input("round_up", min=1, default=8, tooltip="Rounds up to the nearest multiple. Set to 1 to disable rounding."),
             ],
             outputs=[
                 io.Int.Output(display_name="x"),
@@ -826,7 +826,7 @@ class Detail(io.ComfyNode):
                     tooltip="Select how to resize: by exact dimensions, scale factor, matching another image, etc.",
                     options=[
                         io.DynamicCombo.Option("scale total pixels", [
-                            io.Float.Input("megapixels", default=2.0, min=0.0, max=16.0, step=0.01, tooltip="Target total megapixels (e.g., 1.0 ≈ 1024×1024). Aspect ratio is preserved."),
+                            io.Float.Input("megapixels", default=1.0, min=0.0, max=16.0, step=0.01, tooltip="Target total megapixels (e.g., 1.0 ≈ 1024×1024). Aspect ratio is preserved."),
                         ]),
                     ],
                 ),
@@ -837,6 +837,8 @@ class Detail(io.ComfyNode):
                     default="lanczos",
                     tooltip="Interpolation algorithm. 'area' is best for downscaling, 'lanczos' for upscaling, 'nearest-exact' for pixel art.",
                 ),
+
+                io.Int.Input("round_up", min=1, default=8, tooltip="Rounds up to the nearest multiple. Set to 1 to disable rounding."),
             ],
             outputs=[
                 io.MatchType.Output(template=template, display_name="cropped"),
@@ -858,7 +860,7 @@ class Detail(io.ComfyNode):
 
 
     @staticmethod
-    def scale(resize_type, width, height):
+    def scale(resize_type, width, height, round_up):
         type = resize_type["resize_type"]
 
         # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L281-L289
@@ -897,11 +899,14 @@ class Detail(io.ComfyNode):
         else:
             raise RuntimeError(f"Unknown resize_type {type}")
 
-        return (width, height)
+        return (
+            round_to_multiple(width, round_up),
+            round_to_multiple(height, round_up),
+        )
 
 
     @classmethod
-    def execute(cls, input, bounding_box, resize_type, scale_method) -> io.NodeOutput:
+    def execute(cls, input, bounding_box, resize_type, scale_method, round_up) -> io.NodeOutput:
         graph = GraphBuilder()
 
         is_input_image = is_image(input)
@@ -925,7 +930,7 @@ class Detail(io.ComfyNode):
         else:
             cropped = input
 
-        (new_width, new_height) = cls.scale(resize_type, cropped_width, cropped_height)
+        (new_width, new_height) = cls.scale(resize_type, cropped_width, cropped_height, round_up)
 
         if cropped_width == new_width and cropped_height == new_height:
             resized = cropped

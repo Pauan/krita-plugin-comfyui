@@ -9,6 +9,15 @@ from PIL import Image
 from io import BytesIO
 
 
+def round_to_multiple(value, multiple):
+    extra = value % multiple
+
+    if extra == 0:
+        return value
+    else:
+        return value + (multiple - extra)
+
+
 # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_images.py#L580-L589
 def get_size(input):
     if is_image(input):
