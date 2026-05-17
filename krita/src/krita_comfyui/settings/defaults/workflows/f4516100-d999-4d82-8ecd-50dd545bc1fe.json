@@ -257,17 +257,33 @@
           "default": 16
         },
         {
-          "type": "float",
-          "id": "detail_megapixels",
-          "link_to": {
-            "node_id": "krita_comfyui: Detail",
-            "input": [
-              "resize_type",
-              "scale total pixels",
-              "megapixels"
-            ]
-          },
-          "suffix": " megapixels"
+          "type": "row",
+          "children": [
+            {
+              "type": "boolean",
+              "id": "detail_enabled",
+              "tooltip": "Enable detailing when inpainting.",
+              "default": true
+            },
+            {
+              "type": "float",
+              "id": "detail_megapixels",
+              "stretch": 1,
+              "link_to": {
+                "node_id": "krita_comfyui: Detail",
+                "input": [
+                  "resize_type",
+                  "scale total pixels",
+                  "megapixels"
+                ]
+              },
+              "enabled_if": {
+                "id": "detail_enabled",
+                "value": true
+              },
+              "suffix": " megapixels"
+            }
+          ]
         },
         {
           "type": "row",
@@ -662,7 +678,7 @@
         ],
         "name": "4. Regions",
         "masks": [
-          "256",
+          "300",
           0
         ],
         "text": [
@@ -716,7 +732,7 @@
         ],
         "name": "Selection",
         "masks": [
-          "254",
+          "304",
           0
         ]
       },
@@ -741,7 +757,7 @@
         ],
         "name": "Canvas",
         "images": [
-          "248",
+          "303",
           0
         ]
       },
@@ -904,7 +920,7 @@
         "isolated": false,
         "add_to_global": true,
         "mask": [
-          "256",
+          "300",
           1
         ]
       },
@@ -923,7 +939,7 @@
         "isolated": false,
         "add_to_global": true,
         "mask": [
-          "256",
+          "300",
           1
         ]
       },
@@ -1053,7 +1069,7 @@
           3
         ],
         "resize_type.crop": "disabled",
-        "scale_method": "area",
+        "scale_method": "bicubic",
         "input": [
           "207",
           0
@@ -1087,37 +1103,17 @@
           0
         ],
         "image": [
-          "248",
+          "303",
           1
         ],
         "mask": [
-          "254",
+          "304",
           1
         ]
       },
       "class_type": "krita_comfyui: img2img",
       "_meta": {
         "title": "img2img"
-      }
-    },
-    "227": {
-      "inputs": {
-        "switch": [
-          "136",
-          1
-        ],
-        "on_false": [
-          "207",
-          0
-        ],
-        "on_true": [
-          "224",
-          0
-        ]
-      },
-      "class_type": "ComfySwitchNode",
-      "_meta": {
-        "title": "Switch"
       }
     },
     "232": {
@@ -1168,29 +1164,6 @@
         "title": "KSampler"
       }
     },
-    "248": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "scale_method": "lanczos",
-        "round_up": 8,
-        "input": [
-          "126",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
     "249": {
       "inputs": {
         "strength": [
@@ -1214,7 +1187,7 @@
           0
         ],
         "image": [
-          "248",
+          "303",
           1
         ]
       },
@@ -1303,75 +1276,6 @@
         "title": "Switch"
       }
     },
-    "254": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "scale_method": "lanczos",
-        "round_up": 8,
-        "input": [
-          "137",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
-    "256": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "scale_method": "lanczos",
-        "round_up": 8,
-        "input": [
-          "106",
-          1
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
-    "257": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "scale_method": "lanczos",
-        "round_up": 8,
-        "input": [
-          "280",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
     "258": {
       "inputs": {
         "switch": [
@@ -1395,8 +1299,8 @@
     "259": {
       "inputs": {
         "switch": [
-          "136",
-          1
+          "301",
+          0
         ],
         "on_false": [
           "260",
@@ -1549,7 +1453,7 @@
     "274": {
       "inputs": {
         "image": [
-          "227",
+          "224",
           0
         ],
         "alpha": [
@@ -1670,7 +1574,7 @@
           0
         ],
         "on_false": [
-          "257",
+          "305",
           1
         ],
         "on_true": [
@@ -1686,7 +1590,7 @@
     "283": {
       "inputs": {
         "image": [
-          "257",
+          "305",
           1
         ]
       },
@@ -1863,7 +1767,7 @@
     "296": {
       "inputs": {
         "image": [
-          "248",
+          "303",
           1
         ]
       },
@@ -1906,6 +1810,127 @@
       "class_type": "FormattedString",
       "_meta": {
         "title": "Formatted String"
+      }
+    },
+    "300": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "106",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "301": {
+      "inputs": {
+        "input1": [
+          "302",
+          0
+        ],
+        "input2": [
+          "136",
+          1
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "302": {
+      "inputs": {
+        "id": "detail_enabled"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "303": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "126",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "304": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "137",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "305": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "280",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
       }
     }
   }

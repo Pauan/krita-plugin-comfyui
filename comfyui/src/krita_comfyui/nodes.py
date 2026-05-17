@@ -831,14 +831,30 @@ class Detail(io.ComfyNode):
                     ],
                 ),
 
+                # Most models require images to be a multiple of 8.
+                io.Int.Input("round_up", min=1, default=8, tooltip="Rounds up to the nearest pixel multiple. Set to 1 to disable rounding.", advanced=True),
+
+                io.Boolean.Input("integer_multiple",
+                    default=False,
+                    tooltip="Rounds down to the nearest integer multiple of the original image size.\n\nThis always gives pixel-perfect results, but it also means a smaller detailing resolution.",
+                    advanced=True,
+                ),
+
                 io.Combo.Input(
                     "scale_method",
                     options=["nearest-exact", "bilinear", "area", "bicubic", "lanczos"],
-                    default="lanczos",
-                    tooltip="Interpolation algorithm. 'area' is best for downscaling, 'lanczos' for upscaling, 'nearest-exact' for pixel art.",
+                    # In testing, bicubic was the highest quality algorithm.
+                    #
+                    # Bilinear, area, and lanczos always cause blurring.
+                    #
+                    # Nearest-exact is reversible and clear, but has jagged pixelation.
+                    #
+                    # Bicubic is technically not always reversible, but in common situations
+                    # it is reversible, and unlike nearest-exact it isn't jagged.
+                    default="bicubic",
+                    tooltip="Interpolation algorithm.",
+                    advanced=True,
                 ),
-
-                io.Int.Input("round_up", min=1, default=8, tooltip="Rounds up to the nearest multiple. Set to 1 to disable rounding."),
             ],
             outputs=[
                 io.MatchType.Output(template=template, display_name="cropped"),
@@ -860,7 +876,7 @@ class Detail(io.ComfyNode):
 
 
     @staticmethod
-    def scale(resize_type, width, height, round_up):
+    def scale(resize_type, width, height, integer_multiple, round_up):
         type = resize_type["resize_type"]
 
         # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L281-L289
@@ -868,8 +884,8 @@ class Detail(io.ComfyNode):
             multiplier = resize_type["multiplier"]
 
             if multiplier > 1.0:
-                width = int(round(width * multiplier))
-                height = int(round(height * multiplier))
+                width = round(width * multiplier)
+                height = round(height * multiplier)
 
         # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L346-L357
         elif type == "scale total pixels":
@@ -878,8 +894,12 @@ class Detail(io.ComfyNode):
 
             if new > old:
                 scale_by = math.sqrt(new / old)
-                width = int(round(width * scale_by))
-                height = int(round(height * scale_by))
+
+                if integer_multiple:
+                    scale_by = math.floor(scale_by)
+
+                width = round(width * scale_by)
+                height = round(height * scale_by)
 
         # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L306-L324
         # TODO it should leave the width / height unchanged if they are smaller
@@ -887,10 +907,10 @@ class Detail(io.ComfyNode):
             largest_size = resize_type["longer_size"]
 
             if height > width:
-                width = int(round((width / height) * largest_size))
+                width = round((width / height) * largest_size)
                 height = largest_size
             elif width > height:
-                height = int(round((height / width) * largest_size))
+                height = round((height / width) * largest_size)
                 width = largest_size
             else:
                 height = largest_size
@@ -906,7 +926,7 @@ class Detail(io.ComfyNode):
 
 
     @classmethod
-    def execute(cls, input, bounding_box, resize_type, scale_method, round_up) -> io.NodeOutput:
+    def execute(cls, input, bounding_box, resize_type, scale_method, integer_multiple, round_up) -> io.NodeOutput:
         graph = GraphBuilder()
 
         is_input_image = is_image(input)
@@ -930,7 +950,7 @@ class Detail(io.ComfyNode):
         else:
             cropped = input
 
-        (new_width, new_height) = cls.scale(resize_type, cropped_width, cropped_height, round_up)
+        (new_width, new_height) = cls.scale(resize_type, cropped_width, cropped_height, integer_multiple, round_up)
 
         if cropped_width == new_width and cropped_height == new_height:
             resized = cropped
