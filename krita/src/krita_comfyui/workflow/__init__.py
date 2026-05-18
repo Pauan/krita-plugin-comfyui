@@ -1,5 +1,6 @@
 import json
 from ..util.storage import Storage, Metadata
+from ..settings import LogLevel
 from .graph import WorkflowGraph, WorkflowError
 
 
@@ -258,10 +259,7 @@ class Workflow(Storage):
 
         seed = WorkflowGraph.random_seed()
 
-        import json
-        print("Running graph")
-        print(json.dumps(ui_values, indent=2))
-        print("")
+        self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)
 
         return WorkflowGraph(
             document=self.document,

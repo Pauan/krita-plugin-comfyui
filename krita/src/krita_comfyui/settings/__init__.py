@@ -1,9 +1,11 @@
 import os
 import functools
+from enum import Enum
 from json import dump, dumps, load, loads
 from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QMessageBox
+from ..util import timestamp
 from ..util.qt import BlockSignals
 from ..util.storage import Storage, Metadata
 
@@ -325,6 +327,29 @@ def load_default_folder(folder):
     return defaults
 
 
+# TODO use StrEnum when ComfyUI upgrades to Python 3.11+
+class LogLevel(Enum):
+    NONE = "none"
+    ERROR = "error"
+    WARN = "warn"
+    INFO = "info"
+    DEBUG = "debug"
+    TRACE = "trace"
+
+    @staticmethod
+    def order(value):
+        match value:
+            case "none": return 0
+            case "error": return 1
+            case "warn": return 2
+            case "info": return 3
+            case "debug": return 4
+            case "trace": return 5
+
+    def matches(self, value):
+        return LogLevel.order(self.value) <= LogLevel.order(value)
+
+
 class Settings(QObject):
     node_metadata_changed = pyqtSignal()
 
@@ -337,6 +362,8 @@ class Settings(QObject):
         super().__init__(parent)
 
         self.dir = Path(Krita.getAppDataLocation()) / "krita_comfyui"
+
+        os.makedirs(self.dir, exist_ok=True)
 
         self.node_metadata = None
         self.cached_node_metadata = {}
@@ -353,7 +380,33 @@ class Settings(QObject):
             defaults=self.default_workflows,
         )
 
+        self.logging_level = self.settings.item("logging_level")
+
         self.load_node_metadata()
+
+
+    def clear_log(self):
+        # Deletes the log file
+        with open(self.dir / "debug.log", "w") as file:
+            pass
+
+    def log_str(self, str, *, level):
+        if level.matches(self.logging_level.get()):
+            with open(self.dir / "debug.log", "a") as file:
+                time = timestamp()
+                file.write(f"{time} {str}")
+                file.write("\n\n")
+
+    def log_json(self, json, *, level, label=None):
+        if level.matches(self.logging_level.get()):
+            with open(self.dir / "debug.log", "a") as file:
+                time = timestamp()
+                if label is None:
+                    file.write(f"{time} ")
+                else:
+                    file.write(f"{time} {label}: ")
+                dump(json, file, indent=2)
+                file.write("\n\n")
 
 
     def snapshot(self):

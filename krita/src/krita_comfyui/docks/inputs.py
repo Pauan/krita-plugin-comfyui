@@ -259,5 +259,4 @@ class ComfyUIInputWidget(DockWidget):
         self.setWidget(self._inputs)
 
     def canvasChanged(self, _canvas):
-        print("canvasChanged")
         self._inputs.workflow.document.check_changes()

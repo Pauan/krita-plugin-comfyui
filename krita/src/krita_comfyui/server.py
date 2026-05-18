@@ -2,6 +2,7 @@ import json
 import uuid
 from enum import Enum, auto
 from . import util
+from .settings import LogLevel
 
 from PyQt6.QtCore import QObject, QTimer, QUrl, QByteArray, pyqtSignal
 from PyQt6.QtWebSockets import QWebSocket
@@ -53,8 +54,6 @@ class GraphError:
         error = GraphError()
 
         output = []
-
-        print(json.dumps(info, indent=2))
 
         message = info["error"]["message"]
         details = info["error"]["details"]
@@ -289,6 +288,7 @@ class ConnectState(Enum):
 
 class WebsocketClient(QObject):
     messages = pyqtSignal(dict)
+    error = pyqtSignal(str)
     state_changed = pyqtSignal(ConnectState)
 
     def __init__(self, parent, url, reconnect_delay):
@@ -349,7 +349,7 @@ class WebsocketClient(QObject):
         self._change_state(ConnectState.Disconnected)
 
     def on_error(self, error_code):
-        print(f"WebSocket Error: {self.client.errorString()}")
+        self.error.emit(self.client.errorString())
 
     def on_text_message(self, message):
         if self.is_ready():
@@ -378,6 +378,7 @@ class ComfyUIClient(QObject):
 
         self.websocket = WebsocketClient(self, f"ws://{self.url}/ws?clientId={self.client_id}", reconnect_delay)
         self.websocket.messages.connect(self.on_websocket_message)
+        self.websocket.error.connect(self.on_websocket_error)
         self.websocket.state_changed.connect(self.on_websocket_state_changed)
 
 
@@ -425,6 +426,10 @@ class ComfyUIClient(QObject):
                 prompt.state = GraphState.Sent
 
                 self.graph_changed.emit(prompt.graph_info())
+
+
+    def on_websocket_error(self, message):
+        self.settings.log_str(f"WebSocket Error: {message}", level=LogLevel.ERROR)
 
 
     def on_websocket_state_changed(self, state):
@@ -537,7 +542,7 @@ class ComfyUIClient(QObject):
 
 
     def on_websocket_message(self, message):
-        #util.log_debug_json(message)
+        self.settings.log_json(message, label="Websocket Message", level=LogLevel.TRACE)
 
         if message["type"] == "execution_start":
             self.on_prompt_executing(message["data"]["prompt_id"])
@@ -574,7 +579,9 @@ class ComfyUIClient(QObject):
 
         # Prompt was bad, display ComfyUI error message
         elif status == 400:
-            error = GraphError.from_comfyui_error(json.loads(reply.readAll().data().decode("utf-8")))
+            info = json.loads(reply.readAll().data().decode("utf-8"))
+            self.settings.log_json(info, label="HTTP ComfyUI Error", level=LogLevel.ERROR)
+            error = GraphError.from_comfyui_error(info)
 
         # Other major network error happened
         elif not (status >= 200 and status < 300):
@@ -585,7 +592,7 @@ class ComfyUIClient(QObject):
             assert reply.error() == QNetworkReply.NetworkError.NoError
 
         if error is not None:
-            print(f"HTTP Error: {error.format()}")
+            self.settings.log_str(f"HTTP Error: {error.format()}", level=LogLevel.ERROR)
 
         match reply.request().attribute(QNetworkRequest.Attribute.User):
             case "prompt":
@@ -691,7 +698,7 @@ class ComfyUIClient(QObject):
 
 
     def execute_graph(self, graph):
-        util.log_debug_json(graph.debug())
+        self.settings.log_json(graph.debug(), label="Execute Graph", level=LogLevel.DEBUG)
 
         graph_id = str(self.graph_id)
 

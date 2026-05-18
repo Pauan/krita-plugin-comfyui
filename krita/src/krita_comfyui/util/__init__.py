@@ -1,9 +1,6 @@
-import os
-import json
 import time
+import datetime
 import re
-
-DEBUG_ENABLED = False
 
 
 NEWLINE = re.compile(r"(?:\r\n|\r|\n)")
@@ -45,18 +42,8 @@ def normalize(value, min, max):
     return (value - min) / (max - min)
 
 
-def clear_logs():
-    if DEBUG_ENABLED:
-        # Deletes the log file
-        with open("/tmp/krita.log", "w") as file:
-            pass
-
-
-def log_debug_json(value):
-    if DEBUG_ENABLED:
-        with open("/tmp/krita.log", "a") as file:
-            json.dump(value, file, indent=2)
-            file.write("\n\n")
+def timestamp():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("[%Y-%m-%d %H:%M:%S]")
 
 
 class Perf:

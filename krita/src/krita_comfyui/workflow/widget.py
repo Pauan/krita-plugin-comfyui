@@ -385,8 +385,6 @@ class WorkflowWidget(QWidget):
                             except KeyError:
                                 pass
 
-                        print(info["layer_name"])
-
                     elif isinstance(widget, UiCombo):
                         info["label"] = ""
 
@@ -395,8 +393,6 @@ class WorkflowWidget(QWidget):
                         if option is not None:
                             info["label"] = option["label"]
                             assert info["label"] == widget.currentText()
-
-                        print(info["label"])
 
                     ui_values[input.id].append(info)
 
