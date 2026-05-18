@@ -37,7 +37,7 @@
             "node_id": "ImageScale",
             "input": "upscale_method"
           },
-          "default": "lanczos",
+          "default": "bicubic",
           "tooltip": "Algorithm used when resizing the image."
         }
       ]
@@ -180,21 +180,6 @@
         "title": "Krita UI Combo"
       }
     },
-    "14": {
-      "inputs": {
-        "x": 0,
-        "y": 0,
-        "name": "Upscale [%index%]",
-        "images": [
-          "11",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaOutput",
-      "_meta": {
-        "title": "Krita Output"
-      }
-    },
     "15": {
       "inputs": {
         "image": [
@@ -205,6 +190,43 @@
       "class_type": "SplitImageWithAlpha",
       "_meta": {
         "title": "Split Image with Alpha"
+      }
+    },
+    "16": {
+      "inputs": {
+        "name": [
+          "20",
+          0
+        ],
+        "order": 0,
+        "x": 0,
+        "y": 0,
+        "images": [
+          "11",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "20": {
+      "inputs": {
+        "string": [
+          "4",
+          1
+        ],
+        "regex_pattern": "\\.[^\\.]+$",
+        "replace": "",
+        "case_insensitive": true,
+        "multiline": false,
+        "dotall": false,
+        "count": 0
+      },
+      "class_type": "RegexReplace",
+      "_meta": {
+        "title": "Regex Replace"
       }
     }
   }

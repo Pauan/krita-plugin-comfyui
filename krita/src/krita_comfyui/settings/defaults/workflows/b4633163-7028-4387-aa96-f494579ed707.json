@@ -85,7 +85,7 @@
             "node_id": "ImageScale",
             "input": "upscale_method"
           },
-          "default": "lanczos",
+          "default": "bicubic",
           "tooltip": "Algorithm used when resizing the image."
         },
         {
@@ -164,21 +164,6 @@
       "class_type": "krita_comfyui: KritaUiCombo",
       "_meta": {
         "title": "Krita UI Combo"
-      }
-    },
-    "14": {
-      "inputs": {
-        "x": 0,
-        "y": 0,
-        "name": "Filter [%index%]",
-        "images": [
-          "11",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaOutput",
-      "_meta": {
-        "title": "Krita Output"
       }
     },
     "15": {
@@ -317,6 +302,25 @@
       "class_type": "krita_comfyui: KritaUiBoolean",
       "_meta": {
         "title": "Krita UI Boolean"
+      }
+    },
+    "37": {
+      "inputs": {
+        "name": [
+          "4",
+          1
+        ],
+        "order": 0,
+        "x": 0,
+        "y": 0,
+        "images": [
+          "11",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
       }
     }
   }

@@ -13,7 +13,7 @@ from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
 from .graph import WorkflowError
-from .ui import InputEqual, UiCombo, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList, UiLabel
+from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList, UiLabel
 
 
 class WorkflowSelector(ComboBox):
@@ -156,14 +156,7 @@ class WorkflowWidget(QWidget):
 
         match info["type"]:
             case "layer_id":
-                widget = UiCombo(
-                    value=storage.item(info["id"]),
-                    visible_if=InputEqual.from_json(storage, info, "visible_if"),
-                    enabled_if=InputEqual.from_json(storage, info, "enabled_if"),
-                    tooltip=info.get("tooltip", None),
-                    options=self.layer_combo_options,
-                )
-
+                widget = UiLayerId.from_json(storage, info, self.layer_combo_options)
                 self.ui_widgets.append(widget)
                 self.ui_layer_inputs.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -290,8 +283,9 @@ class WorkflowWidget(QWidget):
             else:
                 options.append({
                     "icon": layer.type.icon_name(),
-                    "label": layer.name,
+                    "label": layer.path,
                     "value": layer.id,
+                    "layer_name": layer.name,
                 })
 
         return options
@@ -375,10 +369,36 @@ class WorkflowWidget(QWidget):
             if input is not None:
                 # TODO maybe do this for enabled_if too ?
                 if inputs.visible_if is None or inputs.visible_if.is_equal():
-                    ui_values[input.id].append({
+                    info = {
                         "value": input.value,
                         "is_default": input.value == input.default,
-                    })
+                    }
+
+                    if isinstance(widget, UiLayerId):
+                        info["layer_name"] = ""
+
+                        option = widget.current_option()
+
+                        if option is not None:
+                            try:
+                                info["layer_name"] = option["layer_name"]
+                            except KeyError:
+                                pass
+
+                        print(info["layer_name"])
+
+                    elif isinstance(widget, UiCombo):
+                        info["label"] = ""
+
+                        option = widget.current_option()
+
+                        if option is not None:
+                            info["label"] = option["label"]
+                            assert info["label"] == widget.currentText()
+
+                        print(info["label"])
+
+                    ui_values[input.id].append(info)
 
         with self.catch_errors():
             graph = self.workflow.to_graph(ui_values)

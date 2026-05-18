@@ -24,10 +24,10 @@ class NormalOutputs:
 # The node IDs which can be constant evaluated.
 CONST_NODES = {
     "krita_comfyui: KritaUiBoolean": krita.KritaUi("boolean", ["value", "is_default"]),
-    "krita_comfyui: KritaUiCombo": krita.KritaUi("combo", ["value", "is_default"]),
+    "krita_comfyui: KritaUiCombo": krita.KritaUi("combo", ["value", "label", "is_default"]),
     "krita_comfyui: KritaUiFloat": krita.KritaUi("float", ["value", "is_default"]),
     "krita_comfyui: KritaUiInt": krita.KritaUi("int", ["value", "is_default"]),
-    "krita_comfyui: KritaUiLayerId": krita.KritaUi("layer_id", ["value", "is_default"]),
+    "krita_comfyui: KritaUiLayerId": krita.KritaUi("layer_id", ["value", "layer_name", "is_default"]),
     "krita_comfyui: KritaUiString": krita.KritaUi("string", ["value", "is_default"]),
 
     "krita_comfyui: KritaCanvas": krita.KritaCanvas(),

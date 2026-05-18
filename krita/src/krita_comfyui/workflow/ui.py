@@ -113,11 +113,28 @@ class UiCombo(ComboBox):
         )
 
 
-    def on_changed(self):
+    def current_value(self):
         selected = self.currentData()
         assert selected is not None
         assert isinstance(selected, str)
-        self.inputs.value.set(selected)
+        return selected
+
+
+    def current_option(self):
+        value = self.current_value()
+
+        for option in self.options:
+            try:
+                if option["value"] == value:
+                    return option
+            except KeyError:
+                pass
+
+        return None
+
+
+    def on_changed(self):
+        self.inputs.value.set(self.current_value())
 
 
     def sync(self):
@@ -137,6 +154,8 @@ class UiCombo(ComboBox):
 
 
     def set_options(self, options):
+        self.options = options
+
         with BlockSignals(self):
             self.clear()
 
@@ -155,6 +174,18 @@ class UiCombo(ComboBox):
 
             self.sync()
             self.resize_dropdown()
+
+
+class UiLayerId(UiCombo):
+    @staticmethod
+    def from_json(storage, json, options):
+        return UiLayerId(
+            value=storage.item(json["id"]),
+            visible_if=InputEqual.from_json(storage, json, "visible_if"),
+            enabled_if=InputEqual.from_json(storage, json, "enabled_if"),
+            tooltip=json.get("tooltip", None),
+            options=options,
+        )
 
 
 class UiBoolean(QWidget):

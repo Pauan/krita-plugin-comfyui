@@ -25,13 +25,14 @@ def get_extension(type):
 
 
 class LayerMetadata:
-    def __init__(self, id, name, type):
+    def __init__(self, id, name, type, path):
         self.id = id
         self.name = name
         self.type = type
+        self.path = path
 
     def __eq__(self, other):
-        return self.id == other.id and self.name == other.name and self.type == other.type
+        return self.id == other.id and self.name == other.name and self.type == other.type and self.path == other.path
 
 
 """
@@ -71,9 +72,9 @@ class DocumentManager(QObject):
                     for layer in node.children():
                         if layer.type.is_group() or layer.type.is_image():
                             child_path = path + [layer.name]
-                            name = " ┊ ".join(child_path)
+                            full_path = " ┊ ".join(child_path)
 
-                            layers.append(LayerMetadata(layer.id, name, layer.type))
+                            layers.append(LayerMetadata(layer.id, layer.name, layer.type, full_path))
 
                             loop(layer, child_path)
 

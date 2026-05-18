@@ -103,6 +103,7 @@ class KritaUiLayerId(io.ComfyNode):
             ],
             outputs=[
                 LayerId.Output(display_name="layer_id", is_output_list=True),
+                io.String.Output(display_name="layer_name", is_output_list=True, tooltip="The name of the layer."),
                 io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )
@@ -125,6 +126,7 @@ class KritaUiCombo(io.ComfyNode):
             ],
             outputs=[
                 io.Combo.Output(display_name="combo", is_output_list=True),
+                io.String.Output(display_name="label", is_output_list=True, tooltip="The selected label in the combo box.\n\nMost of the time this is the same as the combo value."),
                 io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )
