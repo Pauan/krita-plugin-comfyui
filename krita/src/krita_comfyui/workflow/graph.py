@@ -2,7 +2,7 @@ import random
 import sys
 import math
 from ..util.graph import Graph
-from .const import WorkflowError, Link, is_link, comfyui, krita, selection
+from .const import WorkflowError, Link, Function, is_link, comfyui, krita, selection
 
 
 class ConstOutputs:
@@ -45,68 +45,68 @@ CONST_NODES = {
     "krita_comfyui: KritaSelectionShrink": selection.KritaSelectionShrink(),
     "krita_comfyui: KritaSelectionSmooth": selection.KritaSelectionSmooth(),
 
-    "Basic data handling: Boolean And": comfyui.Binary("input1", "input2", lambda x, y: x and y),
-    "Basic data handling: Boolean Nand": comfyui.Binary("input1", "input2", lambda x, y: not (x and y)),
-    "Basic data handling: Boolean Nor": comfyui.Binary("input1", "input2", lambda x, y: not (x or y)),
-    "Basic data handling: Boolean Not": comfyui.Unary("input", lambda x: not x),
-    "Basic data handling: Boolean Or": comfyui.Binary("input1", "input2", lambda x, y: x or y),
-    "Basic data handling: Boolean Xor": comfyui.Binary("input1", "input2", lambda x, y: x != y),
+    "Basic data handling: Boolean And": Function(["input1", "input2"], lambda x, y: x and y),
+    "Basic data handling: Boolean Nand": Function(["input1", "input2"], lambda x, y: not (x and y)),
+    "Basic data handling: Boolean Nor": Function(["input1", "input2"], lambda x, y: not (x or y)),
+    "Basic data handling: Boolean Not": Function(["input"], lambda x: not x),
+    "Basic data handling: Boolean Or": Function(["input1", "input2"], lambda x, y: x or y),
+    "Basic data handling: Boolean Xor": Function(["input1", "input2"], lambda x, y: x != y),
 
-    "Basic data handling: IntCreate": comfyui.Unary("value", lambda x: int(x, 0)),
-    "Basic data handling: IntCreateWithBase": comfyui.Binary("value", "base", lambda x, y: int(x, y)),
-    "Basic data handling: IntAdd": comfyui.Binary("int1", "int2", lambda x, y: x + y),
-    "Basic data handling: IntSubtract": comfyui.Binary("int1", "int2", lambda x, y: x - y),
-    "Basic data handling: IntMultiply": comfyui.Binary("int1", "int2", lambda x, y: x * y),
-    "Basic data handling: IntDivide": comfyui.Binary("int1", "int2", lambda x, y: x // y),
+    "Basic data handling: IntCreate": Function(["value"], lambda x: int(x, 0)),
+    "Basic data handling: IntCreateWithBase": Function(["value", "base"], lambda x, y: int(x, y)),
+    "Basic data handling: IntAdd": Function(["int1", "int2"], lambda x, y: x + y),
+    "Basic data handling: IntSubtract": Function(["int1", "int2"], lambda x, y: x - y),
+    "Basic data handling: IntMultiply": Function(["int1", "int2"], lambda x, y: x * y),
+    "Basic data handling: IntDivide": Function(["int1", "int2"], lambda x, y: x // y),
     #"Basic data handling: IntDivideSafe":
-    "Basic data handling: IntBitCount": comfyui.Unary("int_value", lambda x: x.bit_count()),
-    "Basic data handling: IntBitLength": comfyui.Unary("int_value", lambda x: x.bit_length()),
+    "Basic data handling: IntBitCount": Function(["int_value"], lambda x: x.bit_count()),
+    "Basic data handling: IntBitLength": Function(["int_value"], lambda x: x.bit_length()),
     #"Basic data handling: IntFromBytes":
-    "Basic data handling: IntModulus": comfyui.Binary("int1", "int2", lambda x, y: x % y),
-    "Basic data handling: IntPower": comfyui.Binary("base", "exponent", lambda x, y: x ** y),
+    "Basic data handling: IntModulus": Function(["int1", "int2"], lambda x, y: x % y),
+    "Basic data handling: IntPower": Function(["base", "exponent"], lambda x, y: x ** y),
     #"Basic data handling: IntToBytes":
 
-    "Basic data handling: FloatCreate": comfyui.Unary("value", lambda x: float(x)),
-    "Basic data handling: FloatAdd": comfyui.Binary("float1", "float2", lambda x, y: x + y),
-    "Basic data handling: FloatSubtract": comfyui.Binary("float1", "float2", lambda x, y: x - y),
-    "Basic data handling: FloatMultiply": comfyui.Binary("float1", "float2", lambda x, y: x * y),
-    "Basic data handling: FloatDivide": comfyui.Binary("float1", "float2", lambda x, y: x / y),
+    "Basic data handling: FloatCreate": Function(["value"], lambda x: float(x)),
+    "Basic data handling: FloatAdd": Function(["float1", "float2"], lambda x, y: x + y),
+    "Basic data handling: FloatSubtract": Function(["float1", "float2"], lambda x, y: x - y),
+    "Basic data handling: FloatMultiply": Function(["float1", "float2"], lambda x, y: x * y),
+    "Basic data handling: FloatDivide": Function(["float1", "float2"], lambda x, y: x / y),
     #"Basic data handling: FloatDivideSafe":
     #"Basic data handling: FloatAsIntegerRatio":
-    "Basic data handling: FloatFromHex": comfyui.Unary("hex_value", lambda x: float.fromhex(x)),
-    "Basic data handling: FloatHex": comfyui.Unary("float_value", lambda x: x.hex()),
-    "Basic data handling: FloatIsInteger": comfyui.Unary("float_value", lambda x: x.is_integer()),
-    "Basic data handling: FloatPower": comfyui.Binary("base", "exponent", lambda x, y: x ** y),
-    "Basic data handling: FloatRound": comfyui.Binary("float_value", "decimal_places", lambda x, y: round(x, y)),
+    "Basic data handling: FloatFromHex": Function(["hex_value"], lambda x: float.fromhex(x)),
+    "Basic data handling: FloatHex": Function(["float_value"], lambda x: x.hex()),
+    "Basic data handling: FloatIsInteger": Function(["float_value"], lambda x: x.is_integer()),
+    "Basic data handling: FloatPower": Function(["base", "exponent"], lambda x, y: x ** y),
+    "Basic data handling: FloatRound": Function(["float_value", "decimal_places"], lambda x, y: round(x, y)),
 
-    "Basic data handling: MathAbs": comfyui.Unary("value", lambda x: abs(float(x))),
+    "Basic data handling: MathAbs": Function(["value"], lambda x: abs(float(x))),
     #"Basic data handling: MathAcos":
     #"Basic data handling: MathAsin":
     #"Basic data handling: MathAtan":
     #"Basic data handling: MathAtan2":
-    "Basic data handling: MathCeil": comfyui.Unary("value", lambda x: math.ceil(float(x))),
+    "Basic data handling: MathCeil": Function(["value"], lambda x: math.ceil(float(x))),
     #"Basic data handling: MathCos":
-    "Basic data handling: MathDegrees": comfyui.Unary("radians", lambda x: math.degrees(float(x))),
+    "Basic data handling: MathDegrees": Function(["radians"], lambda x: math.degrees(float(x))),
     "Basic data handling: MathE": comfyui.Constant(math.e),
-    "Basic data handling: MathExp": comfyui.Unary("value", lambda x: math.exp(float(x))),
-    "Basic data handling: MathFloor": comfyui.Unary("value", lambda x: math.floor(float(x))),
+    "Basic data handling: MathExp": Function(["value"], lambda x: math.exp(float(x))),
+    "Basic data handling: MathFloor": Function(["value"], lambda x: math.floor(float(x))),
     #"Basic data handling: MathLog":
-    "Basic data handling: MathLog10": comfyui.Unary("value", lambda x: math.log10(float(x))),
-    "Basic data handling: MathMax": comfyui.Binary("value1", "value2", lambda x, y: max(float(x), float(y))),
-    "Basic data handling: MathMin": comfyui.Binary("value1", "value2", lambda x, y: min(float(x), float(y))),
+    "Basic data handling: MathLog10": Function(["value"], lambda x: math.log10(float(x))),
+    "Basic data handling: MathMax": Function(["value1", "value2"], lambda x, y: max(float(x), float(y))),
+    "Basic data handling: MathMin": Function(["value1", "value2"], lambda x, y: min(float(x), float(y))),
     "Basic data handling: MathPi": comfyui.Constant(math.pi),
-    "Basic data handling: MathRadians": comfyui.Unary("degrees", lambda x: math.radians(float(x))),
+    "Basic data handling: MathRadians": Function(["degrees"], lambda x: math.radians(float(x))),
     #"Basic data handling: MathSin":
-    "Basic data handling: MathSqrt": comfyui.Unary("value", lambda x: math.sqrt(float(x))),
+    "Basic data handling: MathSqrt": Function(["value"], lambda x: math.sqrt(float(x))),
     #"Basic data handling: MathTan":
 
-    "Basic data handling: CastToBoolean": comfyui.Unary("input", lambda x: bool(x)),
-    "Basic data handling: CastToDict": comfyui.Unary("input", lambda x: dict(x)),
-    "Basic data handling: CastToFloat": comfyui.Unary("input", lambda x: float(x)),
-    "Basic data handling: CastToInt": comfyui.Unary("input", lambda x: int(x)),
+    "Basic data handling: CastToBoolean": Function(["input"], lambda x: bool(x)),
+    "Basic data handling: CastToDict": Function(["input"], lambda x: dict(x)),
+    "Basic data handling: CastToFloat": Function(["input"], lambda x: float(x)),
+    "Basic data handling: CastToInt": Function(["input"], lambda x: int(x)),
     #"Basic data handling: CastToList": CastToList,
     #"Basic data handling: CastToSet": CastToSet,
-    "Basic data handling: CastToString": comfyui.Unary("input", lambda x: str(x)),
+    "Basic data handling: CastToString": Function(["input"], lambda x: str(x)),
 
     "PrimitiveString": comfyui.Primitive(),
     "PrimitiveStringMultiline": comfyui.Primitive(),

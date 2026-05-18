@@ -11,55 +11,6 @@ class Constant:
         )
 
 
-class Unary:
-    def __init__(self, input, evaluate):
-        self.input = input
-        self.evaluate = evaluate
-
-    def get_outputs(self, workflow, node_id, node):
-        name = node["class_type"]
-        outputs = []
-
-        for input in workflow.evaluate_link(node["inputs"][self.input]).values:
-            if not is_link(input):
-                outputs.append(self.evaluate(input))
-            else:
-                inputs = {}
-                inputs[self.input] = input
-                outputs.append(workflow.graph.node(name, **inputs).out(0))
-
-        return (
-            Link(outputs),
-        )
-
-
-class Binary:
-    def __init__(self, left, right, evaluate):
-        self.left = left
-        self.right = right
-        self.evaluate = evaluate
-
-    def get_outputs(self, workflow, node_id, node):
-        name = node["class_type"]
-        inputs = node["inputs"]
-        left = workflow.evaluate_link(inputs[self.left])
-        right = workflow.evaluate_link(inputs[self.right])
-        outputs = []
-
-        for left, right in zip_inputs(left, right):
-            if not is_link(left) and not is_link(right):
-                outputs.append(self.evaluate(left, right))
-            else:
-                inputs = {}
-                inputs[self.left] = left
-                inputs[self.right] = right
-                outputs.append(workflow.graph.node(name, **inputs).out(0))
-
-        return (
-            Link(outputs),
-        )
-
-
 class Primitive:
     def get_outputs(self, workflow, node_id, node):
         return (
