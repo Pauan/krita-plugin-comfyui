@@ -37,7 +37,7 @@
             "node_id": "ImageScale",
             "input": "upscale_method"
           },
-          "default": "bicubic",
+          "default": "area",
           "tooltip": "Algorithm used when resizing the image."
         }
       ]

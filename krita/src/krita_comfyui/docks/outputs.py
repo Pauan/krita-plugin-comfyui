@@ -500,32 +500,6 @@ class ImageWidget(QListWidget):
         return thumbnail.to_icon()
 
 
-    def show_preview(self, image):
-        document = self.document.current()
-
-        if document is not None:
-            document.show_preview_layer(
-                name="[Preview] ComfyUI",
-                image=image["image"],
-                x=image["x"],
-                y=image["y"],
-            )
-
-
-    def hide_preview(self):
-        document = self.document.current()
-
-        if document is not None:
-            document.hide_preview_layer()
-
-
-    def delete_preview(self):
-        document = self.document.current()
-
-        if document is not None:
-            document.remove_preview_layer()
-
-
     def selected_images(self):
         selected = []
 
@@ -596,27 +570,42 @@ class ImageWidget(QListWidget):
 
         self.selected = [item for (item, _) in selected]
 
-        if len(selected) > 0:
-            # Show a preview of the last selected image
-            self.show_preview(selected[-1][1])
+        document = self.document.current()
 
-        else:
-            self.hide_preview()
+        if document is not None:
+            # Show a preview of the last selected image
+            if len(selected) > 0:
+                image = selected[-1][1]
+
+                name = image["name"]
+
+                document.show_preview_layer(
+                    name=f"[Preview] {name}",
+                    image=image["image"],
+                    x=image["x"],
+                    y=image["y"],
+                )
+
+            else:
+                document.hide_preview_layer()
 
 
     def apply_selected_images(self, document):
         with BlockSignals(self):
             self.selected = []
-            self.delete_preview()
+
+            images = []
 
             for (item, image) in self.selected_images():
                 self.storage.set_applied(document, image["uuid"], True)
 
                 item.setSelected(False)
                 item.setIcon(self.thumbnail(image["image"], True))
-                yield image
+                images.append(image)
 
             self.update_selected_state()
+
+            return images
 
 
     def apply_new_layer(self):
@@ -632,6 +621,8 @@ class ImageWidget(QListWidget):
                 #parent = activeLayer.parent
                 #parent.insert_child(layer, activeLayer)
 
+            document.remove_preview_layer()
+
 
     def apply_existing_layer(self):
         document = self.document.current()
@@ -642,6 +633,7 @@ class ImageWidget(QListWidget):
             for image in self.apply_selected_images(document):
                 activeLayer.write_image(image["image"], image["x"], image["y"])
 
+            document.remove_preview_layer()
             document.refresh()
 
 
@@ -651,6 +643,9 @@ class ImageWidget(QListWidget):
         if document is not None:
             resolution = document.pixels_per_inch()
             profile = document.color_profile()
+
+            # If we remove the preview layer then it causes the global selection mask to break.
+            document.hide_preview_layer()
 
             for image in self.apply_selected_images(document):
                 new_document = Document.create(
@@ -699,13 +694,13 @@ class ImageWidget(QListWidget):
                     else:
                         seen_item = True
 
-            if self.count() == 0:
-                self.delete_preview()
-            else:
-                self.hide_preview()
-
             document = self.document.current()
             if document is not None:
+                if self.count() == 0:
+                    document.remove_preview_layer()
+                else:
+                    document.hide_preview_layer()
+
                 self.storage.remove(document, uuids)
 
 
@@ -735,10 +730,10 @@ class ImageWidget(QListWidget):
             with BlockSignals(self):
                 document = self.document.current()
                 if document is not None:
+                    document.remove_preview_layer()
                     self.storage.clear(document)
 
                 self.selected = []
-                self.delete_preview()
                 self.clear()
 
 

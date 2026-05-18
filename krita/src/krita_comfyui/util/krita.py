@@ -361,7 +361,9 @@ class Document:
 
     @staticmethod
     def create(width, height, name, color_model, color_depth, color_profile, pixels_per_inch):
-        new_document = Document(Krita.instance().createDocument(
+        instance = Krita.instance()
+
+        new_document = Document(instance.createDocument(
             width,
             height,
             name,
@@ -371,7 +373,7 @@ class Document:
             pixels_per_inch,
         ))
 
-        Krita.instance().activeWindow().addView(new_document._document)
+        instance.activeWindow().addView(new_document._document)
 
         return new_document
 
@@ -532,6 +534,7 @@ class Document:
             layer.is_visible = True
             layer.is_locked = True
             layer.move_to_top(self.root_layer())
+            self.refresh()
 
 
 class Mask:
@@ -788,7 +791,8 @@ class Layer:
 
     @name.setter
     def name(self, value):
-        self._node.setName(value)
+        if self.name != value:
+            self._node.setName(value)
 
 
     @property
@@ -797,7 +801,8 @@ class Layer:
 
     @is_visible.setter
     def is_visible(self, value):
-        self._node.setVisible(value)
+        if self.is_visible != value:
+            self._node.setVisible(value)
 
 
     @property
@@ -806,7 +811,8 @@ class Layer:
 
     @is_locked.setter
     def is_locked(self, value):
-        self._node.setLocked(value)
+        if self.is_locked != value:
+            self._node.setLocked(value)
 
 
     def write_image(self, image, x, y):
@@ -822,10 +828,11 @@ class Layer:
     def move_to_top(self, parent):
         old_parent = self._node.parentNode()
 
-        if old_parent is not None:
-            old_parent.removeChildNode(self._node)
+        if old_parent != parent._node or self._node.index() != len(parent._node.childNodes()) - 1:
+            if old_parent is not None:
+                old_parent.removeChildNode(self._node)
 
-        parent._node.addChildNode(self._node, None)
+            parent._node.addChildNode(self._node, None)
 
 
     def remove(self):
