@@ -2,7 +2,7 @@ import random
 import sys
 import math
 from ..util.graph import Graph
-from .const import WorkflowError, Link, Function, is_link, comfyui, krita, selection
+from .const import WorkflowError, Link, Constant, Function, is_link, comfyui, krita, selection
 
 
 class ConstOutputs:
@@ -87,14 +87,14 @@ CONST_NODES = {
     "Basic data handling: MathCeil": Function(["value"], lambda x: math.ceil(float(x))),
     #"Basic data handling: MathCos":
     "Basic data handling: MathDegrees": Function(["radians"], lambda x: math.degrees(float(x))),
-    "Basic data handling: MathE": comfyui.Constant(math.e),
+    "Basic data handling: MathE": Constant(math.e),
     "Basic data handling: MathExp": Function(["value"], lambda x: math.exp(float(x))),
     "Basic data handling: MathFloor": Function(["value"], lambda x: math.floor(float(x))),
     #"Basic data handling: MathLog":
     "Basic data handling: MathLog10": Function(["value"], lambda x: math.log10(float(x))),
     "Basic data handling: MathMax": Function(["value1", "value2"], lambda x, y: max(float(x), float(y))),
     "Basic data handling: MathMin": Function(["value1", "value2"], lambda x, y: min(float(x), float(y))),
-    "Basic data handling: MathPi": comfyui.Constant(math.pi),
+    "Basic data handling: MathPi": Constant(math.pi),
     "Basic data handling: MathRadians": Function(["degrees"], lambda x: math.radians(float(x))),
     #"Basic data handling: MathSin":
     "Basic data handling: MathSqrt": Function(["value"], lambda x: math.sqrt(float(x))),
@@ -115,6 +115,7 @@ CONST_NODES = {
     "PrimitiveBoolean": comfyui.Primitive(),
     "ComfySwitchNode": comfyui.Switch(),
     "krita_comfyui: Default": comfyui.Default(),
+    "StringConcatenate": Function(["string_a", "string_b", "delimiter"], lambda a, b, c: c.join((a, b))),
 }
 
 

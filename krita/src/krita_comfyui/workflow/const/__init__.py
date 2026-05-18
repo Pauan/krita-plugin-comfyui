@@ -60,6 +60,16 @@ class Link:
         return self.node
 
 
+class Constant:
+    def __init__(self, value):
+        self.value = value
+
+    def get_outputs(self, workflow, node_id, node):
+        return (
+            Link([self.value]),
+        )
+
+
 class Function:
     def __init__(self, inputs, evaluate):
         self.inputs = inputs

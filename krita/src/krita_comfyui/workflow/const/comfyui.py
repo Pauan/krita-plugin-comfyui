@@ -1,14 +1,4 @@
-from . import Link, is_link, zip_inputs, check_booleans
-
-
-class Constant:
-    def __init__(self, value):
-        self.value = value
-
-    def get_outputs(self, workflow, node_id, node):
-        return (
-            Link([self.value]),
-        )
+from . import Link, check_booleans
 
 
 class Primitive:
