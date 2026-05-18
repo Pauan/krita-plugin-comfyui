@@ -43,13 +43,18 @@ class ImageStorage(QObject):
         self.total_bytes = 0
 
 
+    def all_uuids(self):
+        for group in self.uuids:
+            for batch in group:
+                yield from batch
+
+
     # Verifies that there aren't any dangling leftover images in the document.
     def verify_storage_integrity(self, document):
         seen_uuid = set()
 
-        for batch in self.uuids:
-            for uuid in batch:
-                seen_uuid.add(uuid)
+        for uuid in self.all_uuids():
+            seen_uuid.add(uuid)
 
         for key in document.all_keys():
             uuid = key.removeprefix("krita_comfyui/image_metadata/")
@@ -100,6 +105,20 @@ class ImageStorage(QObject):
             self.metadata[uuid] = metadata
 
 
+    # Migrates from the old format where groups weren't saved.
+    def migrate_uuids(self, uuids):
+        output = []
+
+        for group in uuids:
+            # It's an old style batch, so we wrap it into a group.
+            if len(group) > 0 and isinstance(group[0], str):
+                output.append([group])
+            else:
+                output.append(group)
+
+        return output
+
+
     def load_all(self, document):
         self.images = {}
         self.metadata = {}
@@ -107,18 +126,16 @@ class ImageStorage(QObject):
         self.total_bytes = 0
 
         if document is not None:
-            self.uuids = document.get_key_json("krita_comfyui/image_uuids", [])
+            self.uuids = self.migrate_uuids(document.get_key_json("krita_comfyui/image_uuids", []))
 
-            for batch in self.uuids:
-                for uuid in batch:
-                    self.load_uuid(document, uuid)
+            for uuid in self.all_uuids():
+                self.load_uuid(document, uuid)
 
             self.verify_storage_integrity(document)
 
         self.total_bytes_changed.emit()
 
-        for batch in self.uuids:
-            yield [self.lookup_uuid(uuid) for uuid in batch]
+        return [[[self.lookup_uuid(uuid) for uuid in batch] for batch in group] for group in self.uuids]
 
 
     def lookup_uuid(self, uuid):
@@ -218,22 +235,22 @@ class ImageStorage(QObject):
         self.set_metadata(document, uuid, "selected", selected)
 
 
-    def save_batch(self, document, batch):
-        uuids = [self.save(document, info) for info in batch]
+    def save_group(self, document, group):
+        group = [[self.save(document, info) for info in batch] for batch in group]
 
         self.total_bytes_changed.emit()
 
-        if len(uuids) > 0:
-            self.uuids.append(uuids)
-            self.save_uuids(document)
+        assert len(group) > 0
 
-        return [self.lookup_uuid(uuid) for uuid in uuids]
+        self.uuids.append(group)
+        self.save_uuids(document)
+
+        return [[self.lookup_uuid(uuid) for uuid in batch] for batch in group]
 
 
     def clear(self, document):
-        for batch in self.uuids:
-            for uuid in batch:
-                self.delete_uuid(document, uuid)
+        for uuid in self.all_uuids():
+            self.delete_uuid(document, uuid)
 
         document.remove_key("krita_comfyui/image_uuids")
 
@@ -257,7 +274,11 @@ class ImageStorage(QObject):
             delete_all(batch, lambda uuid: uuid in uuids)
             return len(batch) == 0
 
-        delete_all(self.uuids, remove_batch)
+        def remove_group(group):
+            delete_all(group, remove_batch)
+            return len(group) == 0
+
+        delete_all(self.uuids, remove_group)
 
         self.save_uuids(document)
 
@@ -345,7 +366,9 @@ class TextWidget(QWidget):
 
                     with layout.column() as column:
                         column.set_padding(left=8, right=8, bottom=6)
-                        column.label(text=text["text"], selectable=True)
+
+                        with column.label(text=text["text"], selectable=True) as label:
+                            label.setWordWrap(True)
 
             self.setVisible(True)
 
@@ -459,8 +482,8 @@ class ImageWidget(QListWidget):
             self.selected = []
             self.clear()
 
-            for batch in self.storage.load_all(self.document.current()):
-                self.add_images(batch, allow_selection=True)
+            for group in self.storage.load_all(self.document.current()):
+                self.add_images(group, allow_selection=True)
 
 
     def thumbnail(self, image, applied):
@@ -686,19 +709,19 @@ class ImageWidget(QListWidget):
                 self.storage.remove(document, uuids)
 
 
-    # Returns true if the previous images were in a batch
-    def is_previous_batch(self):
+    # Returns true if the previous image is single
+    def is_previous_single(self):
         for i in reversed(range(self.count())):
             item = self.item(i)
             data = item.data(Qt.ItemDataRole.UserRole)
 
             # We found a spacer, so stop searching
             if data is None:
-                return False
+                return True
             else:
-                return data["is_batch"]
+                return data["is_single"]
 
-        return False
+        return True
 
 
     def delete_all(self):
@@ -719,64 +742,75 @@ class ImageWidget(QListWidget):
                 self.clear()
 
 
-    def add_images(self, images, allow_selection):
+    def add_spacer(self, height):
+        spacer = QListWidgetItem("")
+        spacer.setFlags(Qt.ItemFlag.NoItemFlags)
+        spacer.setData(Qt.ItemDataRole.UserRole, None)
+        spacer.setSizeHint(QSize(9999, height))
+        spacer.setTextAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.addItem(spacer)
+
+
+    def add_image(self, info, *, size, is_single, allow_selection):
+        tooltip = info["name"]
+
+        item = QListWidgetItem(self.thumbnail(info["image"], applied=info["applied"]), None)
+
+        item.setSizeHint(QSize(size, size))
+
+        item.setData(Qt.ItemDataRole.UserRole, {
+            "uuid": info["uuid"],
+            "image": info["image"],
+            "x": info["x"],
+            "y": info["y"],
+            "name": info["name"],
+            "is_single": is_single,
+        })
+
+        item.setData(Qt.ItemDataRole.ToolTipRole, tooltip)
+
+        self.addItem(item)
+
+        if info["selected"]:
+            assert allow_selection
+            item.setSelected(True)
+            self.selected.append(item)
+
+
+    def add_images(self, group, *, allow_selection):
         with BlockSignals(self):
-            if len(images) > 0:
-                # This is a batch of multiple images.
-                is_batch = len(images) > 1
+            # The group contains a single image.
+            is_single = len(group) == 1 and len(group[0]) == 1
 
-                # There are two situations where we add a spacer:
-                #   1. If we are a batch and there are existing items.
-                #   2. If we are not a batch but the previous items are in a batch.
-                if is_batch:
-                    should_add_spacer = self.count() > 0
-                else:
-                    should_add_spacer = self.is_previous_batch()
+            # If both the current and previous group contained a single
+            # image, we merge them together into one batch.
+            should_merge = is_single and self.is_previous_single()
 
-                if should_add_spacer:
-                    header = QListWidgetItem("")
-                    header.setFlags(Qt.ItemFlag.NoItemFlags)
-                    header.setData(Qt.ItemDataRole.UserRole, None)
-                    header.setSizeHint(QSize(9999, self.spacer_height))
-                    header.setTextAlignment(Qt.AlignmentFlag.AlignLeft)
-                    self.addItem(header)
+            # In between groups we add a regular spacer.
+            spacer_height = self.spacer_height
 
-                for info in images:
-                    tooltip = info["name"]
+            size = self.image_total_size()
 
-                    item = QListWidgetItem(self.thumbnail(info["image"], applied=info["applied"]), None)
+            for batch in group:
+                if not should_merge:
+                    if self.count() > 0:
+                        self.add_spacer(spacer_height)
 
-                    size = self.image_total_size()
+                        # In between each batch we add a small spacer.
+                        spacer_height = 0
 
-                    item.setSizeHint(QSize(size, size))
+                for info in batch:
+                    self.add_image(info, size=size, is_single=is_single, allow_selection=allow_selection)
 
-                    item.setData(Qt.ItemDataRole.UserRole, {
-                        "uuid": info["uuid"],
-                        "image": info["image"],
-                        "x": info["x"],
-                        "y": info["y"],
-                        "name": info["name"],
-                        "is_batch": is_batch,
-                    })
-
-                    item.setData(Qt.ItemDataRole.ToolTipRole, tooltip)
-
-                    self.addItem(item)
-
-                    if info["selected"]:
-                        assert allow_selection
-                        item.setSelected(True)
-                        self.selected.append(item)
-
-                #self.scrollToBottom()
+            #self.scrollToBottom()
 
 
-    def new_images(self, images):
-        document = self.document.current()
+    def new_images(self, group):
+        if len(group) > 0:
+            document = self.document.current()
 
-        if document is not None:
-            images = self.storage.save_batch(document, images)
-            self.add_images(images, allow_selection=False)
+            if document is not None:
+                self.add_images(self.storage.save_group(document, group), allow_selection=False)
 
 
     def show_context_menu(self, pos: QPoint):
@@ -859,34 +893,28 @@ class ComfyUIOutputWidget(DockWidget):
 
     def on_graph_changed(self, info):
         if info.state.is_success():
-            images = []
+            images = {}
             texts = []
 
             for output in info.outputs:
                 if "krita_comfyui_output_images" in output:
-                    images.append(output["krita_comfyui_output_images"])
+                    # Organizes the images into batches based on the order
+                    for image in output["krita_comfyui_output_images"]:
+                        order = image["order"]
+                        batch = images.get(order, None)
+                        if batch is None:
+                            batch = []
+                            images[order] = batch
+                        batch.append(image)
 
                 if "krita_comfyui_text" in output:
                     texts.extend(output["krita_comfyui_text"])
 
-            if len(images) > 0:
-                max_len = max(len(batch) for batch in images)
+            # The image group is sorted by the order.
+            self.add_images([batch for order, batch in sorted(images.items(), key=lambda x: x[0])])
 
-                # Sorts the bigger batches first.
-                # If the batch only has 1 image, then sort by name.
-                def sort_batches(batch):
-                    if len(batch) == 1:
-                        return (max_len - 1, batch[0]["name"].casefold())
-                    else:
-                        return (max_len - len(batch), "")
-
-                images.sort(key=sort_batches)
-
-                for batch in images:
-                    self.add_images(batch)
-
-            # Sort text by name
-            texts.sort(key=lambda x: x["name"].casefold())
+            # Sort text by order and name
+            texts.sort(key=lambda x: (x["order"], x["name"].casefold()))
 
             self.set_text(texts)
 
@@ -894,5 +922,5 @@ class ComfyUIOutputWidget(DockWidget):
     def set_text(self, texts):
         self._widget.text.set_text(texts)
 
-    def add_images(self, images):
-        self._widget.image.new_images(images)
+    def add_images(self, group):
+        self._widget.image.new_images(group)

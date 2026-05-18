@@ -440,27 +440,6 @@
         "title": "Krita UI Float"
       }
     },
-    "71": {
-      "inputs": {
-        "x": [
-          "138",
-          0
-        ],
-        "y": [
-          "138",
-          1
-        ],
-        "name": "ComfyUI [%index%]",
-        "images": [
-          "274",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaOutput",
-      "_meta": {
-        "title": "Krita Output"
-      }
-    },
     "72": {
       "inputs": {},
       "class_type": "krita_comfyui: KritaCanvas",
@@ -680,129 +659,6 @@
         "title": "Krita UI Boolean"
       }
     },
-    "153": {
-      "inputs": {
-        "enabled": [
-          "165",
-          0
-        ],
-        "x": [
-          "138",
-          0
-        ],
-        "y": [
-          "138",
-          1
-        ],
-        "name": "4. Regions",
-        "masks": [
-          "300",
-          0
-        ],
-        "text": [
-          "106",
-          2
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "154": {
-      "inputs": {
-        "enabled": [
-          "142",
-          0
-        ],
-        "x": [
-          "138",
-          0
-        ],
-        "y": [
-          "138",
-          1
-        ],
-        "name": "ControlNet",
-        "images": [
-          "284",
-          3
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "155": {
-      "inputs": {
-        "enabled": [
-          "166",
-          0
-        ],
-        "x": [
-          "138",
-          0
-        ],
-        "y": [
-          "138",
-          1
-        ],
-        "name": "Selection",
-        "masks": [
-          "304",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "157": {
-      "inputs": {
-        "enabled": [
-          "142",
-          0
-        ],
-        "x": [
-          "138",
-          0
-        ],
-        "y": [
-          "138",
-          1
-        ],
-        "name": "Canvas",
-        "images": [
-          "303",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "158": {
-      "inputs": {
-        "enabled": [
-          "291",
-          0
-        ],
-        "x": 0,
-        "y": 0,
-        "name": "1. Seed",
-        "text": [
-          "88",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
     "161": {
       "inputs": {
         "id": "mask_regions_enabled"
@@ -851,44 +707,6 @@
       "class_type": "Basic data handling: Boolean And",
       "_meta": {
         "title": "and"
-      }
-    },
-    "169": {
-      "inputs": {
-        "enabled": [
-          "291",
-          0
-        ],
-        "x": 0,
-        "y": 0,
-        "name": "2. Prompt Positive",
-        "text": [
-          "289",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "172": {
-      "inputs": {
-        "enabled": [
-          "291",
-          0
-        ],
-        "x": 0,
-        "y": 0,
-        "name": "3. Prompt Negative",
-        "text": [
-          "289",
-          1
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
       }
     },
     "175": {
@@ -1371,44 +1189,6 @@
         "title": "CropMask"
       }
     },
-    "264": {
-      "inputs": {
-        "enabled": [
-          "292",
-          0
-        ],
-        "x": 0,
-        "y": 0,
-        "name": "5. Regions Positive",
-        "text": [
-          "290",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "265": {
-      "inputs": {
-        "enabled": [
-          "292",
-          0
-        ],
-        "x": 0,
-        "y": 0,
-        "name": "6. Regions Negative",
-        "text": [
-          "290",
-          1
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
     "269": {
       "inputs": {
         "prompt": "",
@@ -1554,8 +1334,8 @@
           0
         ],
         "image": [
-          "282",
-          0
+          "305",
+          1
         ]
       },
       "class_type": "krita_comfyui: MakeControlNet",
@@ -1592,8 +1372,8 @@
           0
         ],
         "on_false": [
-          "305",
-          1
+          "280",
+          0
         ],
         "on_true": [
           "283",
@@ -1608,8 +1388,8 @@
     "283": {
       "inputs": {
         "image": [
-          "305",
-          1
+          "280",
+          0
         ]
       },
       "class_type": "ImageInvert",
@@ -1747,25 +1527,6 @@
         "title": "and"
       }
     },
-    "293": {
-      "inputs": {
-        "enabled": [
-          "295",
-          0
-        ],
-        "x": 0,
-        "y": 0,
-        "name": "7. Selection",
-        "text": [
-          "216",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
     "295": {
       "inputs": {
         "input1": [
@@ -1792,25 +1553,6 @@
       "class_type": "GetImageSize",
       "_meta": {
         "title": "Get Image Size"
-      }
-    },
-    "297": {
-      "inputs": {
-        "enabled": [
-          "308",
-          0
-        ],
-        "x": 0,
-        "y": 0,
-        "name": "8. Detail",
-        "text": [
-          "298",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
       }
     },
     "298": {
@@ -1942,7 +1684,7 @@
         "integer_multiple": false,
         "scale_method": "bicubic",
         "input": [
-          "280",
+          "282",
           0
         ]
       },
@@ -1976,14 +1718,391 @@
         "title": "Krita UI Boolean"
       }
     },
-    "308": {
+    "310": {
+      "inputs": {
+        "name": "ComfyUI [%index%]",
+        "order": 0,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "images": [
+          "274",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "311": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Prompt Positive",
+        "order": 3,
+        "x": 0,
+        "y": 0,
+        "text": [
+          "289",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "312": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Seed",
+        "order": 2,
+        "x": 0,
+        "y": 0,
+        "text": [
+          "88",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "313": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Loras",
+        "order": 5,
+        "x": 0,
+        "y": 0,
+        "text": [
+          "314",
+          3
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "314": {
+      "inputs": {
+        "json": [
+          "47",
+          0
+        ]
+      },
+      "class_type": "prompt_helpers: DebugJSON",
+      "_meta": {
+        "title": "Debug JSON"
+      }
+    },
+    "315": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Prompt Negative",
+        "order": 4,
+        "x": 0,
+        "y": 0,
+        "text": [
+          "289",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "316": {
+      "inputs": {
+        "enabled": [
+          "142",
+          0
+        ],
+        "name": "Canvas",
+        "order": 1,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "images": [
+          "303",
+          0
+        ],
+        "masks": [
+          "329",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "317": {
+      "inputs": {
+        "enabled": [
+          "165",
+          0
+        ],
+        "name": [
+          "320",
+          0
+        ],
+        "order": 3,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "masks": [
+          "300",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "320": {
+      "inputs": {
+        "string_a": "Region",
+        "string_b": [
+          "106",
+          2
+        ],
+        "delimiter": " "
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Concatenate"
+      }
+    },
+    "321": {
+      "inputs": {
+        "enabled": [
+          "292",
+          0
+        ],
+        "name": "Regions Positive",
+        "order": 6,
+        "x": 0,
+        "y": 0,
+        "text": [
+          "322",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "322": {
+      "inputs": {
+        "string_a": [
+          "106",
+          2
+        ],
+        "string_b": [
+          "290",
+          0
+        ],
+        "delimiter": ": "
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Concatenate"
+      }
+    },
+    "323": {
+      "inputs": {
+        "enabled": [
+          "292",
+          0
+        ],
+        "name": "Regions Negative",
+        "order": 7,
+        "x": 0,
+        "y": 0,
+        "text": [
+          "324",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "324": {
+      "inputs": {
+        "string_a": [
+          "106",
+          2
+        ],
+        "string_b": [
+          "290",
+          1
+        ],
+        "delimiter": ": "
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Concatenate"
+      }
+    },
+    "325": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Image Size",
+        "order": 0,
+        "x": 0,
+        "y": 0,
+        "text": [
+          "298",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "326": {
+      "inputs": {
+        "enabled": [
+          "330",
+          0
+        ],
+        "name": "ControlNet [%index%]",
+        "order": 4,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "images": [
+          "305",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "327": {
+      "inputs": {
+        "enabled": [
+          "166",
+          0
+        ],
+        "name": "Selection",
+        "order": 2,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "masks": [
+          "304",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "328": {
+      "inputs": {
+        "enabled": [
+          "295",
+          0
+        ],
+        "name": "Selection",
+        "order": 1,
+        "x": 0,
+        "y": 0,
+        "text": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "329": {
+      "inputs": {
+        "bounding_box": [
+          "216",
+          0
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "126",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "330": {
       "inputs": {
         "input1": [
-          "301",
+          "275",
           0
         ],
         "input2": [
-          "291",
+          "142",
           0
         ]
       },

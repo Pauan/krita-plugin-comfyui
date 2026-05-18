@@ -491,9 +491,6 @@ class KritaOutput(io.ComfyNode):
             description="Sends images to Krita.",
             inputs=[
                 io.Image.Input("images", tooltip="Images that will be sent to Krita."),
-                io.Int.Input("x", default=0, tooltip="X position relative to the canvas."),
-                io.Int.Input("y", default=0, tooltip="Y position relative to the canvas."),
-
                 io.String.Input("name",
                     default="ComfyUI [%index%]",
                     tooltip="""Name that will be used for the images in Krita.
@@ -503,6 +500,10 @@ You can use the following special syntax:
   %index% is replaced with the index of the image.
 
   %timestamp% is replaced with the current time."""),
+
+                io.Int.Input("order", default=0, tooltip="Order of the output relative to other Krita Output nodes."),
+                io.Int.Input("x", default=0, tooltip="X position relative to the canvas."),
+                io.Int.Input("y", default=0, tooltip="Y position relative to the canvas."),
             ],
             outputs=[],
             is_input_list=True,
@@ -514,24 +515,16 @@ You can use the following special syntax:
         return always_execute()
 
     @classmethod
-    def execute(cls, images, x, y, name) -> io.NodeOutput:
-        def lookup(list, index):
-            return list[min(index, len(list) - 1)]
-
+    def execute(cls, images, x, y, order, name) -> io.NodeOutput:
         def replace_name(name, index):
             time = timestamp()
             return name.replace("%index%", str(index)).replace("%timestamp%", time)
 
         outputs = []
 
-        list_index = 0
         image_index = 0
 
-        for image in images:
-            sub_x = lookup(x, list_index)
-            sub_y = lookup(y, list_index)
-            sub_name = lookup(name, list_index)
-
+        for image, x, y, order, name in zip_lists(images, x, y, order, name):
             # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_images.py#L576-L577
             height = image.shape[1]
             width = image.shape[2]
@@ -541,14 +534,13 @@ You can use the following special syntax:
                     "bytes": encode_image(batch),
                     "width": width,
                     "height": height,
-                    "x": sub_x,
-                    "y": sub_y,
-                    "name": replace_name(sub_name, image_index),
+                    "x": x,
+                    "y": y,
+                    "name": replace_name(name, image_index),
+                    "order": order,
                 })
 
                 image_index += 1
-
-            list_index += 1
 
         return io.NodeOutput(ui={"krita_comfyui_output_images": outputs})
 
@@ -564,6 +556,7 @@ class KritaText(io.ComfyNode):
             inputs=[
                 io.AnyType.Input("text", tooltip="Will be converted into a string and sent to Krita."),
                 io.String.Input("name", default="", tooltip="Name that will be used for the text."),
+                io.Int.Input("order", default=0, tooltip="Order of the output relative to other Krita Text nodes."),
             ],
             outputs=[],
             is_output_node=True,
@@ -574,8 +567,8 @@ class KritaText(io.ComfyNode):
         return always_execute()
 
     @classmethod
-    def execute(cls, text, name) -> io.NodeOutput:
-        return io.NodeOutput(ui={"krita_comfyui_text": [{ "name": name, "text": serialize_any(text) }]})
+    def execute(cls, text, name, order) -> io.NodeOutput:
+        return io.NodeOutput(ui={"krita_comfyui_text": [{ "name": name, "text": serialize_any(text), "order": order }]})
 
 
 class KritaDebug(io.ComfyNode):
@@ -592,9 +585,10 @@ class KritaDebug(io.ComfyNode):
                 io.AnyType.Input("text", tooltip="Will be converted into a string and sent to Krita.", lazy=True, optional=True),
 
                 io.Boolean.Input("enabled", default=False, tooltip="Whether to send debug data or not."),
+                io.String.Input("name", default="", tooltip="Name that is used for the debug.", lazy=True),
+                io.Int.Input("order", default=0, tooltip="Order of the output relative to other Krita Debug nodes.", lazy=True),
                 io.Int.Input("x", default=0, tooltip="X position relative to the canvas.", lazy=True),
                 io.Int.Input("y", default=0, tooltip="Y position relative to the canvas.", lazy=True),
-                io.String.Input("name", default="", tooltip="Name that is used for the debug.", lazy=True),
             ],
             outputs=[],
             is_input_list=True,
@@ -607,7 +601,7 @@ class KritaDebug(io.ComfyNode):
         return always_execute()
 
     @classmethod
-    def check_lazy_status(cls, enabled, images=None, masks=None, text=None, x=None, y=None, name=None):
+    def check_lazy_status(cls, enabled, images=None, masks=None, text=None, x=None, y=None, order=None, name=None):
         needed = []
 
         def check_none(list):
@@ -628,20 +622,31 @@ class KritaDebug(io.ComfyNode):
                 needed.append("x")
             if y is None or check_none(y):
                 needed.append("y")
+            if order is None or check_none(order):
+                needed.append("order")
             if name is None or check_none(name):
                 needed.append("name")
 
         return needed
 
     @classmethod
-    def execute(cls, enabled, x, y, name, images=[], masks=[], text=[]) -> io.NodeOutput:
+    def execute(cls, enabled, x, y, order, name, images=[], masks=[], text=[]) -> io.NodeOutput:
         graph = GraphBuilder()
+
+        if len(images) == 0:
+            images.append(None)
+
+        if len(masks) == 0:
+            masks.append(None)
+
+        if len(text) == 0:
+            text.append(None)
 
         outputs = {}
 
-        for enabled, x, y, name, image, mask, text in zip_lists(enabled, x, y, name, images, masks, text):
+        for enabled, x, y, order, name, image, mask, text in zip_lists(enabled, x, y, order, name, images, masks, text):
             if enabled:
-                output = outputs.get(name, None)
+                output = outputs.get((order, name), None)
 
                 if output is None:
                     output = {
@@ -650,7 +655,7 @@ class KritaDebug(io.ComfyNode):
                         "texts": [],
                     }
 
-                    outputs[name] = output
+                    outputs[(order, name)] = output
 
                 if image is not None:
                     output["images"].append({
@@ -670,7 +675,7 @@ class KritaDebug(io.ComfyNode):
                     output["texts"].append(text)
 
 
-        for name, output in outputs.items():
+        for (order, name), output in outputs.items():
             images = output["images"]
 
             if len(images) > 0:
@@ -678,7 +683,8 @@ class KritaDebug(io.ComfyNode):
                     images=graph_list(graph, [image["image"] for image in images]),
                     x=graph_list(graph, [image["x"] for image in images]),
                     y=graph_list(graph, [image["y"] for image in images]),
-                    name=f"[DEBUG IMAGE] {name} [%index%]"
+                    order=order,
+                    name=f"[DEBUG IMAGE] {name}"
                 )
 
             masks = output["masks"]
@@ -690,13 +696,14 @@ class KritaDebug(io.ComfyNode):
                     images=images,
                     x=graph_list(graph, [mask["x"] for mask in masks]),
                     y=graph_list(graph, [mask["y"] for mask in masks]),
-                    name=f"[DEBUG MASK] {name} [%index%]"
+                    order=order,
+                    name=f"[DEBUG MASK] {name}"
                 )
 
             texts = output["texts"]
 
             if len(texts) > 0:
-                graph.node("krita_comfyui: KritaText", text="\n".join(serialize_any(x) for x in texts), name=f"[DEBUG] {name}")
+                graph.node("krita_comfyui: KritaText", text="\n\n".join(serialize_any(x) for x in texts), name=name, order=order)
 
         return io.NodeOutput(None, expand=graph.finalize())
 

@@ -19,8 +19,8 @@ class NotifyWorker(QObject):
         app_icon=None,
     )
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self):
+        super().__init__()
         self.message.connect(self.on_message)
 
     @pyqtSlot(str)

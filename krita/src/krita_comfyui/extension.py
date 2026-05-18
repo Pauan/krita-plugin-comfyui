@@ -18,7 +18,7 @@ class ComfyUIExtension(Extension):
         # Instead of connecting Python's async event loop into the QEventLoop,
         # it's easier to just run it on a separate thread.
         self.thread = QThread(self)
-        self.notify = NotifyWorker(self)
+        self.notify = NotifyWorker()
         self.notify.moveToThread(self.thread)
 
         self.settings = Settings(self)

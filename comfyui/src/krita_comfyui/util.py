@@ -67,18 +67,14 @@ def mask_bounds(mask):
         )
 
 
-def get_index(list, index):
-    l = len(list)
-    if l == 0:
-        return None
-    else:
-        return list[min(index, l - 1)]
-
 def zip_lists(*inputs):
-    max_length = max(len(x) for x in inputs)
+    min_length = min(len(x) for x in inputs)
 
-    for index in range(max_length):
-        yield tuple(get_index(input, index) for input in inputs)
+    if min_length > 0:
+        max_length = max(len(x) for x in inputs)
+
+        for index in range(max_length):
+            yield tuple(input[min(index, len(input) - 1)] for input in inputs)
 
 
 # https://stackoverflow.com/a/2189827/449477
