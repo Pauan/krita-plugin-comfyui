@@ -4,6 +4,7 @@ from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, QSi
 from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import (
     QWidget,
+    QCheckBox,
     QToolButton,
     QPushButton,
     QMessageBox,
@@ -140,9 +141,10 @@ class BooleanSwitch(QWidget):
             else:
                 raise RuntimeError("style must be switch or checkbox")
 
+        self.setFixedHeight(32)
         self.setToolTip(tooltip)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
 
     def isChecked(self):
@@ -473,11 +475,8 @@ class Layout:
         return self.widget(widget)
 
 
-    def label(self, icon=None, text=None, selectable=False, tooltip=None):
+    def label(self, text=None, selectable=False, tooltip=None):
         widget = QLabel()
-
-        if icon is not None:
-            widget.setIcon(icon)
 
         if text is not None:
             widget.setText(text)

@@ -25,7 +25,7 @@ from PyQt6.QtCore import (
     QEasingCurve, QPropertyAnimation, QSequentialAnimationGroup,
     pyqtProperty)
 
-from PyQt6.QtWidgets import QCheckBox
+from PyQt6.QtWidgets import QCheckBox, QSizePolicy
 from PyQt6.QtGui import QColor, QBrush, QPaintEvent, QPen, QPainter
 
 
@@ -42,6 +42,8 @@ class Toggle(QCheckBox):
         ):
         super().__init__(parent)
 
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
         # Save our properties on the object via self, so we can access them later
         # in the paintEvent.
         self._bar_brush = QBrush(bar_color)
@@ -52,13 +54,13 @@ class Toggle(QCheckBox):
 
         # Setup the rest of the widget.
 
-        self.setContentsMargins(8, 0, 8, 0)
+        self.setContentsMargins(4, 0, 6, 0)
         self._handle_position = 0
 
         self.stateChanged.connect(self.handle_state_change)
 
     def sizeHint(self):
-        return QSize(58, 45)
+        return QSize(52, 32)
 
     def hitButton(self, pos: QPoint):
         return self.contentsRect().contains(pos)
@@ -66,15 +68,18 @@ class Toggle(QCheckBox):
     def paintEvent(self, e: QPaintEvent):
 
         contRect = self.contentsRect()
-        handleRadius = round(0.24 * contRect.height())
+        height = contRect.height() - 10
+        handleRadius = round(0.5 * height)
 
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         p.setPen(self._transparent_pen)
         barRect = QRectF(
-            0, 0,
-            contRect.width() - handleRadius, 0.40 * contRect.height()
+            0,
+            0,
+            contRect.width() - handleRadius,
+            height - 4
         )
         barRect.moveCenter(contRect.center().toPointF())
         rounding = barRect.height() / 2

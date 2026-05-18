@@ -13,7 +13,7 @@ from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
 from .graph import WorkflowError
-from .ui import InputEqual, UiCombo, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList
+from .ui import InputEqual, UiCombo, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList, UiLabel
 
 
 class WorkflowSelector(ComboBox):
@@ -201,6 +201,13 @@ class WorkflowWidget(QWidget):
 
             case "percentage":
                 widget = UiFloat.from_json_percentage(storage, info)
+                self.ui_widgets.append(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
+
+
+            case "label":
+                assert not "enabled_if" in info
+                widget = UiLabel.from_json(storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 

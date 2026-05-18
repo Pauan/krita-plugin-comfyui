@@ -65,7 +65,7 @@
     {
       "type": "group",
       "id": "advanced",
-      "title": "Advanced",
+      "label": "Advanced",
       "indent": true,
       "default": false,
       "children": [

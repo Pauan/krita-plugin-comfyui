@@ -5,6 +5,7 @@ from PyQt6.QtGui import QAction, QTextOption, QFontMetricsF
 from PyQt6.QtWidgets import (
     QWidget,
     QFrame,
+    QLabel,
     QLineEdit,
     QPlainTextEdit,
     QMessageBox,
@@ -336,11 +337,11 @@ class UiStringMultiline(QPlainTextEdit):
 
 
 class UiGroup(QWidget):
-    def __init__(self, value, visible_if, enabled_if, title, indent):
+    def __init__(self, value, visible_if, enabled_if, label, indent):
         super().__init__()
 
-        if title is None:
-            title = ""
+        if label is None:
+            label = ""
 
         if indent is None:
             indent = False
@@ -364,7 +365,7 @@ class UiGroup(QWidget):
                 """)
                 #button.setAutoRaise(True)
                 button.setCheckable(True)
-                button.setText(title)
+                button.setText(label)
                 button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
                 button.toggled.connect(self.on_toggled)
                 self.toggle_button = button
@@ -390,7 +391,7 @@ class UiGroup(QWidget):
             value=storage.item(json["id"]),
             visible_if=InputEqual.from_json(storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(storage, json, "enabled_if"),
-            title=json.get("title", None),
+            label=json.get("label", None),
             indent=json.get("indent", None),
         )
 
@@ -417,6 +418,28 @@ class UiGroup(QWidget):
             self.inputs.value.reset_to_default()
         else:
             self.inputs.value.set(checked)
+
+
+class UiLabel(QLabel):
+    def __init__(self, visible_if, label, tooltip):
+        super().__init__()
+
+        if label is not None:
+            self.setText(label)
+
+        self.setContentsMargins(0, 7, 0, 7)
+
+        self.inputs = Inputs(value=None, visible_if=visible_if, enabled_if=None)
+        self.inputs.apply_to_widget(self, tooltip)
+
+
+    @staticmethod
+    def from_json(storage, json):
+        return UiLabel(
+            visible_if=InputEqual.from_json(storage, json, "visible_if"),
+            label=json.get("label", None),
+            tooltip=json.get("tooltip", None),
+        )
 
 
 class UiRow(QWidget):

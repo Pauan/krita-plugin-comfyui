@@ -26,7 +26,7 @@
     {
       "type": "group",
       "id": "mask_regions_group",
-      "title": "Mask Regions",
+      "label": "Mask Regions",
       "default": false,
       "children": [
         {
@@ -72,7 +72,7 @@
     {
       "type": "group",
       "id": "controlnet_group",
-      "title": "Control Nets",
+      "label": "Control Nets",
       "default": false,
       "children": [
         {
@@ -172,7 +172,7 @@
     {
       "type": "group",
       "id": "advanced",
-      "title": "Advanced",
+      "label": "Advanced",
       "indent": true,
       "default": false,
       "children": [
@@ -257,36 +257,54 @@
           "default": 16
         },
         {
-          "type": "row",
+          "type": "group",
+          "id": "detail_group",
+          "label": "Detailer",
+          "indent": true,
           "children": [
             {
-              "type": "boolean",
-              "id": "detail_enabled",
-              "tooltip": "Enable detailing when inpainting.",
-              "default": true
+              "type": "row",
+              "children": [
+                {
+                  "type": "boolean",
+                  "id": "detail_enabled",
+                  "tooltip": "Enable detailing when inpainting.",
+                  "default": true
+                },
+                {
+                  "type": "float",
+                  "id": "detail_megapixels",
+                  "stretch": 1,
+                  "link_to": {
+                    "node_id": "krita_comfyui: Detail",
+                    "input": [
+                      "resize_type",
+                      "scale total pixels",
+                      "megapixels"
+                    ]
+                  },
+                  "enabled_if": {
+                    "id": "detail_enabled",
+                    "value": true
+                  },
+                  "suffix": " megapixels"
+                }
+              ]
             },
             {
-              "type": "float",
-              "id": "detail_megapixels",
-              "stretch": 1,
-              "link_to": {
-                "node_id": "krita_comfyui: Detail",
-                "input": [
-                  "resize_type",
-                  "scale total pixels",
-                  "megapixels"
-                ]
-              },
-              "enabled_if": {
-                "id": "detail_enabled",
-                "value": true
-              },
-              "suffix": " megapixels"
+              "type": "boolean",
+              "id": "detail_always",
+              "label": "Always detail",
+              "tooltip": "If false then it will only detail when inpainting.",
+              "default": false
             }
           ]
         },
         {
-          "type": "row",
+          "type": "group",
+          "id": "debug_group",
+          "label": "Debug",
+          "indent": true,
           "children": [
             {
               "type": "boolean",
@@ -1779,12 +1797,12 @@
     "297": {
       "inputs": {
         "enabled": [
-          "295",
+          "308",
           0
         ],
         "x": 0,
         "y": 0,
-        "name": "8. Selection Detail",
+        "name": "8. Detail",
         "text": [
           "298",
           0
@@ -1843,8 +1861,8 @@
           0
         ],
         "input2": [
-          "136",
-          1
+          "306",
+          0
         ]
       },
       "class_type": "Basic data handling: Boolean And",
@@ -1931,6 +1949,47 @@
       "class_type": "krita_comfyui: Detail",
       "_meta": {
         "title": "Detail"
+      }
+    },
+    "306": {
+      "inputs": {
+        "input1": [
+          "307",
+          0
+        ],
+        "input2": [
+          "136",
+          1
+        ]
+      },
+      "class_type": "Basic data handling: Boolean Or",
+      "_meta": {
+        "title": "or"
+      }
+    },
+    "307": {
+      "inputs": {
+        "id": "detail_always"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "308": {
+      "inputs": {
+        "input1": [
+          "301",
+          0
+        ],
+        "input2": [
+          "291",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
       }
     }
   }
