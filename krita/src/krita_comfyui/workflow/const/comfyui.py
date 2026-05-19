@@ -1,4 +1,5 @@
-from . import Link, check_booleans
+# This module contains constant-evaluation versions of the built-in nodes in ComfyUI.
+from . import Link, Function, check_booleans
 
 
 class Primitive:
@@ -52,3 +53,15 @@ class Default:
             return (workflow.evaluate_link(inputs["default"]),)
         else:
             return (input,)
+
+
+CONST_NODES = {
+    "PrimitiveString": Primitive(),
+    "PrimitiveStringMultiline": Primitive(),
+    "PrimitiveInt": Primitive(),
+    "PrimitiveFloat": Primitive(),
+    "PrimitiveBoolean": Primitive(),
+    "ComfySwitchNode": Switch(),
+    "krita_comfyui: Default": Default(),
+    "StringConcatenate": Function(["string_a", "string_b", "delimiter"], lambda a, b, c: c.join((a, b))),
+}

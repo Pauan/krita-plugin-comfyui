@@ -1,3 +1,4 @@
+# This module contains constant-evaluation versions of the Krita nodes.
 from . import WorkflowError, Link, zip_inputs, check_booleans
 
 
@@ -178,3 +179,18 @@ class KritaSeed:
         return (
             Link([workflow.seed]),
         )
+
+
+CONST_NODES = {
+    "krita_comfyui: KritaUiBoolean": KritaUi("boolean", ["value", "is_default"]),
+    "krita_comfyui: KritaUiCombo": KritaUi("combo", ["value", "label", "is_default"]),
+    "krita_comfyui: KritaUiFloat": KritaUi("float", ["value", "is_default"]),
+    "krita_comfyui: KritaUiInt": KritaUi("int", ["value", "is_default"]),
+    "krita_comfyui: KritaUiLayerId": KritaUi("layer_id", ["value", "layer_name", "is_default"]),
+    "krita_comfyui: KritaUiString": KritaUi("string", ["value", "is_default"]),
+
+    "krita_comfyui: KritaCanvas": KritaCanvas(),
+    "krita_comfyui: KritaLayers": KritaLayers(),
+    "krita_comfyui: KritaDebug": KritaDebug(),
+    "krita_comfyui: KritaSeed": KritaSeed(),
+}

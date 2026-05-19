@@ -2,7 +2,7 @@ import random
 import sys
 import math
 from ..util.graph import Graph
-from .const import WorkflowError, Link, Constant, Function, is_link, comfyui, krita, selection
+from .const import WorkflowError, Link, is_link, comfyui, krita, selection, basic_data_handling
 
 
 class ConstOutputs:
@@ -23,99 +23,10 @@ class NormalOutputs:
 
 # The node IDs which can be constant evaluated.
 CONST_NODES = {
-    "krita_comfyui: KritaUiBoolean": krita.KritaUi("boolean", ["value", "is_default"]),
-    "krita_comfyui: KritaUiCombo": krita.KritaUi("combo", ["value", "label", "is_default"]),
-    "krita_comfyui: KritaUiFloat": krita.KritaUi("float", ["value", "is_default"]),
-    "krita_comfyui: KritaUiInt": krita.KritaUi("int", ["value", "is_default"]),
-    "krita_comfyui: KritaUiLayerId": krita.KritaUi("layer_id", ["value", "layer_name", "is_default"]),
-    "krita_comfyui: KritaUiString": krita.KritaUi("string", ["value", "is_default"]),
-
-    "krita_comfyui: KritaCanvas": krita.KritaCanvas(),
-    "krita_comfyui: KritaLayers": krita.KritaLayers(),
-    "krita_comfyui: KritaDebug": krita.KritaDebug(),
-    "krita_comfyui: KritaSeed": krita.KritaSeed(),
-
-    "krita_comfyui: KritaSelection": selection.KritaSelection(),
-    "krita_comfyui: KritaSelectionBorder": selection.KritaSelectionBorder(),
-    "krita_comfyui: KritaSelectionBounds": selection.KritaSelectionBounds(),
-    "krita_comfyui: KritaSelectionFeather": selection.KritaSelectionFeather(),
-    "krita_comfyui: KritaSelectionGrow": selection.KritaSelectionGrow(),
-    "krita_comfyui: KritaSelectionInvert": selection.KritaSelectionInvert(),
-    "krita_comfyui: KritaSelectionMask": selection.KritaSelectionMask(),
-    "krita_comfyui: KritaSelectionShrink": selection.KritaSelectionShrink(),
-    "krita_comfyui: KritaSelectionSmooth": selection.KritaSelectionSmooth(),
-
-    "Basic data handling: Boolean And": Function(["input1", "input2"], lambda x, y: x and y),
-    "Basic data handling: Boolean Nand": Function(["input1", "input2"], lambda x, y: not (x and y)),
-    "Basic data handling: Boolean Nor": Function(["input1", "input2"], lambda x, y: not (x or y)),
-    "Basic data handling: Boolean Not": Function(["input"], lambda x: not x),
-    "Basic data handling: Boolean Or": Function(["input1", "input2"], lambda x, y: x or y),
-    "Basic data handling: Boolean Xor": Function(["input1", "input2"], lambda x, y: x != y),
-
-    "Basic data handling: IntCreate": Function(["value"], lambda x: int(x, 0)),
-    "Basic data handling: IntCreateWithBase": Function(["value", "base"], lambda x, y: int(x, y)),
-    "Basic data handling: IntAdd": Function(["int1", "int2"], lambda x, y: x + y),
-    "Basic data handling: IntSubtract": Function(["int1", "int2"], lambda x, y: x - y),
-    "Basic data handling: IntMultiply": Function(["int1", "int2"], lambda x, y: x * y),
-    "Basic data handling: IntDivide": Function(["int1", "int2"], lambda x, y: x // y),
-    #"Basic data handling: IntDivideSafe":
-    "Basic data handling: IntBitCount": Function(["int_value"], lambda x: x.bit_count()),
-    "Basic data handling: IntBitLength": Function(["int_value"], lambda x: x.bit_length()),
-    #"Basic data handling: IntFromBytes":
-    "Basic data handling: IntModulus": Function(["int1", "int2"], lambda x, y: x % y),
-    "Basic data handling: IntPower": Function(["base", "exponent"], lambda x, y: x ** y),
-    #"Basic data handling: IntToBytes":
-
-    "Basic data handling: FloatCreate": Function(["value"], lambda x: float(x)),
-    "Basic data handling: FloatAdd": Function(["float1", "float2"], lambda x, y: x + y),
-    "Basic data handling: FloatSubtract": Function(["float1", "float2"], lambda x, y: x - y),
-    "Basic data handling: FloatMultiply": Function(["float1", "float2"], lambda x, y: x * y),
-    "Basic data handling: FloatDivide": Function(["float1", "float2"], lambda x, y: x / y),
-    #"Basic data handling: FloatDivideSafe":
-    #"Basic data handling: FloatAsIntegerRatio":
-    "Basic data handling: FloatFromHex": Function(["hex_value"], lambda x: float.fromhex(x)),
-    "Basic data handling: FloatHex": Function(["float_value"], lambda x: x.hex()),
-    "Basic data handling: FloatIsInteger": Function(["float_value"], lambda x: x.is_integer()),
-    "Basic data handling: FloatPower": Function(["base", "exponent"], lambda x, y: x ** y),
-    "Basic data handling: FloatRound": Function(["float_value", "decimal_places"], lambda x, y: round(x, y)),
-
-    "Basic data handling: MathAbs": Function(["value"], lambda x: abs(float(x))),
-    #"Basic data handling: MathAcos":
-    #"Basic data handling: MathAsin":
-    #"Basic data handling: MathAtan":
-    #"Basic data handling: MathAtan2":
-    "Basic data handling: MathCeil": Function(["value"], lambda x: math.ceil(float(x))),
-    #"Basic data handling: MathCos":
-    "Basic data handling: MathDegrees": Function(["radians"], lambda x: math.degrees(float(x))),
-    "Basic data handling: MathE": Constant(math.e),
-    "Basic data handling: MathExp": Function(["value"], lambda x: math.exp(float(x))),
-    "Basic data handling: MathFloor": Function(["value"], lambda x: math.floor(float(x))),
-    #"Basic data handling: MathLog":
-    "Basic data handling: MathLog10": Function(["value"], lambda x: math.log10(float(x))),
-    "Basic data handling: MathMax": Function(["value1", "value2"], lambda x, y: max(float(x), float(y))),
-    "Basic data handling: MathMin": Function(["value1", "value2"], lambda x, y: min(float(x), float(y))),
-    "Basic data handling: MathPi": Constant(math.pi),
-    "Basic data handling: MathRadians": Function(["degrees"], lambda x: math.radians(float(x))),
-    #"Basic data handling: MathSin":
-    "Basic data handling: MathSqrt": Function(["value"], lambda x: math.sqrt(float(x))),
-    #"Basic data handling: MathTan":
-
-    "Basic data handling: CastToBoolean": Function(["input"], lambda x: bool(x)),
-    "Basic data handling: CastToDict": Function(["input"], lambda x: dict(x)),
-    "Basic data handling: CastToFloat": Function(["input"], lambda x: float(x)),
-    "Basic data handling: CastToInt": Function(["input"], lambda x: int(x)),
-    #"Basic data handling: CastToList": CastToList,
-    #"Basic data handling: CastToSet": CastToSet,
-    "Basic data handling: CastToString": Function(["input"], lambda x: str(x)),
-
-    "PrimitiveString": comfyui.Primitive(),
-    "PrimitiveStringMultiline": comfyui.Primitive(),
-    "PrimitiveInt": comfyui.Primitive(),
-    "PrimitiveFloat": comfyui.Primitive(),
-    "PrimitiveBoolean": comfyui.Primitive(),
-    "ComfySwitchNode": comfyui.Switch(),
-    "krita_comfyui: Default": comfyui.Default(),
-    "StringConcatenate": Function(["string_a", "string_b", "delimiter"], lambda a, b, c: c.join((a, b))),
+    **comfyui.CONST_NODES,
+    **krita.CONST_NODES,
+    **selection.CONST_NODES,
+    **basic_data_handling.CONST_NODES,
 }
 
 

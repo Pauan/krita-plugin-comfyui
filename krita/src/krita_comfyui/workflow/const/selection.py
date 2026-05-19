@@ -1,3 +1,4 @@
+# This module contains constant-evaluation versions of the Krita Selection nodes.
 from ...util.krita import Selection
 from . import WorkflowError, Link, zip_inputs
 
@@ -278,3 +279,16 @@ class KritaSelectionSmooth:
         return (
             Link(outputs),
         )
+
+
+CONST_NODES = {
+    "krita_comfyui: KritaSelection": KritaSelection(),
+    "krita_comfyui: KritaSelectionBorder": KritaSelectionBorder(),
+    "krita_comfyui: KritaSelectionBounds": KritaSelectionBounds(),
+    "krita_comfyui: KritaSelectionFeather": KritaSelectionFeather(),
+    "krita_comfyui: KritaSelectionGrow": KritaSelectionGrow(),
+    "krita_comfyui: KritaSelectionInvert": KritaSelectionInvert(),
+    "krita_comfyui: KritaSelectionMask": KritaSelectionMask(),
+    "krita_comfyui: KritaSelectionShrink": KritaSelectionShrink(),
+    "krita_comfyui: KritaSelectionSmooth": KritaSelectionSmooth(),
+}
