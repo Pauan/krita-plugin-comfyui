@@ -55,12 +55,17 @@ class Default:
             return (input,)
 
 
+def bounding_box(x, y, width, height):
+    return { "x": x, "y": y, "width": width, "height": height }
+
+
 CONST_NODES = {
     "PrimitiveString": Primitive(),
     "PrimitiveStringMultiline": Primitive(),
     "PrimitiveInt": Primitive(),
     "PrimitiveFloat": Primitive(),
     "PrimitiveBoolean": Primitive(),
+    "PrimitiveBoundingBox": Function(["x", "y", "width", "height"], bounding_box),
     "ComfySwitchNode": Switch(),
     "krita_comfyui: Default": Default(),
     "StringConcatenate": Function(["string_a", "string_b", "delimiter"], lambda a, b, c: c.join((a, b))),

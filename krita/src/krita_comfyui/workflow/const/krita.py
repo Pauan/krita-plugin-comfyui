@@ -1,5 +1,23 @@
 # This module contains constant-evaluation versions of the Krita nodes.
 from . import WorkflowError, Link, zip_inputs, check_booleans
+from ...util.krita import Bounds
+
+
+def crop_to_bounds(node_id, name, values):
+    for crop in values:
+        if not isinstance(crop, dict):
+            raise WorkflowError(f"[#{node_id} {name}]\ncrop must be a constant bounding box")
+
+        yield Bounds.from_json(crop)
+
+
+def evaluate_crop_link(workflow, node_id, name, inputs, default):
+    crop = inputs.get("crop", None)
+
+    if crop is None:
+        return Link([default])
+    else:
+        return Link(list(crop_to_bounds(node_id, name, workflow.evaluate_link(crop).values)))
 
 
 class UiLink(Link):
@@ -35,21 +53,30 @@ class KritaUi:
 
 class KritaCanvas:
     def get_outputs(self, workflow, node_id, node):
-        if workflow.cached_canvas is None:
-            bounds = workflow.bounds()
+        outputs = (
+            Link([]),
+            Link([]),
+            Link([]),
+            Link([]),
+        )
 
-            image = workflow.document.canvas(bounds)
+        bounds = workflow.bounds()
 
-            (image, mask) = workflow.graph.image(image)
+        for crop in evaluate_crop_link(workflow, node_id, "Krita Canvas", node["inputs"], bounds).values:
+            cached_canvas = workflow.cached_canvas.get(crop, None)
 
-            workflow.cached_canvas = (
-                Link([image]),
-                Link([mask]),
-                Link([bounds.width]),
-                Link([bounds.height]),
-            )
+            if cached_canvas is None:
+                image = workflow.document.canvas(crop)
+                (image, mask) = workflow.graph.image(image)
+                cached_canvas = (image, mask, bounds.width, bounds.height)
+                workflow.cached_canvas[crop] = cached_canvas
 
-        return workflow.cached_canvas
+            assert len(outputs) == len(cached_canvas)
+
+            for output, value in zip(outputs, cached_canvas):
+                output.values.append(value)
+
+        return outputs
 
 
 class KritaDebug:
@@ -79,18 +106,18 @@ class KritaDebug:
 
 
 class KritaLayers:
-    def get_layer_image(self, workflow, layer):
-        image = workflow.cached_layer_images.get(layer.id, None)
+    def get_layer_image(self, workflow, layer, crop):
+        image = workflow.cached_layer_images.get((layer.id, crop), None)
 
         if image is None:
-            image = workflow.graph.image(layer.image(workflow.bounds()))
-            workflow.cached_layer_images[layer.id] = image
+            image = workflow.graph.image(layer.image(crop))
+            workflow.cached_layer_images[(layer.id, crop)] = image
 
         return image
 
 
-    def get_layers(self, workflow, layer_id, mode):
-        layers = workflow.cached_layers.get((layer_id, mode), None)
+    def get_layers(self, workflow, layer_id, crop, mode):
+        layers = workflow.cached_layers.get((layer_id, crop, mode), None)
 
         if layers is None:
             images = []
@@ -103,7 +130,7 @@ class KritaLayers:
                 raise WorkflowError(f"Could not find layer {layer_id}")
 
             def add_image(layer):
-                (image, mask) = self.get_layer_image(workflow, layer)
+                (image, mask) = self.get_layer_image(workflow, layer, crop)
                 images.append(image)
                 masks.append(mask)
                 names.append(layer.name)
@@ -124,12 +151,13 @@ class KritaLayers:
                 raise WorkflowError("mode must be individual or flatten")
 
             layers = (images, masks, names)
-            workflow.cached_layers[(layer_id, mode)] = layers
+            workflow.cached_layers[(layer_id, crop, mode)] = layers
 
         return layers
 
 
     def get_outputs(self, workflow, node_id, node):
+        bounds = workflow.bounds()
         inputs = node["inputs"]
 
         images = []
@@ -137,16 +165,17 @@ class KritaLayers:
         names = []
 
         layer_id_link = workflow.evaluate_link(inputs["layer_id"])
+        crop = evaluate_crop_link(workflow, node_id, "Krita Layers", inputs, bounds)
         mode_link = workflow.evaluate_link(inputs["mode"])
 
         error = None
 
-        for layer_id, mode in zip_inputs(layer_id_link, mode_link):
+        for layer_id, crop, mode in zip_inputs(layer_id_link, crop, mode_link):
             if not isinstance(layer_id, str):
-                raise WorkflowError(f"[#{node_id} Krita Layers]\nlayer_id must be a string constant")
+                raise WorkflowError(f"[#{node_id} Krita Layers]\nlayer_id must be a constant string")
 
             if not isinstance(mode, str):
-                raise WorkflowError(f"[#{node_id} Krita Layers]\nmode must be a string constant")
+                raise WorkflowError(f"[#{node_id} Krita Layers]\nmode must be a constant string")
 
             # If the layer name is empty, throw an error
             if layer_id == "":
@@ -162,7 +191,7 @@ class KritaLayers:
                 names.append(error)
 
             else:
-                layers = self.get_layers(workflow, layer_id, mode)
+                layers = self.get_layers(workflow, layer_id, crop, mode)
                 images.extend(layers[0])
                 masks.extend(layers[1])
                 names.extend(layers[2])

@@ -109,13 +109,6 @@
         "title": "Krita UI Combo"
       }
     },
-    "6": {
-      "inputs": {},
-      "class_type": "krita_comfyui: KritaCanvas",
-      "_meta": {
-        "title": "Krita Canvas"
-      }
-    },
     "11": {
       "inputs": {
         "image": [
@@ -123,7 +116,7 @@
           0
         ],
         "alpha": [
-          "6",
+          "39",
           1
         ]
       },
@@ -139,12 +132,12 @@
           0
         ],
         "width": [
-          "6",
-          2
+          "40",
+          0
         ],
         "height": [
-          "6",
-          3
+          "40",
+          1
         ],
         "crop": "disabled",
         "image": [
@@ -169,7 +162,7 @@
     "15": {
       "inputs": {
         "image": [
-          "6",
+          "39",
           0
         ]
       },
@@ -181,12 +174,12 @@
     "24": {
       "inputs": {
         "value1": [
-          "6",
-          2
+          "40",
+          0
         ],
         "value2": [
-          "6",
-          3
+          "40",
+          1
         ]
       },
       "class_type": "Basic data handling: MathMin",
@@ -321,6 +314,25 @@
       "class_type": "krita_comfyui: KritaOutput",
       "_meta": {
         "title": "Krita Output"
+      }
+    },
+    "39": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvas",
+      "_meta": {
+        "title": "Krita Canvas"
+      }
+    },
+    "40": {
+      "inputs": {
+        "image": [
+          "39",
+          0
+        ]
+      },
+      "class_type": "GetImageSize",
+      "_meta": {
+        "title": "Get Image Size"
       }
     }
   }

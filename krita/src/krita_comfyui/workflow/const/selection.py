@@ -1,6 +1,7 @@
 # This module contains constant-evaluation versions of the Krita Selection nodes.
 from ...util.krita import Selection
 from . import WorkflowError, Link, zip_inputs
+from .krita import evaluate_crop_link
 
 
 class KritaSelection:
@@ -44,13 +45,13 @@ class KritaSelectionBorder:
             assert isinstance(selection, Selection)
 
             if not isinstance(x, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nx must be an int constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nx must be a constant int")
 
             if not isinstance(y, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\ny must be an int constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\ny must be a constant int")
 
             if not isinstance(mode, str):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nmode must be a string constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nmode must be a constant string")
 
             if x == 0 and y == 0:
                 outputs.append(selection)
@@ -94,7 +95,7 @@ class KritaSelectionBounds:
             assert isinstance(selection, Selection)
 
             if not isinstance(round_up, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Bounds]\nround_up must be an int constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Bounds]\nround_up must be a constant int")
 
             bounds = selection.bounds().round_up(workflow.bounds(), round_up)
             x.append(bounds.x)
@@ -124,10 +125,10 @@ class KritaSelectionFeather:
             assert isinstance(selection, Selection)
 
             if not isinstance(amount, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\namount must be an int constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\namount must be a constant int")
 
             if not isinstance(mode, str):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\nmode must be a string constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\nmode must be a constant string")
 
             if amount == 0:
                 outputs.append(selection)
@@ -174,10 +175,10 @@ class KritaSelectionGrow:
             assert isinstance(selection, Selection)
 
             if not isinstance(x, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\nx must be an int constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\nx must be a constant int")
 
             if not isinstance(y, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\ny must be an int constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\ny must be a constant int")
 
             if x == 0 and y == 0:
                 outputs.append(selection)
@@ -213,15 +214,17 @@ class KritaSelectionInvert:
 
 class KritaSelectionMask:
     def get_outputs(self, workflow, node_id, node):
+        bounds = workflow.bounds()
         inputs = node["inputs"]
 
         selection = workflow.evaluate_link(inputs["selection"])
+        crop = evaluate_crop_link(workflow, node_id, "Krita Selection: Mask", inputs, bounds)
 
         outputs = []
 
-        for selection in selection.values:
+        for selection, crop in zip_inputs(selection, crop):
             assert isinstance(selection, Selection)
-            mask = selection.mask(workflow.bounds())
+            mask = selection.mask(crop)
             mask = workflow.graph.mask(mask)
             outputs.append(mask)
 
@@ -244,10 +247,10 @@ class KritaSelectionShrink:
             assert isinstance(selection, Selection)
 
             if not isinstance(x, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\nx must be an int constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\nx must be a constant int")
 
             if not isinstance(y, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\ny must be an int constant")
+                raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\ny must be a constant int")
 
             if x == 0 and y == 0:
                 outputs.append(selection)

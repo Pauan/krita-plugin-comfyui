@@ -225,7 +225,8 @@ class KritaLayers(io.ComfyNode):
             description="Retrieves one or more layers from Krita.",
             inputs=[
                 LayerId.Input("layer_id", tooltip="The unique ID of the layer."),
-                io.Combo.Input("mode", options=["individual", "flatten"], default="individual", tooltip="How to process the layers.\n\n* individual: Return each layer as an individual image.\n* flatten: Flatten the layers into one image."),
+                io.BoundingBox.Input("crop", optional=True, force_input=True, tooltip="Optional bounding box which will be used to crop the images and masks."),
+                io.Combo.Input("mode", options=["flatten", "individual"], default="flatten", tooltip="How to process the layers.\n\n* flatten: Flattens the layers into one image.\n\n* individual: Returns each layer as an individual image."),
             ],
             outputs=[
                 io.Image.Output(display_name="images", is_output_list=True),
@@ -235,7 +236,7 @@ class KritaLayers(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, layer_id, mode) -> io.NodeOutput:
+    def execute(cls, layer_id, mode, crop=None) -> io.NodeOutput:
         raise RuntimeError("Workflow must be run from Krita.")
 
 
@@ -247,17 +248,19 @@ class KritaCanvas(io.ComfyNode):
             display_name="Krita Canvas",
             category="krita",
             description="Retrieves the entire canvas from Krita.",
-            inputs=[],
+            inputs=[
+                io.BoundingBox.Input("crop", optional=True, force_input=True, tooltip="Optional bounding box which will be used to crop the canvas image and mask."),
+            ],
             outputs=[
                 io.Image.Output(display_name="image"),
                 io.Mask.Output(display_name="mask"),
-                io.Int.Output(display_name="width"),
-                io.Int.Output(display_name="height"),
+                io.Int.Output(display_name="width", tooltip="Width of the canvas before cropping."),
+                io.Int.Output(display_name="height", tooltip="Height of the canvas before cropping."),
             ],
         )
 
     @classmethod
-    def execute(cls) -> io.NodeOutput:
+    def execute(cls, crop=None) -> io.NodeOutput:
         raise RuntimeError("Workflow must be run from Krita.")
 
 
@@ -470,6 +473,7 @@ class KritaSelectionMask(io.ComfyNode):
             description="Retrieves the mask of the Krita selection.",
             inputs=[
                 Selection.Input("selection"),
+                io.BoundingBox.Input("crop", optional=True, force_input=True, tooltip="Optional bounding box which will be used to crop the mask."),
             ],
             outputs=[
                 io.Mask.Output(display_name="mask"),
@@ -477,7 +481,7 @@ class KritaSelectionMask(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, selection) -> io.NodeOutput:
+    def execute(cls, selection, crop=None) -> io.NodeOutput:
         raise RuntimeError("Workflow must be run from Krita.")
 
 
@@ -822,11 +826,9 @@ class Detail(io.ComfyNode):
             node_id="krita_comfyui: Detail",
             display_name="Detail",
             category="transform",
-            description="Crops and resizes the image / mask.",
+            description="Upscales the image / mask.",
             inputs=[
                 io.MatchType.Input("input", template=template),
-
-                io.BoundingBox.Input("bounding_box", component=None, tooltip="Crops the image / mask to the bounding box."),
 
                 io.DynamicCombo.Input(
                     "resize_type",
@@ -864,22 +866,10 @@ class Detail(io.ComfyNode):
                 ),
             ],
             outputs=[
-                io.MatchType.Output(template=template, display_name="cropped"),
                 io.MatchType.Output(template=template, display_name="resized"),
             ],
             enable_expand=True,
         )
-
-
-    @staticmethod
-    def should_crop(input, bounding_box):
-        if bounding_box["x"] == 0 and bounding_box["y"] == 0:
-            (width, height, _) = get_size(input)
-
-            return bounding_box["width"] != width or bounding_box["height"] != height
-
-        else:
-            return True
 
 
     @staticmethod
@@ -933,45 +923,28 @@ class Detail(io.ComfyNode):
 
 
     @classmethod
-    def execute(cls, input, bounding_box, resize_type, scale_method, integer_multiple, round_up) -> io.NodeOutput:
+    def execute(cls, input, resize_type, scale_method, integer_multiple, round_up) -> io.NodeOutput:
         graph = GraphBuilder()
 
         is_input_image = is_image(input)
 
-        cropped_width = bounding_box["width"]
-        cropped_height = bounding_box["height"]
+        (width, height, _) = get_size(input)
 
-        if cls.should_crop(input, bounding_box):
-            if is_input_image:
-                cropped = graph.node("ImageCropV2", image=input, crop_region=bounding_box).out(0)
+        (new_width, new_height) = cls.scale(resize_type, width, height, integer_multiple, round_up)
 
-            else:
-                cropped = graph.node("CropMask",
-                    mask=input,
-                    x=bounding_box["x"],
-                    y=bounding_box["y"],
-                    width=cropped_width,
-                    height=cropped_height,
-                ).out(0)
+        if width == new_width and height == new_height:
+            resized = input
 
         else:
-            cropped = input
-
-        (new_width, new_height) = cls.scale(resize_type, cropped_width, cropped_height, integer_multiple, round_up)
-
-        if cropped_width == new_width and cropped_height == new_height:
-            resized = cropped
-
-        else:
-            assert new_width > cropped_width or new_height > cropped_height
+            assert new_width > width or new_height > height
 
             # It's a mask, so we have to convert it to an image.
             # This is necessary because the ResizeImageMaskNode rotates
             # masks by -90 degrees when using lanczos.
             if not is_input_image:
-                image = graph.node("MaskToImage", mask=cropped).out(0)
+                image = graph.node("MaskToImage", mask=input).out(0)
             else:
-                image = cropped
+                image = input
 
             inputs = {
                 "input": image,
@@ -988,7 +961,7 @@ class Detail(io.ComfyNode):
             if not is_input_image:
                 resized = graph.node("ImageToMask", image=resized, channel="red").out(0)
 
-        return io.NodeOutput(cropped, resized, expand=graph.finalize())
+        return io.NodeOutput(resized, expand=graph.finalize())
 
 
 # @TODO Improve this after https://github.com/Comfy-Org/ComfyUI/issues/12580 is fixed

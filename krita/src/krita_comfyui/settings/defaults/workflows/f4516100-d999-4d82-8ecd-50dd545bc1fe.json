@@ -440,13 +440,6 @@
         "title": "Krita UI Float"
       }
     },
-    "72": {
-      "inputs": {},
-      "class_type": "krita_comfyui: KritaCanvas",
-      "_meta": {
-        "title": "Krita Canvas"
-      }
-    },
     "78": {
       "inputs": {
         "id": "image_strength"
@@ -496,11 +489,11 @@
         "y": 0,
         "operation": "multiply",
         "destination": [
-          "72",
+          "338",
           1
         ],
         "source": [
-          "137",
+          "339",
           0
         ]
       },
@@ -518,19 +511,6 @@
         "title": "Krita UI Combo"
       }
     },
-    "106": {
-      "inputs": {
-        "mode": "flatten",
-        "layer_id": [
-          "107",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaLayers",
-      "_meta": {
-        "title": "Krita Layers"
-      }
-    },
     "107": {
       "inputs": {
         "id": "mask_regions_layer"
@@ -538,19 +518,6 @@
       "class_type": "krita_comfyui: KritaUiLayerId",
       "_meta": {
         "title": "Krita UI Layer Id"
-      }
-    },
-    "108": {
-      "inputs": {
-        "mode": "flatten",
-        "layer_id": [
-          "109",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaLayers",
-      "_meta": {
-        "title": "Krita Layers"
       }
     },
     "109": {
@@ -574,7 +541,7 @@
     "126": {
       "inputs": {
         "image": [
-          "72",
+          "338",
           0
         ]
       },
@@ -597,18 +564,6 @@
       "class_type": "krita_comfyui: KritaSelection",
       "_meta": {
         "title": "Krita Selection"
-      }
-    },
-    "137": {
-      "inputs": {
-        "selection": [
-          "258",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaSelectionMask",
-      "_meta": {
-        "title": "Krita Selection: Mask"
       }
     },
     "138": {
@@ -756,8 +711,8 @@
         "isolated": false,
         "add_to_global": true,
         "mask": [
-          "300",
-          1
+          "336",
+          0
         ]
       },
       "class_type": "krita_comfyui: RegionMask",
@@ -775,8 +730,8 @@
         "isolated": false,
         "add_to_global": true,
         "mask": [
-          "300",
-          1
+          "336",
+          0
         ]
       },
       "class_type": "krita_comfyui: RegionMask",
@@ -939,12 +894,12 @@
           0
         ],
         "image": [
-          "303",
-          1
+          "341",
+          0
         ],
         "mask": [
-          "304",
-          1
+          "340",
+          0
         ]
       },
       "class_type": "krita_comfyui: img2img",
@@ -1023,8 +978,8 @@
           0
         ],
         "image": [
-          "303",
-          1
+          "341",
+          0
         ]
       },
       "class_type": "krita_comfyui: img2img",
@@ -1161,34 +1116,6 @@
         "title": "Float"
       }
     },
-    "261": {
-      "inputs": {
-        "x": [
-          "138",
-          0
-        ],
-        "y": [
-          "138",
-          1
-        ],
-        "width": [
-          "138",
-          2
-        ],
-        "height": [
-          "138",
-          3
-        ],
-        "mask": [
-          "89",
-          0
-        ]
-      },
-      "class_type": "CropMask",
-      "_meta": {
-        "title": "CropMask"
-      }
-    },
     "269": {
       "inputs": {
         "prompt": "",
@@ -1255,7 +1182,7 @@
           0
         ],
         "alpha": [
-          "261",
+          "89",
           0
         ]
       },
@@ -1334,8 +1261,8 @@
           0
         ],
         "image": [
-          "305",
-          1
+          "334",
+          0
         ]
       },
       "class_type": "krita_comfyui: MakeControlNet",
@@ -1347,7 +1274,7 @@
       "inputs": {
         "color": "#ffffff",
         "image": [
-          "108",
+          "332",
           0
         ]
       },
@@ -1546,8 +1473,8 @@
     "296": {
       "inputs": {
         "image": [
-          "303",
-          1
+          "341",
+          0
         ]
       },
       "class_type": "GetImageSize",
@@ -1570,30 +1497,6 @@
       "class_type": "FormattedString",
       "_meta": {
         "title": "Formatted String"
-      }
-    },
-    "300": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "106",
-          1
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
       }
     },
     "301": {
@@ -1619,78 +1522,6 @@
       "class_type": "krita_comfyui: KritaUiBoolean",
       "_meta": {
         "title": "Krita UI Boolean"
-      }
-    },
-    "303": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "126",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
-    "304": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "137",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
-    "305": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "282",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
       }
     },
     "306": {
@@ -1849,12 +1680,12 @@
           1
         ],
         "images": [
-          "303",
+          "338",
           0
         ],
         "masks": [
-          "329",
-          0
+          "338",
+          1
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -1882,8 +1713,8 @@
           1
         ],
         "masks": [
-          "300",
-          0
+          "337",
+          1
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -1895,14 +1726,14 @@
       "inputs": {
         "string_a": "Region",
         "string_b": [
-          "106",
+          "337",
           2
         ],
         "delimiter": " "
       },
       "class_type": "StringConcatenate",
       "_meta": {
-        "title": "Concatenate"
+        "title": "Text Concatenate"
       }
     },
     "321": {
@@ -1928,7 +1759,7 @@
     "322": {
       "inputs": {
         "string_a": [
-          "106",
+          "337",
           2
         ],
         "string_b": [
@@ -1939,7 +1770,7 @@
       },
       "class_type": "StringConcatenate",
       "_meta": {
-        "title": "Concatenate"
+        "title": "Text Concatenate"
       }
     },
     "323": {
@@ -1965,7 +1796,7 @@
     "324": {
       "inputs": {
         "string_a": [
-          "106",
+          "337",
           2
         ],
         "string_b": [
@@ -1976,7 +1807,7 @@
       },
       "class_type": "StringConcatenate",
       "_meta": {
-        "title": "Concatenate"
+        "title": "Text Concatenate"
       }
     },
     "325": {
@@ -1985,7 +1816,7 @@
           "291",
           0
         ],
-        "name": "Image Size",
+        "name": "Generate Size",
         "order": 0,
         "x": 0,
         "y": 0,
@@ -2016,7 +1847,7 @@
           1
         ],
         "images": [
-          "305",
+          "282",
           0
         ]
       },
@@ -2042,7 +1873,7 @@
           1
         ],
         "masks": [
-          "304",
+          "89",
           0
         ]
       },
@@ -2071,30 +1902,6 @@
         "title": "Krita Debug"
       }
     },
-    "329": {
-      "inputs": {
-        "bounding_box": [
-          "216",
-          0
-        ],
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "126",
-          1
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
     "330": {
       "inputs": {
         "input1": [
@@ -2109,6 +1916,148 @@
       "class_type": "Basic data handling: Boolean And",
       "_meta": {
         "title": "and"
+      }
+    },
+    "332": {
+      "inputs": {
+        "mode": "flatten",
+        "layer_id": [
+          "109",
+          0
+        ],
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaLayers",
+      "_meta": {
+        "title": "Krita Layers"
+      }
+    },
+    "334": {
+      "inputs": {
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "282",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "336": {
+      "inputs": {
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "337",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "337": {
+      "inputs": {
+        "mode": "flatten",
+        "layer_id": [
+          "107",
+          0
+        ],
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaLayers",
+      "_meta": {
+        "title": "Krita Layers"
+      }
+    },
+    "338": {
+      "inputs": {
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaCanvas",
+      "_meta": {
+        "title": "Krita Canvas"
+      }
+    },
+    "339": {
+      "inputs": {
+        "selection": [
+          "258",
+          0
+        ],
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaSelectionMask",
+      "_meta": {
+        "title": "Krita Selection: Mask"
+      }
+    },
+    "340": {
+      "inputs": {
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "89",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
+      }
+    },
+    "341": {
+      "inputs": {
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false,
+        "scale_method": "bicubic",
+        "input": [
+          "126",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Detail",
+      "_meta": {
+        "title": "Detail"
       }
     }
   }

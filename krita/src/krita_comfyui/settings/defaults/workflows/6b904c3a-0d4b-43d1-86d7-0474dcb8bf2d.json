@@ -82,13 +82,6 @@
         "title": "Krita UI Combo"
       }
     },
-    "6": {
-      "inputs": {},
-      "class_type": "krita_comfyui: KritaCanvas",
-      "_meta": {
-        "title": "Krita Canvas"
-      }
-    },
     "8": {
       "inputs": {
         "id": "multiplier"
@@ -101,8 +94,8 @@
     "9": {
       "inputs": {
         "int1": [
-          "6",
-          2
+          "23",
+          0
         ],
         "int2": [
           "8",
@@ -117,8 +110,8 @@
     "10": {
       "inputs": {
         "int1": [
-          "6",
-          3
+          "23",
+          1
         ],
         "int2": [
           "8",
@@ -137,7 +130,7 @@
           0
         ],
         "alpha": [
-          "6",
+          "22",
           1
         ]
       },
@@ -183,7 +176,7 @@
     "15": {
       "inputs": {
         "image": [
-          "6",
+          "22",
           0
         ]
       },
@@ -226,7 +219,26 @@
       },
       "class_type": "RegexReplace",
       "_meta": {
-        "title": "Regex Replace"
+        "title": "Text Replace (Regex)"
+      }
+    },
+    "22": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvas",
+      "_meta": {
+        "title": "Krita Canvas"
+      }
+    },
+    "23": {
+      "inputs": {
+        "image": [
+          "22",
+          0
+        ]
+      },
+      "class_type": "GetImageSize",
+      "_meta": {
+        "title": "Get Image Size"
       }
     }
   }

@@ -40,7 +40,7 @@ class WorkflowGraph:
         self.graph = Graph()
 
         self.cached_bounds = None
-        self.cached_canvas = None
+        self.cached_canvas = {}
         self.cached_selection = None
         self.cached_layers = {}
         self.cached_layer_images = {}
