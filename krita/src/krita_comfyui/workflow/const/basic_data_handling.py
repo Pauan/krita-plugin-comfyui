@@ -1,7 +1,7 @@
 # This module contains constant-evaluation versions of the nodes from
 # https://github.com/StableLlama/ComfyUI-basic_data_handling
 import math
-from . import Function, Constant
+from . import Function, FunctionMultiple, Constant
 
 
 def int_divide_safe(int1, int2, infinity):
@@ -26,6 +26,12 @@ def float_divide_safe(float1, float2):
             return float('nan')
         return float('inf') if float1 > 0 else float('-inf')
     return float1 / float2
+
+
+def float_as_integer_ratio(float_value):
+    # Decompose the float into numerator and denominator
+    numerator, denominator = float_value.as_integer_ratio()
+    return (numerator, denominator)
 
 
 def math_acos(value, unit):
@@ -122,7 +128,7 @@ CONST_NODES = {
     "Basic data handling: FloatMultiply": Function(["float1", "float2"], lambda x, y: x * y),
     "Basic data handling: FloatDivide": Function(["float1", "float2"], lambda x, y: x / y),
     "Basic data handling: FloatDivideSafe": Function(["float1", "float2"], float_divide_safe),
-    #"Basic data handling: FloatAsIntegerRatio":
+    "Basic data handling: FloatAsIntegerRatio": FunctionMultiple(["float_value"], 2, float_as_integer_ratio),
     "Basic data handling: FloatFromHex": Function(["hex_value"], lambda x: float.fromhex(x)),
     "Basic data handling: FloatHex": Function(["float_value"], lambda x: x.hex()),
     "Basic data handling: FloatIsInteger": Function(["float_value"], lambda x: x.is_integer()),

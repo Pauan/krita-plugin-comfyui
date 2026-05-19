@@ -78,6 +78,7 @@ class Constant:
         )
 
 
+# Constant evaluated function that outputs a single value.
 class Function:
     def __init__(self, inputs, evaluate):
         self.inputs = inputs
@@ -115,3 +116,50 @@ class Function:
         return (
             Link(outputs),
         )
+
+
+# Constant evaluated function that outputs multiple values.
+class FunctionMultiple:
+    def __init__(self, inputs, outputs, evaluate):
+        self.inputs = inputs
+        self.outputs = outputs
+        self.evaluate = evaluate
+
+    def get_outputs(self, workflow, node_id, node):
+        node_name = node["class_type"]
+        inputs = node["inputs"]
+
+        links = tuple(workflow.evaluate_link(inputs[name]) for name in self.inputs)
+        outputs = tuple(Link([]) for _ in range(self.outputs))
+
+        # Because a link can potentially be multiple values, and we have no way
+        # of knowing at compile-time how many values that link has, if there is
+        # even a single link then we cannot constant evaluate the node.
+        if is_any_link(*links):
+            node_inputs = {}
+
+            assert len(self.inputs) == len(links)
+
+            for name, link in zip(self.inputs, links):
+                # We can still constant evaluate the links as much as possible, but
+                # the node itself will be evaluated at runtime.
+                node_inputs[name] = link.to_node(workflow.graph)
+
+            new_node = workflow.graph.node(node_name, **node_inputs)
+
+            for index, output in enumerate(outputs):
+                output.values.append(new_node.out(index))
+
+        # All links are constant values, so we can call the function.
+        else:
+            for values in zip_inputs(*links):
+                assert all(not is_link(value) for value in values)
+
+                values = self.evaluate(*values)
+
+                assert len(outputs) == len(values)
+
+                for output, value in zip(outputs, values):
+                    output.values.append(value)
+
+        return outputs
