@@ -1,5 +1,7 @@
 # This module contains constant-evaluation versions of the built-in nodes in ComfyUI.
 import math
+import re
+import json
 from simpleeval import simple_eval
 from . import Link, Function, check_booleans, zip_inputs
 
@@ -168,6 +170,157 @@ def bounding_box(x, y, width, height):
     return { "x": x, "y": y, "width": width, "height": height }
 
 
+def case_converter(string, mode):
+    if mode == "UPPERCASE":
+        result = string.upper()
+    elif mode == "lowercase":
+        result = string.lower()
+    elif mode == "Capitalize":
+        result = string.capitalize()
+    elif mode == "Title Case":
+        result = string.title()
+    else:
+        result = string
+    return result
+
+
+def string_trim(string, mode):
+    if mode == "Both":
+        result = string.strip()
+    elif mode == "Left":
+        result = string.lstrip()
+    elif mode == "Right":
+        result = string.rstrip()
+    else:
+        result = string
+    return result
+
+
+def string_contains(string, substring, case_sensitive):
+    if case_sensitive:
+        contains = substring in string
+    else:
+        contains = substring.lower() in string.lower()
+    return contains
+
+
+def string_compare(string_a, string_b, mode, case_sensitive):
+    if case_sensitive:
+        a = string_a
+        b = string_b
+    else:
+        a = string_a.lower()
+        b = string_b.lower()
+
+    if mode == "Equal":
+        return a == b
+    elif mode == "Starts With":
+        return a.startswith(b)
+    elif mode == "Ends With":
+        return a.endswith(b)
+
+
+def regex_match(string, regex_pattern, case_insensitive, multiline, dotall):
+    flags = 0
+
+    if case_insensitive:
+        flags |= re.IGNORECASE
+    if multiline:
+        flags |= re.MULTILINE
+    if dotall:
+        flags |= re.DOTALL
+
+    try:
+        match = re.search(regex_pattern, string, flags)
+        result = match is not None
+
+    except re.error:
+        result = False
+
+    return result
+
+
+def regex_extract(string, regex_pattern, mode, case_insensitive, multiline, dotall, group_index):
+    join_delimiter = "\n"
+
+    flags = 0
+    if case_insensitive:
+        flags |= re.IGNORECASE
+    if multiline:
+        flags |= re.MULTILINE
+    if dotall:
+        flags |= re.DOTALL
+
+    try:
+        if mode == "First Match":
+            match = re.search(regex_pattern, string, flags)
+            if match:
+                result = match.group(0)
+            else:
+                result = ""
+
+        elif mode == "All Matches":
+            matches = re.findall(regex_pattern, string, flags)
+            if matches:
+                if isinstance(matches[0], tuple):
+                    result = join_delimiter.join([m[0] for m in matches])
+                else:
+                    result = join_delimiter.join(matches)
+            else:
+                result = ""
+
+        elif mode == "First Group":
+            match = re.search(regex_pattern, string, flags)
+            if match and len(match.groups()) >= group_index:
+                result = match.group(group_index)
+            else:
+                result = ""
+
+        elif mode == "All Groups":
+            matches = re.finditer(regex_pattern, string, flags)
+            results = []
+            for match in matches:
+                if match.groups() and len(match.groups()) >= group_index:
+                    results.append(match.group(group_index))
+            result = join_delimiter.join(results)
+        else:
+            result = ""
+
+    except re.error:
+        result = ""
+
+    return result
+
+
+def regex_replace(string, regex_pattern, replace, case_insensitive=True, multiline=False, dotall=False, count=0):
+    flags = 0
+
+    if case_insensitive:
+        flags |= re.IGNORECASE
+    if multiline:
+        flags |= re.MULTILINE
+    if dotall:
+        flags |= re.DOTALL
+    result = re.sub(regex_pattern, replace, string, count=count, flags=flags)
+    return result
+
+
+def json_extract_string(json_string, key):
+    try:
+        data = json.loads(json_string)
+        if isinstance(data, dict) and key in data:
+            value = data[key]
+            if value is None:
+                return ""
+
+            return str(value)
+
+        return ""
+
+    except (json.JSONDecodeError, TypeError):
+        return ""
+
+
 CONST_NODES = {
     #https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_primitive.py#L104-L108
     "PrimitiveString": Primitive(),
@@ -185,8 +338,19 @@ CONST_NODES = {
     # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_logic.py#L11
     "ComfySwitchNode": Switch(),
 
-    # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_string.py#L8
+    # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_string.py#L416-L427
     "StringConcatenate": Function(["string_a", "string_b", "delimiter"], lambda a, b, c: c.join((a, b))),
+    "StringSubstring": Function(["string", "start", "end"], lambda string, start, end: string[start:end]),
+    "StringLength": Function(["string"], lambda string: len(string)),
+    "CaseConverter": Function(["string", "mode"], case_converter),
+    "StringTrim": Function(["string", "mode"], string_trim),
+    "StringReplace": Function(["string", "find", "replace"], lambda a, b, c: a.replace(b, c)),
+    "StringContains": Function(["string", "substring", "case_sensitive"], string_contains),
+    "StringCompare": Function(["string_a", "string_b", "mode", "case_sensitive"], string_compare),
+    "RegexMatch": Function(["string", "regex_pattern", "case_insensitive", "multiline", "dotall"], regex_match),
+    "RegexExtract": Function(["string", "regex_pattern", "mode", "case_insensitive", "multiline", "dotall", "group_index"], regex_extract),
+    "RegexReplace": Function(["string", "regex_pattern", "replace", "case_insensitive", "multiline", "dotall", "count"], regex_replace),
+    "JsonExtractString": Function(["json_string", "key"], json_extract_string),
 
     # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_toolkit.py#L6
     "CreateList": CreateList(),
