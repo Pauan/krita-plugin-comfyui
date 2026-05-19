@@ -191,6 +191,7 @@ class Workflows(QObject):
         for id in self.order.default:
             if not id in seen:
                 new_order.insert(last_default, id)
+                seen.add(id)
                 last_default += 1
 
         for id in self.defaults.keys():
@@ -394,7 +395,7 @@ class Settings(QObject):
         if level.matches(self.logging_level.get()):
             with open(self.dir / "debug.log", "a") as file:
                 time = timestamp()
-                file.write(f"{time} {str}")
+                file.write(f"[{time} {level.name}] {str}")
                 file.write("\n\n")
 
     def log_json(self, json, *, level, label=None):
@@ -402,9 +403,9 @@ class Settings(QObject):
             with open(self.dir / "debug.log", "a") as file:
                 time = timestamp()
                 if label is None:
-                    file.write(f"{time} ")
+                    file.write(f"[{time} {level.name}] ")
                 else:
-                    file.write(f"{time} {label}: ")
+                    file.write(f"[{time} {level.name}] {label}: ")
                 dump(json, file, indent=2)
                 file.write("\n\n")
 

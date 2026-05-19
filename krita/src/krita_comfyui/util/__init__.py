@@ -43,7 +43,7 @@ def normalize(value, min, max):
 
 
 def timestamp():
-    return datetime.datetime.now(datetime.timezone.utc).strftime("[%Y-%m-%d %H:%M:%S]")
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 class Perf:

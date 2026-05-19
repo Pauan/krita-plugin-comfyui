@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "name": "Test",
+  "id": "e61de2cf-cee7-4c97-842b-4bafd4ee7c9a",
+  "icon": "warning",
+  "is_default": true,
+
+  "layout": [],
+
+  "graph": {
+    "1": {
+      "inputs": {
+        "name": "Bigger",
+        "order": 0,
+        "x": [
+          "5",
+          1
+        ],
+        "y": [
+          "6",
+          1
+        ],
+        "images": [
+          "3",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "2": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvas",
+      "_meta": {
+        "title": "Krita Canvas"
+      }
+    },
+    "3": {
+      "inputs": {
+        "resize_type": "scale by multiplier",
+        "resize_type.multiplier": 2,
+        "scale_method": "bicubic",
+        "input": [
+          "2",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "4": {
+      "inputs": {
+        "image": [
+          "2",
+          0
+        ]
+      },
+      "class_type": "GetImageSize",
+      "_meta": {
+        "title": "Get Image Size"
+      }
+    },
+    "5": {
+      "inputs": {
+        "expression": "-(a // 2)",
+        "values.a": [
+          "4",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "6": {
+      "inputs": {
+        "expression": "-(a // 2)",
+        "values.a": [
+          "4",
+          1
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "7": {
+      "inputs": {
+        "name": "Smaller",
+        "order": 1,
+        "x": 0,
+        "y": 0,
+        "images": [
+          "8",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "8": {
+      "inputs": {
+        "resize_type": "scale by multiplier",
+        "resize_type.multiplier": 0.5,
+        "scale_method": "bicubic",
+        "input": [
+          "2",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    }
+  }
+}

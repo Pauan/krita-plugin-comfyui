@@ -9,6 +9,57 @@ from PyQt6.QtWebSockets import QWebSocket
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
 
+class ComfyError:
+    def __init__(self, info):
+        self.main_error = None
+        self.node_errors = []
+
+        main_error = info.get("error", None)
+
+        if main_error is not None:
+            message = main_error["message"]
+            details = main_error["details"]
+
+            if details == "":
+                self.main_error = message
+            else:
+                self.main_error = f"{message} ({details})"
+
+        node_errors = info.get("node_errors", None)
+
+        if node_errors is not None:
+            for value in node_errors.values():
+                class_type = value["class_type"]
+
+                for info in value["errors"]:
+                    message = info["message"]
+                    details = info["details"]
+
+                    if details == "":
+                        self.node_errors.append(f"[{class_type}] {message}")
+                    else:
+                        self.node_errors.append(f"[{class_type}] {message} ({details})")
+
+
+    def has_errors(self):
+        return self.main_error is not None or len(self.node_errors) > 0
+
+
+    def to_string(self):
+        output = []
+
+        if self.main_error is not None:
+            output.append(self.main_error)
+
+        for error in self.node_errors:
+            if self.main_error is None:
+                output.append(error)
+            else:
+                output.append(f"    {error}")
+
+        return "\n".join(output)
+
+
 class GraphError:
     def __init__(self):
         super()
@@ -50,32 +101,9 @@ class GraphError:
 
 
     @staticmethod
-    def from_comfyui_error(info):
+    def from_comfyui_error(comfy_error):
         error = GraphError()
-
-        output = []
-
-        message = info["error"]["message"]
-        details = info["error"]["details"]
-
-        if details == "":
-            output.append(message)
-        else:
-            output.append(f"{message} ({details})")
-
-        for value in info["node_errors"].values():
-            class_type = value["class_type"]
-
-            for info in value["errors"]:
-                message = info["message"]
-                details = info["details"]
-
-                if details == "":
-                    output.append(f"    [{class_type}] {message}")
-                else:
-                    output.append(f"    [{class_type}] {message} ({details})")
-
-        error.message = "\n".join(output)
+        error.message = comfy_error.to_string()
         return error
 
 
@@ -574,17 +602,8 @@ class ComfyUIClient(QObject):
         error = None
         status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
 
-        if status is None:
-            error = GraphError.from_string(reply.errorString())
-
-        # Prompt was bad, display ComfyUI error message
-        elif status == 400:
-            info = json.loads(reply.readAll().data().decode("utf-8"))
-            self.settings.log_json(info, label="HTTP ComfyUI Error", level=LogLevel.ERROR)
-            error = GraphError.from_comfyui_error(info)
-
-        # Other major network error happened
-        elif not (status >= 200 and status < 300):
+        # Standard HTTP error
+        if status is None or (not (status >= 200 and status < 300)):
             error = GraphError.from_string(reply.errorString())
 
         # Everything was fine!
@@ -596,6 +615,14 @@ class ComfyUIClient(QObject):
 
         match reply.request().attribute(QNetworkRequest.Attribute.User):
             case "prompt":
+                if error is None:
+                    info = json.loads(reply.readAll().data().decode("utf-8"))
+                    comfy_error = ComfyError(info)
+
+                    if comfy_error.has_errors():
+                        self.settings.log_json(info, label="ComfyUI Error", level=LogLevel.ERROR)
+                        error = GraphError.from_comfyui_error(comfy_error)
+
                 if error is not None:
                     prompt_id = reply.request().attribute(QNetworkRequest.Attribute(QNetworkRequest.Attribute.User.value + 1))
 
