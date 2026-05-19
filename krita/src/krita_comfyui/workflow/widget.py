@@ -1,3 +1,4 @@
+import traceback
 import contextlib
 from krita import DockWidget
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -12,7 +13,6 @@ from ..util.krita import DocumentManager
 from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
-from .graph import WorkflowError
 from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList, UiLabel
 
 
@@ -350,8 +350,8 @@ class WorkflowWidget(QWidget):
     def catch_errors(self):
         try:
             yield
-        except WorkflowError as e:
-            self.show_error(message=str(e))
+        except Exception as e:
+            self.show_error(message=str(e), backtrace="".join(traceback.format_exception(e)))
 
 
     def run_workflow(self):

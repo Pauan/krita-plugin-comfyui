@@ -2,7 +2,7 @@ import random
 import sys
 import math
 from ..util.graph import Graph
-from .const import WorkflowError, Link, is_link, comfyui, krita, selection, basic_data_handling
+from .const import WorkflowError, Link, LinkAutogrow, is_link, zip_dict, comfyui, krita, selection, basic_data_handling
 
 
 class ConstOutputs:
@@ -105,6 +105,20 @@ class WorkflowGraph:
             return self.evaluate_node(value[0]).out(value[1])
         else:
             return Link([value])
+
+
+    def evaluate_link_autogrow(self, inputs, prefix):
+        prefix = f"{prefix}."
+
+        links = {}
+
+        for key, value in inputs.items():
+            name = key.removeprefix(prefix)
+
+            if name != key:
+                links[name] = self.evaluate_link(value)
+
+        return LinkAutogrow(links, prefix)
 
 
     # Returns a graph which contains a copy of all the old nodes, except

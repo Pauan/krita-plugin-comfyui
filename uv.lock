@@ -72,12 +72,14 @@ source = { editable = "krita" }
 dependencies = [
     { name = "desktop-notifier" },
     { name = "numpy" },
+    { name = "simpleeval" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "desktop-notifier", specifier = ">=6.2.0" },
     { name = "numpy", specifier = ">=2.4.4" },
+    { name = "simpleeval", specifier = ">=1.0.7" },
 ]
 
 [[package]]
@@ -146,6 +148,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7b/37/fa4718811f5f33cb43fbd9e78209b4105f86022965ae9ceed08ef23560a9/rubicon_objc-0.5.4.tar.gz", hash = "sha256:9ba5eb203df2b2e6c7f2d93f671b583ef5ea0f61b17a3ff44cd9c68673ad7916", size = 188492, upload-time = "2026-05-06T00:57:50.457Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/50/56/ba4987a64ceaae27f629644c4c52d2291eeab0755486d976c4bd1c781d86/rubicon_objc-0.5.4-py3-none-any.whl", hash = "sha256:f7c755388d5709d7079152892137b13bcc6b4bdd796c9f0d9b3a1eb5bea715c4", size = 64553, upload-time = "2026-05-06T00:57:49.032Z" },
+]
+
+[[package]]
+name = "simpleeval"
+version = "1.0.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b4/9d/e7c9309940794dd3073cba2e5101df5874d84243595ce63b1e1c8f9b9c76/simpleeval-1.0.7.tar.gz", hash = "sha256:1e10e5f9fec597814444e20c0892ed15162fa214c8a88f434b5b077cf2fef85b", size = 30250, upload-time = "2026-03-16T10:53:03.464Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0f/2f/f32aa85591882378bb43caa09363f3ed97df399369a5144c7f19f2275bc0/simpleeval-1.0.7-py3-none-any.whl", hash = "sha256:97ac271bfd8f2af9e7b9a36ceea67617f26fa873f9d5ae1922f64d4c1442534b", size = 18792, upload-time = "2026-03-16T10:53:02.103Z" },
 ]
 
 [[package]]

@@ -17,16 +17,22 @@ def zip_inputs(*inputs):
     yield from zip_lists(*(x.values for x in inputs))
 
 
+def zip_dict(input):
+    outputs = []
+
+    items = input.items()
+
+    keys = tuple(x[0] for x in items)
+
+    for values in zip_lists(*(x[1].values for x in items)):
+        assert len(keys) == len(values)
+        outputs.append(dict(zip(keys, values)))
+
+    return outputs
+
+
 def is_link(value):
     return isinstance(value, list) and len(value) == 2 and isinstance(value[0], str) and isinstance(value[1], int)
-
-
-def is_any_link(*links):
-    for link in links:
-        for value in link.values:
-            if is_link(value):
-                return True
-    return False
 
 
 def check_booleans(inputs):
@@ -59,6 +65,13 @@ class Link:
 
         self.node = None
 
+    # Returns true if at least one of the values is a link.
+    def contains_link(self):
+        for value in self.values:
+            if is_link(value):
+                return True
+        return False
+
     # Converts the Link into a graph node.
     #
     # This is cached, so calling it multiple times gives the same node.
@@ -66,6 +79,23 @@ class Link:
         if self.node is None:
             self.node = graph.list(self.values)
         return self.node
+
+
+class LinkAutogrow(Link):
+    def __init__(self, links, prefix):
+        super().__init__(zip_dict(links))
+        self.prefix = prefix
+        self.links = links
+
+    def contains_link(self):
+        for link in self.links.values():
+            if link.contains_link():
+                return True
+        return False
+
+    def add_to_inputs(self, graph, inputs):
+        for key, link in self.links.items():
+            inputs[self.prefix + key] = link.to_node(graph)
 
 
 class Constant:
@@ -85,7 +115,6 @@ class Function:
         self.evaluate = evaluate
 
     def get_outputs(self, workflow, node_id, node):
-        node_name = node["class_type"]
         inputs = node["inputs"]
 
         links = tuple(workflow.evaluate_link(inputs[name]) for name in self.inputs)
@@ -94,7 +123,7 @@ class Function:
         # Because a link can potentially be multiple values, and we have no way
         # of knowing at compile-time how many values that link has, if there is
         # even a single link then we cannot constant evaluate the node.
-        if is_any_link(*links):
+        if any(link.contains_link() for link in links):
             node_inputs = {}
 
             assert len(self.inputs) == len(links)
@@ -104,7 +133,7 @@ class Function:
                 # the node itself will be evaluated at runtime.
                 node_inputs[name] = link.to_node(workflow.graph)
 
-            outputs.append(workflow.graph.node(node_name, **node_inputs).out(0))
+            outputs.append(workflow.graph.node(node["class_type"], **node_inputs).out(0))
 
         # All links are constant values, so we can call the function.
         else:
@@ -126,7 +155,6 @@ class FunctionMultiple:
         self.evaluate = evaluate
 
     def get_outputs(self, workflow, node_id, node):
-        node_name = node["class_type"]
         inputs = node["inputs"]
 
         links = tuple(workflow.evaluate_link(inputs[name]) for name in self.inputs)
@@ -135,7 +163,7 @@ class FunctionMultiple:
         # Because a link can potentially be multiple values, and we have no way
         # of knowing at compile-time how many values that link has, if there is
         # even a single link then we cannot constant evaluate the node.
-        if is_any_link(*links):
+        if any(link.contains_link() for link in links):
             node_inputs = {}
 
             assert len(self.inputs) == len(links)
@@ -145,7 +173,7 @@ class FunctionMultiple:
                 # the node itself will be evaluated at runtime.
                 node_inputs[name] = link.to_node(workflow.graph)
 
-            new_node = workflow.graph.node(node_name, **node_inputs)
+            new_node = workflow.graph.node(node["class_type"], **node_inputs)
 
             for index, output in enumerate(outputs):
                 output.values.append(new_node.out(index))
