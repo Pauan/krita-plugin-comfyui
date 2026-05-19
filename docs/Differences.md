@@ -23,6 +23,8 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * Cancelling a job happens instantly and is more robust.
 
+* Previewing images that are larger than the current canvas size works.
+
 ## Improvements
 
 * The UI is smaller and cleaner.
@@ -87,6 +89,8 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 * It's now possible to send images with full alpha transparency between Krita and ComfyUI.
 
 * Transferring images to / from ComfyUI is 100 times faster.
+
+* When sending images to Krita that are larger than the Krita canvas size, this is handled correctly and automatically.
 
 * Sending text to Krita is nicer, and it auto-sorts based on the name.
 

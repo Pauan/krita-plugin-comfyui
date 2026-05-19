@@ -423,8 +423,8 @@ class ImageWidget(QListWidget):
         self.menu = QMenu(self)
         #self.image_menus.append(self.menu.addSection("Apply images to..."))
         self.image_menus.append(self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer))
+        self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Selected layer", self.apply_existing_layer))
         self.image_menus.append(self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document))
-        self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Existing layer", self.apply_existing_layer))
         self.menu.addSeparator()
         self.image_menus.append(self.menu.addAction(Krita.icon("edit-clear"), "Delete selected", self.delete_selected))
         self.all_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete all", self.delete_all))
@@ -608,20 +608,44 @@ class ImageWidget(QListWidget):
             return images
 
 
+    def get_image_bounds(self, images):
+        bounds = None
+
+        for info in images:
+            x = info["x"]
+            y = info["y"]
+            image = info["image"]
+
+            image_bounds = Bounds(x, y, image.width, image.height)
+
+            if bounds is None:
+                bounds = image_bounds
+            else:
+                bounds = bounds.union(image_bounds)
+
+        return bounds
+
+
     def apply_new_layer(self):
         document = self.document.current()
 
         if document is not None:
-            for image in self.apply_selected_images(document):
-                layer = Layer.fromImage(document, image["name"], image["image"], image["x"], image["y"])
+            selected_images = self.apply_selected_images(document)
 
+            bounds = self.get_image_bounds(selected_images)
+
+            document.remove_preview_layer()
+
+            if bounds is not None:
+                document.scale_to_bounds(bounds)
+
+            for info in selected_images:
+                layer = Layer.fromImage(document, info["name"], info["image"], info["x"], info["y"])
                 layer.move_to_top(document.root_layer())
 
                 #activeLayer = document.active_layer()
                 #parent = activeLayer.parent
                 #parent.insert_child(layer, activeLayer)
-
-            document.remove_preview_layer()
 
 
     def apply_existing_layer(self):
@@ -630,10 +654,18 @@ class ImageWidget(QListWidget):
         if document is not None:
             activeLayer = document.active_layer()
 
-            for image in self.apply_selected_images(document):
-                activeLayer.write_image(image["image"], image["x"], image["y"])
+            selected_images = self.apply_selected_images(document)
+
+            bounds = self.get_image_bounds(selected_images)
 
             document.remove_preview_layer()
+
+            if bounds is not None:
+                document.scale_to_bounds(bounds)
+
+            for info in selected_images:
+                activeLayer.write_image(info["image"], info["x"], info["y"])
+
             document.refresh()
 
 
@@ -641,28 +673,32 @@ class ImageWidget(QListWidget):
         document = self.document.current()
 
         if document is not None:
-            resolution = document.pixels_per_inch()
             profile = document.color_profile()
+            resolution = document.pixels_per_inch()
 
             # If we remove the preview layer then it causes the global selection mask to break.
             document.hide_preview_layer()
 
-            for image in self.apply_selected_images(document):
-                new_document = Document.create(
-                    image["image"].width,
-                    image["image"].height,
-                    image["name"],
-                    "RGBA",
-                    "U8",
-                    profile,
-                    resolution,
-                )
+            selected_images = self.apply_selected_images(document)
 
-                for layer in new_document.root_layer().all_children():
-                    layer.remove()
+            bounds = self.get_image_bounds(selected_images)
 
-                layer = Layer.fromImage(new_document, image["name"], image["image"], 0, 0)
+            new_document = Document.create(
+                bounds.width,
+                bounds.height,
+                document.name,
+                # TODO copy these from the existing document?
+                "RGBA",
+                "U8",
+                profile,
+                resolution,
+            )
 
+            for layer in new_document.root_layer().all_children():
+                layer.remove()
+
+            for info in selected_images:
+                layer = Layer.fromImage(new_document, info["name"], info["image"], info["x"] - bounds.x, info["y"] - bounds.y)
                 new_document.root_layer().insert_child(layer, None)
 
 

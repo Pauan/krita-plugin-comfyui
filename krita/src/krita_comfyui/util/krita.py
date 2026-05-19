@@ -125,6 +125,7 @@ class Axis:
 
 
     def length(self):
+        assert self.max >= self.min
         return self.max - self.min
 
 
@@ -168,6 +169,19 @@ class Bounds(NamedTuple):
 
 
     @staticmethod
+    def from_json(json):
+        return Bounds(json["x"], json["y"], json["width"], json["height"])
+
+    def to_json(self):
+        return {
+            "x": self.x,
+            "y": self.y,
+            "width": self.width,
+            "height": self.height,
+        }
+
+
+    @staticmethod
     def from_qrect(qrect: QRect):
         return Bounds(qrect.x(), qrect.y(), qrect.width(), qrect.height())
 
@@ -180,6 +194,19 @@ class Bounds(NamedTuple):
 
     def y_axis(self):
         return Axis(self.y, self.y + self.height)
+
+
+    def union(self, other):
+        right = max(self.x + self.width, other.x + other.width)
+        bottom = max(self.y + self.height, other.y + other.height)
+
+        left = min(self.x, other.x)
+        top = min(self.y, other.y)
+
+        assert right >= left
+        assert bottom >= top
+
+        return Bounds(left, top, right - left, bottom - top)
 
 
     def check_within_bounds(self, parent):
@@ -200,10 +227,6 @@ class Bounds(NamedTuple):
         if multiple > 1:
             x_axis = self.x_axis().round_to_multiple(multiple).shift_within_parent(parent.x_axis())
             y_axis = self.y_axis().round_to_multiple(multiple).shift_within_parent(parent.y_axis())
-
-            assert x_axis.max >= x_axis.min
-            assert y_axis.max >= y_axis.min
-
             bounds = Bounds(x_axis.min, y_axis.min, x_axis.length(), y_axis.length()).check_within_bounds(parent)
 
         return bounds
@@ -378,11 +401,20 @@ class Document:
         return new_document
 
 
+    @property
+    def name(self):
+        return self._document.name()
+
+
     def all_keys(self):
         return self._document.annotationTypes()
 
     def remove_key(self, key):
         self._document.removeAnnotation(key)
+
+    def has_key(self, key):
+        value = self._document.annotation(key)
+        return value.size() > 0
 
 
     def get_key_bytes(self, key, default=None):
@@ -500,6 +532,41 @@ class Document:
                 return layer
 
 
+    def scale_to_bounds(self, new_bounds, *, algorithm="Bicubic"):
+        current_bounds = self.bounds()
+
+        new_bounds = new_bounds.union(current_bounds)
+
+        if new_bounds != current_bounds:
+            # scaleImage doesn't accept an (x, y) so we have to first
+            # shift the image to the correct (x, y) and then do the scale.
+            if new_bounds.x != current_bounds.x or new_bounds.y != current_bounds.y:
+                print("SHIFTING IMAGE")
+
+                x_axis = current_bounds.x_axis()
+                y_axis = current_bounds.y_axis()
+
+                x_axis.min = new_bounds.x
+                y_axis.min = new_bounds.y
+
+                # TODO this breaks if `new_bounds.x > current_bounds.x` or `new_bounds.y > current_bounds.y`
+                self._document.resizeImage(
+                    x_axis.min,
+                    y_axis.min,
+                    x_axis.length(),
+                    y_axis.length(),
+                )
+
+            self._document.scaleImage(
+                new_bounds.width,
+                new_bounds.height,
+                # For some reason the scaleImage method accepts an int instead of a double...
+                round(self._document.xRes()),
+                round(self._document.yRes()),
+                algorithm,
+            )
+
+
     def remove_preview_layer(self):
         with HideModifications(self._document):
             layer = self.find_preview_layer()
@@ -507,6 +574,7 @@ class Document:
             if layer is not None:
                 layer.remove()
 
+            self._restore_bounds()
             self.remove_key("krita_comfyui/preview_layer")
 
 
@@ -514,9 +582,57 @@ class Document:
         with HideModifications(self._document):
             layer = self.find_preview_layer()
 
+            needs_refresh = False
+
             if layer is not None:
                 layer.is_visible = False
+                needs_refresh = True
+
+            if self._restore_bounds():
+                needs_refresh = False
+
+            if needs_refresh:
                 self.refresh()
+
+
+    def _get_stored_bounds(self):
+        bounds = self.get_key_json("krita_comfyui/canvas_bounds", None)
+        if bounds is not None:
+            return Bounds.from_json(bounds)
+
+
+    def _resize(self, new_bounds):
+        current_bounds = self.bounds()
+
+        bounds = self._get_stored_bounds()
+        if bounds is None:
+            bounds = current_bounds
+
+        new_bounds = new_bounds.union(bounds)
+
+        if new_bounds != current_bounds:
+            # We want to keep the original `canvas_bounds`.
+            # So this avoids overwriting the `canvas_bounds` with the image preview bounds.
+            if not self.has_key("krita_comfyui/canvas_bounds"):
+                self.set_key_json("krita_comfyui/canvas_bounds", "krita_comfyui: Canvas Bounds", current_bounds.to_json())
+
+            self._document.resizeImage(new_bounds.x, new_bounds.y, new_bounds.width, new_bounds.height)
+            return True
+
+        return False
+
+
+    def _restore_bounds(self):
+        bounds = self._get_stored_bounds()
+
+        if bounds is not None:
+            if bounds != self.bounds():
+                self._document.resizeImage(bounds.x, bounds.y, bounds.width, bounds.height)
+
+            self.remove_key("krita_comfyui/canvas_bounds")
+            return True
+
+        return False
 
 
     def show_preview_layer(self, name, image, x, y):
@@ -534,7 +650,9 @@ class Document:
             layer.is_visible = True
             layer.is_locked = True
             layer.move_to_top(self.root_layer())
-            self.refresh()
+
+            if not self._resize(Bounds(x, y, image.width, image.height)):
+                self.refresh()
 
 
 class Mask:

@@ -16,20 +16,20 @@
       "tooltip": "Model used for upscaling."
     },
     {
+      "type": "int",
+      "id": "multiplier",
+      "min": 1,
+      "default": 2,
+      "suffix": " multiplier",
+      "tooltip": "How big the upscaled image should be relative to the original."
+    },
+    {
       "type": "group",
       "id": "advanced",
       "label": "Advanced",
       "indent": true,
       "default": false,
       "children": [
-        {
-          "type": "int",
-          "id": "multiplier",
-          "min": 1,
-          "default": 2,
-          "suffix": " multiplier",
-          "tooltip": "How big the upscaled image should be relative to the original."
-        },
         {
           "type": "combo",
           "id": "scale_method",
