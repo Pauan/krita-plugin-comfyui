@@ -48,6 +48,9 @@ class KritaSelectionBorder:
             if not isinstance(y, int):
                 raise WorkflowError(f"[#{node_id} Krita Selection: Border]\ny must be an int constant")
 
+            if not isinstance(mode, str):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nmode must be a string constant")
+
             if x == 0 and y == 0:
                 outputs.append(selection)
 
@@ -88,6 +91,10 @@ class KritaSelectionBounds:
 
         for selection, round_up in zip_inputs(selection, round_up):
             assert isinstance(selection, Selection)
+
+            if not isinstance(round_up, int):
+                raise WorkflowError(f"[#{node_id} Krita Selection: Bounds]\nround_up must be an int constant")
+
             bounds = selection.bounds().round_up(workflow.bounds(), round_up)
             x.append(bounds.x)
             y.append(bounds.y)

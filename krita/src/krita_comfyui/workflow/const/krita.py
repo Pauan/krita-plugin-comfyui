@@ -140,7 +140,7 @@ class KritaLayers:
 
         error = None
 
-        for (layer_id, mode) in zip_inputs(layer_id_link, mode_link):
+        for layer_id, mode in zip_inputs(layer_id_link, mode_link):
             if not isinstance(layer_id, str):
                 raise WorkflowError(f"[#{node_id} Krita Layers]\nlayer_id must be a string constant")
 

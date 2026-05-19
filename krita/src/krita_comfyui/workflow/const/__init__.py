@@ -21,6 +21,14 @@ def is_link(value):
     return isinstance(value, list) and len(value) == 2 and isinstance(value[0], str) and isinstance(value[1], int)
 
 
+def is_any_link(*links):
+    for link in links:
+        for value in link.values:
+            if is_link(value):
+                return True
+    return False
+
+
 def check_booleans(inputs):
     all_true = True
     all_false = True
@@ -82,20 +90,27 @@ class Function:
         links = tuple(workflow.evaluate_link(inputs[name]) for name in self.inputs)
         outputs = []
 
-        for values in zip_inputs(*links):
-            # All links are constant values, so we can call the function.
-            if all(not is_link(value) for value in values):
+        # Because a link can potentially be multiple values, and we have no way
+        # of knowing at compile-time how many values that link has, if there is
+        # even a single link then we cannot constant evaluate the node.
+        if is_any_link(*links):
+            node_inputs = {}
+
+            assert len(self.inputs) == len(links)
+
+            for name, link in zip(self.inputs, links):
+                # We can still constant evaluate the links as much as possible, but
+                # the node itself will be evaluated at runtime.
+                node_inputs[name] = link.to_node(workflow.graph)
+
+            outputs.append(workflow.graph.node(node_name, **node_inputs).out(0))
+
+        # All links are constant values, so we can call the function.
+        else:
+            for values in zip_inputs(*links):
+                assert all(not is_link(value) for value in values)
+
                 outputs.append(self.evaluate(*values))
-
-            else:
-                node_inputs = {}
-
-                assert len(self.inputs) == len(values)
-
-                for name, value in zip(self.inputs, values):
-                    node_inputs[name] = value
-
-                outputs.append(workflow.graph.node(node_name, **node_inputs).out(0))
 
         return (
             Link(outputs),
