@@ -166,6 +166,33 @@ class MathExpression:
         return outputs
 
 
+class StringFormat:
+    def get_outputs(self, workflow, node_id, node):
+        outputs = []
+
+        inputs = node["inputs"]
+
+        f_string = workflow.evaluate_link(inputs["f_string"])
+        values = workflow.evaluate_link_autogrow(inputs, "values")
+
+        if f_string.contains_link() or values.contains_link():
+            node_inputs = {
+                "f_string": f_string.to_node(workflow.graph),
+            }
+
+            values.add_to_inputs(workflow.graph, node_inputs)
+
+            outputs.append(workflow.graph.node(node["class_type"], **node_inputs).out(0))
+
+        else:
+            for f_string, values in zip_inputs(f_string, values):
+                outputs.append(f_string.format(**values))
+
+        return (
+            Link(outputs),
+        )
+
+
 def bounding_box(x, y, width, height):
     return { "x": x, "y": y, "width": width, "height": height }
 
@@ -338,7 +365,8 @@ CONST_NODES = {
     # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_logic.py#L11
     "ComfySwitchNode": Switch(),
 
-    # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_string.py#L416-L427
+    # https://github.com/Comfy-Org/ComfyUI/blob/72e3f6081ccf8853baede1308f16e0e9ebcc09dc/comfy_extras/nodes_string.py#L447-L459
+    "StringFormat": StringFormat(),
     "StringConcatenate": Function(["string_a", "string_b", "delimiter"], lambda a, b, c: c.join((a, b))),
     "StringSubstring": Function(["string", "start", "end"], lambda string, start, end: string[start:end]),
     "StringLength": Function(["string"], lambda string: len(string)),
