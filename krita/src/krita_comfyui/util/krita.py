@@ -541,8 +541,6 @@ class Document:
             # scaleImage doesn't accept an (x, y) so we have to first
             # shift the image to the correct (x, y) and then do the scale.
             if new_bounds.x != current_bounds.x or new_bounds.y != current_bounds.y:
-                print("SHIFTING IMAGE")
-
                 x_axis = current_bounds.x_axis()
                 y_axis = current_bounds.y_axis()
 
@@ -564,6 +562,11 @@ class Document:
                 round(self._document.xRes()),
                 round(self._document.yRes()),
                 algorithm,
+            )
+
+            return (
+                new_bounds.x - current_bounds.x,
+                new_bounds.y - current_bounds.y,
             )
 
 
@@ -595,44 +598,68 @@ class Document:
                 self.refresh()
 
 
-    def _get_stored_bounds(self):
-        bounds = self.get_key_json("krita_comfyui/canvas_bounds", None)
+    def _get_original_bounds(self):
+        bounds = self.get_key_json("krita_comfyui/original_bounds", None)
         if bounds is not None:
             return Bounds.from_json(bounds)
 
 
+    def _get_current_bounds(self):
+        bounds = self.get_key_json("krita_comfyui/current_bounds", None)
+        if bounds is not None:
+            return Bounds.from_json(bounds)
+        else:
+            return self.bounds()
+
+
     def _resize(self, new_bounds):
-        current_bounds = self.bounds()
+        current_bounds = self._get_current_bounds()
+        original_bounds = self._get_original_bounds()
 
-        bounds = self._get_stored_bounds()
-        if bounds is None:
-            bounds = current_bounds
-
-        new_bounds = new_bounds.union(bounds)
+        if original_bounds is None:
+            new_bounds = new_bounds.union(current_bounds)
+        else:
+            new_bounds = new_bounds.union(original_bounds)
 
         if new_bounds != current_bounds:
-            # We want to keep the original `canvas_bounds`.
-            # So this avoids overwriting the `canvas_bounds` with the image preview bounds.
-            if not self.has_key("krita_comfyui/canvas_bounds"):
-                self.set_key_json("krita_comfyui/canvas_bounds", "krita_comfyui: Canvas Bounds", current_bounds.to_json())
+            # We want to keep the original canvas bounds.
+            # So this avoids overwriting the canvas bounds with the image preview bounds.
+            if original_bounds is None:
+                self.set_key_json("krita_comfyui/original_bounds", "krita_comfyui: Original Bounds", current_bounds.to_json())
 
-            self._document.resizeImage(new_bounds.x, new_bounds.y, new_bounds.width, new_bounds.height)
+            self.set_key_json("krita_comfyui/current_bounds", "krita_comfyui: Current Bounds", new_bounds.to_json())
+
+            self._document.resizeImage(
+                new_bounds.x - current_bounds.x,
+                new_bounds.y - current_bounds.y,
+                new_bounds.width,
+                new_bounds.height,
+            )
             return True
 
         return False
 
 
     def _restore_bounds(self):
-        bounds = self._get_stored_bounds()
+        changed = False
 
-        if bounds is not None:
-            if bounds != self.bounds():
-                self._document.resizeImage(bounds.x, bounds.y, bounds.width, bounds.height)
+        original_bounds = self._get_original_bounds()
 
-            self.remove_key("krita_comfyui/canvas_bounds")
-            return True
+        if original_bounds is not None:
+            current_bounds = self._get_current_bounds()
 
-        return False
+            if current_bounds != original_bounds:
+                self._document.resizeImage(
+                    original_bounds.x - current_bounds.x,
+                    original_bounds.y - current_bounds.y,
+                    original_bounds.width,
+                    original_bounds.height,
+                )
+                changed = True
+
+        self.remove_key("krita_comfyui/original_bounds")
+        self.remove_key("krita_comfyui/current_bounds")
+        return changed
 
 
     def show_preview_layer(self, name, image, x, y):
@@ -644,7 +671,9 @@ class Document:
 
                 self.set_key_str("krita_comfyui/preview_layer", "krita_comfyui: Preview Layer ID", layer.id)
 
-            layer.replace_image(image, x, y)
+            current_bounds = self._get_current_bounds()
+
+            layer.replace_image(image, x - current_bounds.x, y - current_bounds.y)
 
             layer.name = name
             layer.is_visible = True

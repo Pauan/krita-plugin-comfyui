@@ -636,9 +636,6 @@ class ImageWidget(QListWidget):
 
             document.remove_preview_layer()
 
-            if bounds is not None:
-                document.scale_to_bounds(bounds)
-
             for info in selected_images:
                 layer = Layer.fromImage(document, info["name"], info["image"], info["x"], info["y"])
                 layer.move_to_top(document.root_layer())
@@ -646,6 +643,12 @@ class ImageWidget(QListWidget):
                 #activeLayer = document.active_layer()
                 #parent = activeLayer.parent
                 #parent.insert_child(layer, activeLayer)
+
+            if bounds is not None:
+                new_position = document.scale_to_bounds(bounds)
+
+                if new_position is not None:
+                    pass
 
 
     def apply_existing_layer(self):
@@ -660,13 +663,19 @@ class ImageWidget(QListWidget):
 
             document.remove_preview_layer()
 
-            if bounds is not None:
-                document.scale_to_bounds(bounds)
-
             for info in selected_images:
                 activeLayer.write_image(info["image"], info["x"], info["y"])
 
-            document.refresh()
+            if bounds is not None:
+                new_position = document.scale_to_bounds(bounds)
+
+                if new_position is not None:
+                    pass
+
+                else:
+                    document.refresh()
+            else:
+                document.refresh()
 
 
     def apply_new_document(self):
