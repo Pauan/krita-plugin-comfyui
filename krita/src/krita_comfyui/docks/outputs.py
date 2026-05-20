@@ -210,7 +210,11 @@ class ImageStorage(QObject):
         return uuid
 
 
-    def set_metadata(self, document, uuid, key: str, value: bool):
+    def set_metadata(self, document, uuid, metadata):
+        document.set_key_json(f"krita_comfyui/image_metadata/{uuid}", "krita_comfyui: Image Metadata", metadata)
+
+
+    def set_metadata_boolean(self, document, uuid, key: str, value: bool):
         metadata = self.metadata[uuid]
 
         old_value = metadata.get(key, False)
@@ -225,14 +229,25 @@ class ImageStorage(QObject):
                 except KeyError:
                     pass
 
-            document.set_key_json(f"krita_comfyui/image_metadata/{uuid}", "krita_comfyui: Image Metadata", metadata)
+            self.set_metadata(document, uuid, metadata)
 
 
     def set_applied(self, document, uuid, applied):
-        self.set_metadata(document, uuid, "applied", applied)
+        self.set_metadata_boolean(document, uuid, "applied", applied)
 
     def set_selected(self, document, uuid, selected):
-        self.set_metadata(document, uuid, "selected", selected)
+        self.set_metadata_boolean(document, uuid, "selected", selected)
+
+
+    def update_position(self, document, uuid, x, y):
+        assert x != 0 or y != 0
+
+        metadata = self.metadata[uuid]
+        metadata["x"] -= x
+        metadata["y"] -= y
+        self.set_metadata(document, uuid, metadata)
+
+        return (metadata["x"], metadata["y"])
 
 
     def save_group(self, document, group):
@@ -551,21 +566,29 @@ class ImageWidget(QListWidget):
             item.setSelected(True)
 
 
-    def update_selected_state(self):
-        document = self.document.current()
+    def update_selected_state(self, document):
+        for i in range(self.count()):
+            item = self.item(i)
+            data = item.data(Qt.ItemDataRole.UserRole)
 
-        if document is not None:
+            if data is not None:
+                self.storage.set_selected(document, data["uuid"], item.isSelected())
+
+
+    def update_position(self, document, x, y):
+        if x != 0 or y != 0:
             for i in range(self.count()):
                 item = self.item(i)
                 data = item.data(Qt.ItemDataRole.UserRole)
 
                 if data is not None:
-                    self.storage.set_selected(document, data["uuid"], item.isSelected())
+                    (new_x, new_y) = self.storage.update_position(document, data["uuid"], x, y)
+                    data["x"] = new_x
+                    data["y"] = new_y
+                    item.setData(Qt.ItemDataRole.UserRole, data)
 
 
     def selection_changed(self):
-        self.update_selected_state()
-
         selected = self.selected_images()
 
         self.selected = [item for (item, _) in selected]
@@ -573,6 +596,8 @@ class ImageWidget(QListWidget):
         document = self.document.current()
 
         if document is not None:
+            self.update_selected_state(document)
+
             # Show a preview of the last selected image
             if len(selected) > 0:
                 image = selected[-1][1]
@@ -603,7 +628,9 @@ class ImageWidget(QListWidget):
                 item.setIcon(self.thumbnail(image["image"], True))
                 images.append(image)
 
-            self.update_selected_state()
+            document = self.document.current()
+            if document is not None:
+                self.update_selected_state(document)
 
             return images
 
@@ -636,6 +663,18 @@ class ImageWidget(QListWidget):
 
             document.remove_preview_layer()
 
+            if bounds is not None:
+                new_position = document.scale_to_bounds(bounds)
+
+                if new_position is not None:
+                    x = new_position[0]
+                    y = new_position[1]
+                    self.update_position(document, x, y)
+
+                    for info in selected_images:
+                        info["x"] -= x
+                        info["y"] -= y
+
             for info in selected_images:
                 layer = Layer.fromImage(document, info["name"], info["image"], info["x"], info["y"])
                 layer.move_to_top(document.root_layer())
@@ -643,12 +682,6 @@ class ImageWidget(QListWidget):
                 #activeLayer = document.active_layer()
                 #parent = activeLayer.parent
                 #parent.insert_child(layer, activeLayer)
-
-            if bounds is not None:
-                new_position = document.scale_to_bounds(bounds)
-
-                if new_position is not None:
-                    pass
 
 
     def apply_existing_layer(self):
@@ -670,8 +703,7 @@ class ImageWidget(QListWidget):
                 new_position = document.scale_to_bounds(bounds)
 
                 if new_position is not None:
-                    pass
-
+                    self.update_position(document, new_position[0], new_position[1])
                 else:
                     document.refresh()
             else:
@@ -740,6 +772,7 @@ class ImageWidget(QListWidget):
                         seen_item = True
 
             document = self.document.current()
+
             if document is not None:
                 if self.count() == 0:
                     document.remove_preview_layer()
@@ -848,7 +881,6 @@ class ImageWidget(QListWidget):
     def new_images(self, group):
         if len(group) > 0:
             document = self.document.current()
-
             if document is not None:
                 self.add_images(self.storage.save_group(document, group), allow_selection=False)
 
