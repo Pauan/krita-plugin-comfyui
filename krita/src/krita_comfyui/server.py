@@ -405,6 +405,9 @@ class ComfyUIClient(QObject):
         self.queue = []
         self.is_connected = False
 
+        self.pending_danbooru_tags = None
+        self.last_danbooru_id = None
+
         self.http = QNetworkAccessManager(self)
         self.http.setAutoDeleteReplies(True)
         self.http.finished.connect(self.on_http_finished)
@@ -428,7 +431,8 @@ class ComfyUIClient(QObject):
             queries = QUrlQuery()
 
             for key, value in query.items():
-                queries.addQueryItem(key, value)
+                if value is not None:
+                    queries.addQueryItem(key, value)
 
             url.setQuery(queries)
 
@@ -640,6 +644,40 @@ class ComfyUIClient(QObject):
             self.on_prompt_error(data["prompt_id"], data)
 
 
+    def all_danbooru_aliases(self, tag):
+        for alias in tag.get("consequent_aliases", []):
+            alias_name = alias["antecedent_name"]
+
+            yield alias_name
+
+            sub_tag = self.pending_danbooru_tags[alias_name]
+
+            yield from self.all_danbooru_aliases(sub_tag)
+
+
+    def save_danbooru_tags(self):
+        try:
+            danbooru_tags = {}
+
+            for name, tag in self.pending_danbooru_tags.items():
+                if not name in danbooru_tags:
+                    danbooru_tags[name] = {
+                        "post_count": tag["post_count"],
+                        "category": tag["category"],
+                    }
+
+                    for alias in self.all_danbooru_aliases(tag):
+                        danbooru_tags[alias] = {
+                            "alias_for": name,
+                        }
+
+            self.settings.save_danbooru_tags(danbooru_tags)
+
+        finally:
+            self.last_danbooru_id = None
+            self.pending_danbooru_tags = None
+
+
     def on_http_finished(self, reply):
         error = None
         status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
@@ -689,8 +727,22 @@ class ComfyUIClient(QObject):
                     self.settings.save_node_metadata(node_metadata)
 
             case "danbooru_tags":
-                tags = json.loads(reply.readAll().data().decode("utf-8"))
-                self.settings.log_json(tags, label="Danbooru Tags", level=LogLevel.INFO)
+                if error is None:
+                    tags = json.loads(reply.readAll().data().decode("utf-8"))
+
+                    if len(tags) == 0:
+                        self.save_danbooru_tags()
+
+                    else:
+                        for tag in tags:
+                            self.last_danbooru_id = tag["id"]
+                            self.pending_danbooru_tags[tag["name"]] = tag
+
+                        self.update_danbooru_tags()
+
+                else:
+                    self.last_danbooru_id = None
+                    self.pending_danbooru_tags = None
 
         reply.deleteLater()
 
@@ -775,7 +827,14 @@ class ComfyUIClient(QObject):
             ))
 
 
-    def update_danbooru_tags(self, oldest_id=None):
+    def update_danbooru_tags(self):
+        if self.last_danbooru_id is None:
+            assert self.pending_danbooru_tags is None
+            self.pending_danbooru_tags = {}
+            page = None
+        else:
+            page = f"b{self.last_danbooru_id}"
+
         self.http.get(self.request(
             url="https://danbooru.donmai.us/tags.json",
             query={
@@ -783,8 +842,8 @@ class ComfyUIClient(QObject):
                 "search[hide_empty]": "yes",
                 "search[is_deprecated]": "no",
                 "search[order]": "id",
-                "only": "id,name,post_count,category,antecedent_alias,consequent_aliases[antecedent_name]",
-                #"page": f"a{id}"
+                "only": "id,name,post_count,category,consequent_aliases[antecedent_name]",
+                "page": page,
             },
             headers=[
                 (QNetworkRequest.KnownHeaders.UserAgentHeader, "krita-plugin-comfyui/1.0"),
