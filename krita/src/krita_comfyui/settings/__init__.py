@@ -381,6 +381,8 @@ class Settings(QObject):
             defaults=self.default_workflows,
         )
 
+        self.danbooru_tags = self.load_danbooru_tags()
+
         self.logging_level = self.settings.item("logging_level")
 
         self.load_node_metadata()
@@ -485,3 +487,18 @@ class Settings(QObject):
             dump(metadata, file, indent=2)
 
         self.node_metadata_changed.emit()
+
+
+    def load_danbooru_tags(self):
+        try:
+            with open(self.dir / "danbooru_tags.json", "r") as file:
+                return load(file)
+        except FileNotFoundError:
+            return {}
+
+
+    def save_danbooru_tags(self, tags):
+        self.danbooru_tags = tags
+
+        with open(self.dir / "danbooru_tags.json", "w") as file:
+            dump(tags, file, indent=2)

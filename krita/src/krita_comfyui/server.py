@@ -4,7 +4,7 @@ from enum import Enum, auto
 from . import util
 from .settings import LogLevel
 
-from PyQt6.QtCore import QObject, QTimer, QUrl, QByteArray, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, QUrl, QUrlQuery, QByteArray, pyqtSignal
 from PyQt6.QtWebSockets import QWebSocket
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
 
@@ -415,6 +415,33 @@ class ComfyUIClient(QObject):
         self.websocket.state_changed.connect(self.on_websocket_state_changed)
 
 
+    def request(self, *, url, metadata, username=None, password=None, headers=[], query={}):
+        url = QUrl(url)
+
+        if username is not None:
+            url.setUserName(username)
+
+        if password is not None:
+            url.setPassword(password)
+
+        if len(query) > 0:
+            queries = QUrlQuery()
+
+            for key, value in query.items():
+                queries.addQueryItem(key, value)
+
+            url.setQuery(queries)
+
+        request = QNetworkRequest(url)
+
+        for key, value in headers:
+            request.setHeader(key, value)
+
+        request.setAttribute(QNetworkRequest.Attribute.User, metadata)
+
+        return request
+
+
     def find_prompt(self, prompt_id):
         for prompt in self.queue:
             if prompt.prompt_id == prompt_id:
@@ -423,25 +450,35 @@ class ComfyUIClient(QObject):
 
     def post_prompt(self, prompt):
         if self.websocket.is_ready():
-            url = f"http://{self.url}/prompt"
-            request = QNetworkRequest(QUrl(url))
-            request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
-            request.setAttribute(QNetworkRequest.Attribute.User, "prompt")
-            request.setAttribute(QNetworkRequest.Attribute(QNetworkRequest.Attribute.User.value + 1), prompt.prompt_id)
+            request = self.request(
+                url=f"http://{self.url}/prompt",
+                headers=[
+                    (QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json"),
+                ],
+                metadata={
+                    "type": "prompt",
+                    "prompt_id": prompt.prompt_id,
+                }
+            )
             self.http.post(request, QByteArray(prompt.body))
 
 
     def interrupt_prompt(self, prompt):
         if self.websocket.is_ready():
-            url = f"http://{self.url}/interrupt"
-
             message = {
                 "prompt_id": prompt.prompt_id,
             }
 
-            request = QNetworkRequest(QUrl(url))
-            request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
-            request.setAttribute(QNetworkRequest.Attribute.User, "interrupt")
+            request = self.request(
+                url=f"http://{self.url}/interrupt",
+                headers=[
+                    (QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json"),
+                ],
+                metadata={
+                    "type": "interrupt",
+                },
+            )
+
             self.http.post(request, QByteArray(json.dumps(message).encode("utf-8")))
 
 
@@ -618,7 +655,9 @@ class ComfyUIClient(QObject):
         if error is not None:
             self.settings.log_str(f"HTTP Error: {error.format()}", level=LogLevel.ERROR)
 
-        match reply.request().attribute(QNetworkRequest.Attribute.User):
+        metadata = reply.request().attribute(QNetworkRequest.Attribute.User)
+
+        match metadata["type"]:
             case "prompt":
                 info = json.loads(reply.readAll().data().decode("utf-8"))
                 comfy_error = ComfyError(info)
@@ -628,7 +667,7 @@ class ComfyUIClient(QObject):
                     error = GraphError.from_comfyui_error(comfy_error)
 
                 if error is not None:
-                    prompt_id = reply.request().attribute(QNetworkRequest.Attribute(QNetworkRequest.Attribute.User.value + 1))
+                    prompt_id = metadata["prompt_id"]
 
                     assert prompt_id is not None
 
@@ -649,6 +688,10 @@ class ComfyUIClient(QObject):
                     node_metadata = json.loads(reply.readAll().data().decode("utf-8"))
                     self.settings.save_node_metadata(node_metadata)
 
+            case "danbooru_tags":
+                tags = json.loads(reply.readAll().data().decode("utf-8"))
+                self.settings.log_json(tags, label="Danbooru Tags", level=LogLevel.INFO)
+
         reply.deleteLater()
 
 
@@ -664,6 +707,7 @@ class ComfyUIClient(QObject):
         self.websocket.connect()
         self.execute_queue()
         self.update_is_connected()
+        self.update_danbooru_tags()
 
 
     def disconnect(self):
@@ -723,9 +767,32 @@ class ComfyUIClient(QObject):
 
     def update_node_metadata(self):
         if self.websocket.is_ready():
-            request = QNetworkRequest(QUrl(f"http://{self.url}/object_info"))
-            request.setAttribute(QNetworkRequest.Attribute.User, "object_info")
-            self.http.get(request)
+            self.http.get(self.request(
+                url=f"http://{self.url}/object_info",
+                metadata={
+                    "type": "object_info",
+                },
+            ))
+
+
+    def update_danbooru_tags(self, oldest_id=None):
+        self.http.get(self.request(
+            url="https://danbooru.donmai.us/tags.json",
+            query={
+                "limit": "1000",
+                "search[hide_empty]": "yes",
+                "search[is_deprecated]": "no",
+                "search[order]": "id",
+                "only": "id,name,post_count,category,antecedent_alias,consequent_aliases[antecedent_name]",
+                #"page": f"a{id}"
+            },
+            headers=[
+                (QNetworkRequest.KnownHeaders.UserAgentHeader, "krita-plugin-comfyui/1.0"),
+            ],
+            metadata={
+                "type": "danbooru_tags",
+            },
+        ))
 
 
     def execute_graph(self, graph, *, document_id):
