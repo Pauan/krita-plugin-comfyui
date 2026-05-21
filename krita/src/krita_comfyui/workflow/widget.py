@@ -169,7 +169,7 @@ class WorkflowWidget(QWidget):
 
 
             case "string":
-                widget = UiString.from_json(storage, info)
+                widget = UiString.from_json(storage, info, self.extension.settings)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 

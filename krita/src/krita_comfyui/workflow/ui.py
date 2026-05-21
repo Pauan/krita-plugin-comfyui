@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QMessageBox,
+    QCompleter,
 )
 from ..util.qt import BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
 from ..util import number_of_lines, lerp, normalize, clamp
@@ -251,15 +252,17 @@ class UiString(QLineEdit):
 
 
     @staticmethod
-    def from_json(storage, json):
+    def from_json(storage, json, settings):
         multiline = json.get("multiline", False)
 
         if multiline:
             return UiStringMultiline(
                 value=storage.item(json["id"]),
+                settings=settings,
                 visible_if=InputEqual.from_json(storage, json, "visible_if"),
                 enabled_if=InputEqual.from_json(storage, json, "enabled_if"),
                 tooltip=json.get("tooltip", None),
+                autocomplete=json.get("autocomplete", None),
                 placeholder=json.get("placeholder", None),
                 background_color=json.get("background_color", None),
                 min_lines=json.get("min_lines", None),
@@ -288,9 +291,27 @@ class UiString(QLineEdit):
         self.inputs.value.set(self.text())
 
 
+class DanbooruCompleter(QCompleter):
+    def __init__(self, parent, model):
+        super().__init__(parent)
+
+        self.setModel(model)
+        self.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.setFilterMode(Qt.MatchFlag.MatchContains)
+        self.setModelSorting(QCompleter.ModelSorting.UnsortedModel)
+        self.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        self.setWrapAround(False)
+        self.setWidget(parent)
+
+
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, value, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines):
+    def __init__(self, value, settings, visible_if, enabled_if, background_color, placeholder, autocomplete, tooltip, min_lines, max_lines):
         super().__init__()
+
+        if autocomplete:
+            self.completer = DanbooruCompleter(self, settings.danbooru_tags_model)
+        else:
+            self.completer = None
 
         if min_lines is None:
             min_lines = 2

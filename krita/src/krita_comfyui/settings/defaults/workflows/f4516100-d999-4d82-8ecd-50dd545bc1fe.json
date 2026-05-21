@@ -20,6 +20,7 @@
       "type": "string",
       "id": "prompt",
       "multiline": true,
+      "autocomplete": true,
       "tooltip": "Prompt",
       "placeholder": "Prompt..."
     },
@@ -58,6 +59,7 @@
               "type": "string",
               "id": "mask_regions_prompt",
               "multiline": true,
+              "autocomplete": true,
               "tooltip": "Region prompt",
               "placeholder": "Region prompt...",
               "enabled_if": {
@@ -233,6 +235,7 @@
           "type": "string",
           "id": "default_prompt",
           "multiline": true,
+          "autocomplete": true,
           "tooltip": "Default prompt",
           "placeholder": "Default prompt..."
         },

@@ -3,7 +3,7 @@ import functools
 from enum import Enum
 from json import dump, dumps, load, loads
 from pathlib import Path
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal
 from PyQt6.QtWidgets import QMessageBox
 from ..util import timestamp
 from ..util.qt import BlockSignals
@@ -353,6 +353,7 @@ class LogLevel(Enum):
 
 class Settings(QObject):
     node_metadata_changed = pyqtSignal()
+    danbooru_tags_changed = pyqtSignal()
 
     default_settings = load_default_file("settings.json")
     default_bundles = load_default_file("bundles.json")
@@ -382,6 +383,8 @@ class Settings(QObject):
         )
 
         self.danbooru_tags = self.load_danbooru_tags()
+        self.danbooru_tags_model = QStringListModel()
+        self.update_danbooru_tags()
 
         self.logging_level = self.settings.item("logging_level")
 
@@ -502,3 +505,23 @@ class Settings(QObject):
 
         with open(self.dir / "danbooru_tags.json", "w") as file:
             dump(tags, file, indent=2)
+
+        self.danbooru_tags_changed.emit()
+        self.update_danbooru_tags()
+
+
+    def update_danbooru_tags(self):
+        def sort_tag(item):
+            tag = item[1]
+
+            alias = tag.get("alias_for", None)
+
+            if alias is not None:
+                # Aliases are sorted after non-aliases
+                return (self.danbooru_tags[alias]["post_count"], 0)
+            else:
+                return (tag["post_count"], 1)
+
+        names = [name for name, tag in sorted(self.danbooru_tags.items(), key=sort_tag, reverse=True)]
+
+        self.danbooru_tags_model.setStringList(names)

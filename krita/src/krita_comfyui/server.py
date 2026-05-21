@@ -715,7 +715,7 @@ class ComfyUIClient(QObject):
         self.websocket.connect()
         self.execute_queue()
         self.update_is_connected()
-        self.update_danbooru_tags()
+        #self.update_danbooru_tags()
 
 
     def disconnect(self):
