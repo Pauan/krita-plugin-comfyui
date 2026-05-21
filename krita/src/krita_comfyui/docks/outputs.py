@@ -18,6 +18,11 @@ from ..util.krita import DocumentManager, Document, Layer, Image, Bounds, get_ex
 from ..util.qt import LayoutManager, BlockSignals
 
 
+DEFAULT_CANVAS_RESIZE = "do nothing"
+DEFAULT_RESIZE_OTHER_LAYERS = False
+DEFAULT_RESIZE_ALGORITHM = "Bicubic"
+
+
 # Deletes elements from the list which the function returns True
 def delete_all(list, f):
     indexes = []
@@ -96,13 +101,25 @@ class ImageStorage(QObject):
                 "x": 0,
                 "y": 0,
                 "name": "[ERROR]",
+                "canvas_resize": DEFAULT_CANVAS_RESIZE,
+                "resize_other_layers": DEFAULT_RESIZE_OTHER_LAYERS,
+                "resize_algorithm": DEFAULT_RESIZE_ALGORITHM,
             }
 
         else:
+            metadata = self.migrate_metadata(metadata)
             image = Image.from_packed_bytes(bytes, metadata["width"], metadata["height"], swap_rgb=False)
             self.total_bytes += image.byte_size()
             self.images[uuid] = image
             self.metadata[uuid] = metadata
+
+
+    # Migrates from old image metadata to the new metadata format.
+    def migrate_metadata(self, metadata):
+        metadata["canvas_resize"] = metadata.get("canvas_resize", DEFAULT_CANVAS_RESIZE)
+        metadata["resize_other_layers"] = metadata.get("resize_other_layers", DEFAULT_RESIZE_OTHER_LAYERS)
+        metadata["resize_algorithm"] = metadata.get("resize_algorithm", DEFAULT_RESIZE_ALGORITHM)
+        return metadata
 
 
     # Migrates from the old format where groups weren't saved.
@@ -149,6 +166,9 @@ class ImageStorage(QObject):
             "name": metadata["name"],
             "applied": metadata.get("applied", False),
             "selected": metadata.get("selected", False),
+            "canvas_resize": metadata["canvas_resize"],
+            "resize_other_layers": metadata["resize_other_layers"],
+            "resize_algorithm": metadata["resize_algorithm"],
         }
 
 
@@ -190,6 +210,9 @@ class ImageStorage(QObject):
             "x": info["x"],
             "y": info["y"],
             "name": info["name"],
+            "canvas_resize": info["canvas_resize"],
+            "resize_other_layers": info["resize_other_layers"],
+            "resize_algorithm": info["resize_algorithm"],
         }
 
         assert not uuid in self.images
@@ -609,6 +632,7 @@ class ImageWidget(QListWidget):
                     image=image["image"],
                     x=image["x"],
                     y=image["y"],
+                    canvas_resize=image["canvas_resize"],
                 )
 
             else:
@@ -635,20 +659,60 @@ class ImageWidget(QListWidget):
             return images
 
 
-    def get_image_bounds(self, images):
+    def get_image_bounds(self, document, images):
         bounds = None
+        resize_layers = None
+        resize_algorithm = None
 
         for info in images:
-            x = info["x"]
-            y = info["y"]
-            image = info["image"]
+            image_bounds = None
 
-            image_bounds = Bounds(x, y, image.width, image.height)
+            match info["canvas_resize"]:
+                case "do nothing":
+                    pass
 
-            if bounds is None:
-                bounds = image_bounds
+                case "increase":
+                    image = info["image"]
+                    image_bounds = Bounds(info["x"], info["y"], image.width, image.height).union(document.bounds())
+
+                case "crop":
+                    image = info["image"]
+                    image_bounds = Bounds(info["x"], info["y"], image.width, image.height)
+
+                case value:
+                    raise ValueError(f"canvas_resize has unknown value {value}")
+
+            if image_bounds is not None:
+                if bounds is None:
+                    bounds = image_bounds
+                else:
+                    bounds = bounds.union(image_bounds)
+
+                if info["resize_other_layers"]:
+                    if resize_algorithm is None:
+                        resize_algorithm = info["resize_algorithm"]
+
+                    if resize_layers is None:
+                        resize_layers = image_bounds
+                    else:
+                        resize_layers = resize_layers.union(image_bounds)
+
+        return bounds, resize_layers, resize_algorithm
+
+
+    def resize_image_bounds(self, document, selected_images):
+        bounds, resize_layers, resize_algorithm = self.get_image_bounds(document, selected_images)
+
+        if bounds is not None:
+            if resize_layers is not None:
+                document.scale_to_bounds(bounds, resize_layers, resize_algorithm)
             else:
-                bounds = bounds.union(image_bounds)
+                document.resize_to_bounds(bounds)
+
+            self.update_position(document, bounds.x, bounds.y)
+
+        else:
+            bounds = document.bounds()
 
         return bounds
 
@@ -659,24 +723,12 @@ class ImageWidget(QListWidget):
         if document is not None:
             selected_images = self.apply_selected_images(document)
 
-            bounds = self.get_image_bounds(selected_images)
-
             document.remove_preview_layer()
 
-            if bounds is not None:
-                new_position = document.scale_to_bounds(bounds)
-
-                if new_position is not None:
-                    x = new_position[0]
-                    y = new_position[1]
-                    self.update_position(document, x, y)
-
-                    for info in selected_images:
-                        info["x"] -= x
-                        info["y"] -= y
+            bounds = self.resize_image_bounds(document, selected_images)
 
             for info in selected_images:
-                layer = Layer.fromImage(document, info["name"], info["image"], info["x"], info["y"])
+                layer = Layer.fromImage(document, info["name"], info["image"], info["x"] - bounds.x, info["y"] - bounds.y)
                 layer.move_to_top(document.root_layer())
 
                 #activeLayer = document.active_layer()
@@ -692,22 +744,14 @@ class ImageWidget(QListWidget):
 
             selected_images = self.apply_selected_images(document)
 
-            bounds = self.get_image_bounds(selected_images)
-
             document.remove_preview_layer()
 
+            bounds = self.resize_image_bounds(document, selected_images)
+
             for info in selected_images:
-                activeLayer.write_image(info["image"], info["x"], info["y"])
+                activeLayer.write_image(info["image"], info["x"] - bounds.x, info["y"] - bounds.y)
 
-            if bounds is not None:
-                new_position = document.scale_to_bounds(bounds)
-
-                if new_position is not None:
-                    self.update_position(document, new_position[0], new_position[1])
-                else:
-                    document.refresh()
-            else:
-                document.refresh()
+            document.refresh()
 
 
     def apply_new_document(self):
@@ -717,12 +761,12 @@ class ImageWidget(QListWidget):
             profile = document.color_profile()
             resolution = document.pixels_per_inch()
 
+            selected_images = self.apply_selected_images(document)
+
             # If we remove the preview layer then it causes the global selection mask to break.
             document.hide_preview_layer()
 
-            selected_images = self.apply_selected_images(document)
-
-            bounds = self.get_image_bounds(selected_images)
+            bounds, resize_layers, resize_algorithm = self.get_image_bounds(document, selected_images)
 
             new_document = Document.create(
                 bounds.width,
@@ -837,6 +881,9 @@ class ImageWidget(QListWidget):
             "x": info["x"],
             "y": info["y"],
             "name": info["name"],
+            "canvas_resize": info["canvas_resize"],
+            "resize_other_layers": info["resize_other_layers"],
+            "resize_algorithm": info["resize_algorithm"],
             "is_single": is_single,
         })
 

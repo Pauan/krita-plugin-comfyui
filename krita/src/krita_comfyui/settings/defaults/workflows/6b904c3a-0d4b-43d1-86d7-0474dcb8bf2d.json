@@ -39,6 +39,38 @@
           },
           "default": "area",
           "tooltip": "Algorithm used when resizing the image."
+        },
+
+        {
+          "type": "group",
+          "id": "resize_layers_group",
+          "label": "Resize other layers",
+          "indent": true,
+          "children": [
+            {
+              "type": "row",
+              "children": [
+                {
+                  "type": "boolean",
+                  "id": "resize_layers",
+                  "link_to": {
+                    "node_id": "krita_comfyui: KritaOutput",
+                    "input": "resize_other_layers"
+                  },
+                  "default": true
+                },
+                {
+                  "type": "combo",
+                  "id": "resize_layers_algorithm",
+                  "stretch": 1,
+                  "link_to": {
+                    "node_id": "krita_comfyui: KritaOutput",
+                    "input": "resize_algorithm"
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     }
@@ -91,38 +123,6 @@
         "title": "Krita UI Int"
       }
     },
-    "9": {
-      "inputs": {
-        "int1": [
-          "23",
-          0
-        ],
-        "int2": [
-          "8",
-          0
-        ]
-      },
-      "class_type": "Basic data handling: IntMultiply",
-      "_meta": {
-        "title": "multiply"
-      }
-    },
-    "10": {
-      "inputs": {
-        "int1": [
-          "23",
-          1
-        ],
-        "int2": [
-          "8",
-          0
-        ]
-      },
-      "class_type": "Basic data handling: IntMultiply",
-      "_meta": {
-        "title": "multiply"
-      }
-    },
     "11": {
       "inputs": {
         "image": [
@@ -146,12 +146,12 @@
           0
         ],
         "width": [
-          "9",
-          0
+          "24",
+          1
         ],
         "height": [
-          "10",
-          0
+          "25",
+          1
         ],
         "crop": "disabled",
         "image": [
@@ -194,6 +194,15 @@
         "order": 0,
         "x": 0,
         "y": 0,
+        "canvas_resize": "increase",
+        "resize_other_layers": [
+          "26",
+          0
+        ],
+        "resize_algorithm": [
+          "27",
+          0
+        ],
         "images": [
           "11",
           0
@@ -239,6 +248,58 @@
       "class_type": "GetImageSize",
       "_meta": {
         "title": "Get Image Size"
+      }
+    },
+    "24": {
+      "inputs": {
+        "expression": "a * b",
+        "values.a": [
+          "23",
+          0
+        ],
+        "values.b": [
+          "8",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "25": {
+      "inputs": {
+        "expression": "a * b",
+        "values.a": [
+          "23",
+          1
+        ],
+        "values.b": [
+          "8",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "26": {
+      "inputs": {
+        "id": "resize_layers"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "27": {
+      "inputs": {
+        "id": "resize_layers_algorithm"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
       }
     }
   }

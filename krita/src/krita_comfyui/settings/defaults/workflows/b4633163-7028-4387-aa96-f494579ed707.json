@@ -70,30 +70,35 @@
       "default": false,
       "children": [
         {
-          "type": "float",
-          "id": "multiplier",
-          "min": 0.0,
-          "default": 1.0,
-          "step": 1.0,
-          "suffix": " multiplier",
-          "tooltip": "Resolution of the filtering process, relative to the original image size."
-        },
-        {
-          "type": "combo",
-          "id": "scale_method",
-          "link_to": {
-            "node_id": "ImageScale",
-            "input": "upscale_method"
-          },
-          "default": "bicubic",
-          "tooltip": "Algorithm used when resizing the image."
-        },
-        {
           "type": "boolean",
           "id": "show_all",
           "default": false,
           "label": "Show all models",
           "tooltip": "Shows all of the models."
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "float",
+              "id": "multiplier",
+              "min": 0.0,
+              "default": 1.0,
+              "step": 1.0,
+              "suffix": " multiplier",
+              "tooltip": "Resolution of the filtering process, relative to the original image size."
+            },
+            {
+              "type": "combo",
+              "id": "scale_method",
+              "link_to": {
+                "node_id": "ImageScale",
+                "input": "upscale_method"
+              },
+              "default": "bicubic",
+              "tooltip": "Algorithm used when resizing the image."
+            }
+          ]
         }
       ]
     }
@@ -171,22 +176,6 @@
         "title": "Split Image with Alpha"
       }
     },
-    "24": {
-      "inputs": {
-        "value1": [
-          "40",
-          0
-        ],
-        "value2": [
-          "40",
-          1
-        ]
-      },
-      "class_type": "Basic data handling: MathMin",
-      "_meta": {
-        "title": "min"
-      }
-    },
     "25": {
       "inputs": {
         "preprocessor": [
@@ -194,8 +183,8 @@
           0
         ],
         "resolution": [
-          "27",
-          0
+          "41",
+          1
         ],
         "image": [
           "15",
@@ -207,18 +196,6 @@
         "title": "AIO Aux Preprocessor"
       }
     },
-    "27": {
-      "inputs": {
-        "input": [
-          "30",
-          0
-        ]
-      },
-      "class_type": "Basic data handling: CastToInt",
-      "_meta": {
-        "title": "to INT"
-      }
-    },
     "29": {
       "inputs": {
         "id": "multiplier"
@@ -226,34 +203,6 @@
       "class_type": "krita_comfyui: KritaUiFloat",
       "_meta": {
         "title": "Krita UI Float"
-      }
-    },
-    "30": {
-      "inputs": {
-        "float1": [
-          "31",
-          0
-        ],
-        "float2": [
-          "29",
-          0
-        ]
-      },
-      "class_type": "Basic data handling: FloatMultiply",
-      "_meta": {
-        "title": "multiply"
-      }
-    },
-    "31": {
-      "inputs": {
-        "input": [
-          "24",
-          0
-        ]
-      },
-      "class_type": "Basic data handling: CastToFloat",
-      "_meta": {
-        "title": "to FLOAT"
       }
     },
     "33": {
@@ -306,6 +255,9 @@
         "order": 0,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "images": [
           "11",
           0
@@ -333,6 +285,27 @@
       "class_type": "GetImageSize",
       "_meta": {
         "title": "Get Image Size"
+      }
+    },
+    "41": {
+      "inputs": {
+        "expression": "float(min(a, b)) * c",
+        "values.a": [
+          "40",
+          0
+        ],
+        "values.b": [
+          "40",
+          1
+        ],
+        "values.c": [
+          "29",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
       }
     }
   }

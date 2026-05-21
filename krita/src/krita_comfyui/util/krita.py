@@ -532,41 +532,50 @@ class Document:
                 return layer
 
 
-    def scale_to_bounds(self, new_bounds, *, algorithm="Bicubic"):
-        current_bounds = self.bounds()
+    def resize_to_bounds(self, new_bounds):
+        print("Resize")
+        print(new_bounds != self.bounds())
+        print(self.bounds())
+        print(new_bounds)
+        print("")
 
-        new_bounds = new_bounds.union(current_bounds)
-
-        if new_bounds != current_bounds:
-            # scaleImage doesn't accept an (x, y) so we have to first
-            # shift the image to the correct (x, y) and then do the scale.
-            if new_bounds.x != current_bounds.x or new_bounds.y != current_bounds.y:
-                x_axis = current_bounds.x_axis()
-                y_axis = current_bounds.y_axis()
-
-                x_axis.min = new_bounds.x
-                y_axis.min = new_bounds.y
-
-                # TODO this breaks if `new_bounds.x > current_bounds.x` or `new_bounds.y > current_bounds.y`
-                self._document.resizeImage(
-                    x_axis.min,
-                    y_axis.min,
-                    x_axis.length(),
-                    y_axis.length(),
-                )
-
-            self._document.scaleImage(
+        if new_bounds != self.bounds():
+            self._document.resizeImage(
+                new_bounds.x,
+                new_bounds.y,
                 new_bounds.width,
                 new_bounds.height,
-                # For some reason the scaleImage method accepts an int instead of a double...
-                round(self._document.xRes()),
-                round(self._document.yRes()),
-                algorithm,
             )
 
-            return (
-                new_bounds.x - current_bounds.x,
-                new_bounds.y - current_bounds.y,
+
+    def scale_to_bounds(self, new_bounds, scale_bounds, scale_algorithm):
+        current_bounds = self.bounds()
+
+        print("Scale")
+        print(new_bounds != current_bounds)
+        print(current_bounds)
+        print(new_bounds)
+        print(scale_bounds)
+        print("")
+
+        if new_bounds != current_bounds:
+            scale_bounds.check_within_bounds(new_bounds)
+
+            if scale_bounds.width != current_bounds.width or scale_bounds.height != current_bounds.height:
+                self._document.scaleImage(
+                    scale_bounds.width,
+                    scale_bounds.height,
+                    # For some reason the scaleImage method accepts an int instead of a double...
+                    round(self._document.xRes()),
+                    round(self._document.yRes()),
+                    scale_algorithm,
+                )
+
+            self._document.resizeImage(
+                new_bounds.x - scale_bounds.x,
+                new_bounds.y - scale_bounds.y,
+                new_bounds.width,
+                new_bounds.height,
             )
 
 
@@ -612,30 +621,33 @@ class Document:
             return self.bounds()
 
 
-    def _resize(self, new_bounds):
-        current_bounds = self._get_current_bounds()
-        original_bounds = self._get_original_bounds()
+    def _resize(self, new_bounds, canvas_resize):
+        if canvas_resize != "do nothing":
+            current_bounds = self._get_current_bounds()
+            original_bounds = self._get_original_bounds()
 
-        if original_bounds is None:
-            new_bounds = new_bounds.union(current_bounds)
-        else:
-            new_bounds = new_bounds.union(original_bounds)
+            if canvas_resize == "increase":
+                if original_bounds is None:
+                    new_bounds = new_bounds.union(current_bounds)
+                else:
+                    new_bounds = new_bounds.union(original_bounds)
 
-        if new_bounds != current_bounds:
-            # We want to keep the original canvas bounds.
-            # So this avoids overwriting the canvas bounds with the image preview bounds.
-            if original_bounds is None:
-                self.set_key_json("krita_comfyui/original_bounds", "krita_comfyui: Original Bounds", current_bounds.to_json())
+            if new_bounds != current_bounds:
+                # We want to keep the original canvas bounds.
+                # So this avoids overwriting the canvas bounds with the image preview bounds.
+                if original_bounds is None:
+                    self.set_key_json("krita_comfyui/original_bounds", "krita_comfyui: Original Bounds", current_bounds.to_json())
 
-            self.set_key_json("krita_comfyui/current_bounds", "krita_comfyui: Current Bounds", new_bounds.to_json())
+                # The document bounds always has an {x, y} of 0 so we have to store the actual {x, y}
+                self.set_key_json("krita_comfyui/current_bounds", "krita_comfyui: Current Bounds", new_bounds.to_json())
 
-            self._document.resizeImage(
-                new_bounds.x - current_bounds.x,
-                new_bounds.y - current_bounds.y,
-                new_bounds.width,
-                new_bounds.height,
-            )
-            return True
+                self._document.resizeImage(
+                    new_bounds.x - current_bounds.x,
+                    new_bounds.y - current_bounds.y,
+                    new_bounds.width,
+                    new_bounds.height,
+                )
+                return True
 
         return False
 
@@ -662,7 +674,7 @@ class Document:
         return changed
 
 
-    def show_preview_layer(self, name, image, x, y):
+    def show_preview_layer(self, name, image, x, y, canvas_resize):
         with HideModifications(self._document), ActiveNode(self._document):
             layer = self.find_preview_layer()
 
@@ -680,7 +692,7 @@ class Document:
             layer.is_locked = True
             layer.move_to_top(self.root_layer())
 
-            if not self._resize(Bounds(x, y, image.width, image.height)):
+            if not self._resize(Bounds(x, y, image.width, image.height), canvas_resize):
                 self.refresh()
 
 

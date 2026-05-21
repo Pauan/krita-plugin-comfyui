@@ -90,7 +90,9 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * Transferring images to / from ComfyUI is 100 times faster.
 
-* When sending images to Krita that are larger than the Krita canvas size, this is handled correctly and automatically.
+* The `Krita Output` node has more options for resizing the canvas and other layers.
+
+   This is particularly useful when the image is larger than the Krita canvas size (e.g. when upscaling).
 
 * Sending text to Krita is nicer, and it auto-sorts based on the name.
 
