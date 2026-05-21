@@ -644,40 +644,6 @@ class ComfyUIClient(QObject):
             self.on_prompt_error(data["prompt_id"], data)
 
 
-    def all_danbooru_aliases(self, tag):
-        for alias in tag.get("consequent_aliases", []):
-            alias_name = alias["antecedent_name"]
-
-            yield alias_name
-
-            sub_tag = self.pending_danbooru_tags[alias_name]
-
-            yield from self.all_danbooru_aliases(sub_tag)
-
-
-    def save_danbooru_tags(self):
-        try:
-            danbooru_tags = {}
-
-            for name, tag in self.pending_danbooru_tags.items():
-                if not name in danbooru_tags:
-                    danbooru_tags[name] = {
-                        "post_count": tag["post_count"],
-                        "category": tag["category"],
-                    }
-
-                    for alias in self.all_danbooru_aliases(tag):
-                        danbooru_tags[alias] = {
-                            "alias_for": name,
-                        }
-
-            self.settings.save_danbooru_tags(danbooru_tags)
-
-        finally:
-            self.last_danbooru_id = None
-            self.pending_danbooru_tags = None
-
-
     def on_http_finished(self, reply):
         error = None
         status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
@@ -729,17 +695,7 @@ class ComfyUIClient(QObject):
             case "danbooru_tags":
                 if error is None:
                     tags = json.loads(reply.readAll().data().decode("utf-8"))
-
-                    if len(tags) == 0:
-                        self.save_danbooru_tags()
-
-                    else:
-                        for tag in tags:
-                            self.last_danbooru_id = tag["id"]
-                            self.pending_danbooru_tags[tag["name"]] = tag
-
-                        self.update_danbooru_tags()
-
+                    self.process_danbooru_tags_chunk(tags)
                 else:
                     self.last_danbooru_id = None
                     self.pending_danbooru_tags = None
@@ -825,6 +781,53 @@ class ComfyUIClient(QObject):
                     "type": "object_info",
                 },
             ))
+
+
+    def all_danbooru_aliases(self, tag):
+        for alias in tag.get("consequent_aliases", []):
+            alias_name = alias["antecedent_name"]
+
+            yield alias_name
+
+            sub_tag = self.pending_danbooru_tags.get(alias_name, None)
+
+            if sub_tag is not None:
+                yield from self.all_danbooru_aliases(sub_tag)
+
+
+    def save_danbooru_tags(self):
+        try:
+            danbooru_tags = {}
+
+            for name, tag in self.pending_danbooru_tags.items():
+                if not name in danbooru_tags:
+                    danbooru_tags[name] = {
+                        "post_count": tag["post_count"],
+                        "category": tag["category"],
+                    }
+
+                    for alias in self.all_danbooru_aliases(tag):
+                        danbooru_tags[alias] = {
+                            "alias_for": name,
+                        }
+
+            self.settings.save_danbooru_tags(danbooru_tags)
+
+        finally:
+            self.last_danbooru_id = None
+            self.pending_danbooru_tags = None
+
+
+    def process_danbooru_tags_chunk(self, tags):
+        if len(tags) == 0:
+            self.save_danbooru_tags()
+
+        else:
+            for tag in tags:
+                self.last_danbooru_id = tag["id"]
+                self.pending_danbooru_tags[tag["name"]] = tag
+
+            self.update_danbooru_tags()
 
 
     def update_danbooru_tags(self):
