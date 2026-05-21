@@ -23,7 +23,7 @@ class ComfyError:
             if details == "":
                 self.main_error = message
             else:
-                self.main_error = f"{message} ({details})"
+                self.main_error = f"{message}\n{details}"
 
         node_errors = info.get("node_errors", None)
 
@@ -50,6 +50,9 @@ class ComfyError:
 
         if self.main_error is not None:
             output.append(self.main_error)
+
+        if len(output) > 0 and len(self.node_errors) > 0:
+            output.append("")
 
         for error in self.node_errors:
             if self.main_error is None:
@@ -173,7 +176,8 @@ class GraphState(Enum):
 
 
 class GraphInfo:
-    def __init__(self, graph_id, progress, state, error, outputs):
+    def __init__(self, document_id, graph_id, progress, state, error, outputs):
+        self.document_id = document_id
         self.graph_id = graph_id
         self.progress = progress
         self.state = state
@@ -261,7 +265,8 @@ class PromptProgress:
 
 
 class Prompt:
-    def __init__(self, client_id, graph_id, graph):
+    def __init__(self, document_id, client_id, graph_id, graph):
+        self.document_id = document_id
         self.client_id = client_id
         self.graph_id = graph_id
         self.graph = graph
@@ -300,13 +305,13 @@ class Prompt:
         else:
             progress = self.progress.percent()
 
-        return GraphInfo(self.graph_id, progress, self.state, self.error, self.outputs.copy())
+        return GraphInfo(self.document_id, self.graph_id, progress, self.state, self.error, self.outputs.copy())
 
 
     # Returns a fresh Prompt with the same graph.
     # This is needed for retrying the Prompt in the case of a disconnection.
     def copy(self):
-        return Prompt(self.client_id, self.graph_id, self.graph)
+        return Prompt(self.document_id, self.client_id, self.graph_id, self.graph)
 
 
 class ConnectState(Enum):
@@ -615,13 +620,12 @@ class ComfyUIClient(QObject):
 
         match reply.request().attribute(QNetworkRequest.Attribute.User):
             case "prompt":
-                if error is None:
-                    info = json.loads(reply.readAll().data().decode("utf-8"))
-                    comfy_error = ComfyError(info)
+                info = json.loads(reply.readAll().data().decode("utf-8"))
+                comfy_error = ComfyError(info)
 
-                    if comfy_error.has_errors():
-                        self.settings.log_json(info, label="ComfyUI Error", level=LogLevel.ERROR)
-                        error = GraphError.from_comfyui_error(comfy_error)
+                if comfy_error.has_errors():
+                    self.settings.log_json(info, label="ComfyUI Error", level=LogLevel.ERROR)
+                    error = GraphError.from_comfyui_error(comfy_error)
 
                 if error is not None:
                     prompt_id = reply.request().attribute(QNetworkRequest.Attribute(QNetworkRequest.Attribute.User.value + 1))
@@ -724,14 +728,14 @@ class ComfyUIClient(QObject):
             self.http.get(request)
 
 
-    def execute_graph(self, graph):
+    def execute_graph(self, graph, *, document_id):
         self.settings.log_json(graph.debug(), label="Execute Graph", level=LogLevel.DEBUG)
 
         graph_id = str(self.graph_id)
 
         self.graph_id += 1
 
-        prompt = Prompt(self.client_id, graph_id, graph)
+        prompt = Prompt(document_id, self.client_id, graph_id, graph)
 
         self.queue.append(prompt)
 

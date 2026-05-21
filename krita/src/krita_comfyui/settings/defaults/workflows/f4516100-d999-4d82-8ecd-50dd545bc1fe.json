@@ -1561,6 +1561,9 @@
           "138",
           1
         ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "images": [
           "274",
           0
@@ -1581,6 +1584,9 @@
         "order": 3,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "text": [
           "289",
           0
@@ -1601,6 +1607,9 @@
         "order": 2,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "text": [
           "88",
           0
@@ -1621,6 +1630,9 @@
         "order": 5,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "text": [
           "314",
           3
@@ -1653,6 +1665,9 @@
         "order": 4,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "text": [
           "289",
           1
@@ -1679,6 +1694,9 @@
           "138",
           1
         ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "images": [
           "338",
           0
@@ -1712,6 +1730,9 @@
           "138",
           1
         ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "masks": [
           "337",
           1
@@ -1746,6 +1767,9 @@
         "order": 6,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "text": [
           "322",
           0
@@ -1783,6 +1807,9 @@
         "order": 7,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "text": [
           "324",
           0
@@ -1820,6 +1847,9 @@
         "order": 0,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "text": [
           "298",
           0
@@ -1846,6 +1876,9 @@
           "138",
           1
         ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "images": [
           "282",
           0
@@ -1872,6 +1905,9 @@
           "138",
           1
         ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "masks": [
           "89",
           0
@@ -1892,6 +1928,9 @@
         "order": 1,
         "x": 0,
         "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
         "text": [
           "216",
           0

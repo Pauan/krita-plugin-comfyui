@@ -35,12 +35,157 @@ def delete_all(list, f):
         del list[index]
 
 
+# Class for retrieving and storing images in a document.
+class ImageSerializer:
+    UUIDS_KEY = "krita_comfyui/image_uuids"
+    IMAGE_METADATA_KEY = "krita_comfyui/image_metadata/"
+    IMAGE_BYTES_KEY = "krita_comfyui/image_bytes/"
+
+
+    # Verifies that there aren't any dangling leftover images in the document.
+    def verify_storage_integrity(self, document, uuids):
+        seen_uuid = set()
+
+        for group in uuids:
+            for batch in group:
+                for uuid in batch:
+                    seen_uuid.add(uuid)
+
+        seen_metadata = set()
+        seen_bytes = set()
+
+        for key in document.all_keys():
+            uuid = key.removeprefix(self.IMAGE_METADATA_KEY)
+            if uuid != key:
+                assert uuid in seen_uuid
+                seen_metadata.add(uuid)
+
+            uuid = key.removeprefix(self.IMAGE_BYTES_KEY)
+            if uuid != key:
+                assert uuid in seen_uuid
+                seen_bytes.add(uuid)
+
+        for uuid in seen_uuid:
+            assert uuid in seen_metadata
+            assert uuid in seen_bytes
+
+
+    # Migrates from old image metadata to the new metadata format.
+    def migrate_metadata(self, metadata):
+        metadata["canvas_resize"] = metadata.get("canvas_resize", DEFAULT_CANVAS_RESIZE)
+        metadata["resize_other_layers"] = metadata.get("resize_other_layers", DEFAULT_RESIZE_OTHER_LAYERS)
+        metadata["resize_algorithm"] = metadata.get("resize_algorithm", DEFAULT_RESIZE_ALGORITHM)
+        return metadata
+
+
+    def load_image_metadata(self, document, uuid):
+        metadata = document.get_key_json(f"{self.IMAGE_METADATA_KEY}{uuid}", None)
+
+        if metadata is not None:
+            metadata = self.migrate_metadata(metadata)
+
+        return metadata
+
+
+    def load_image_bytes(self, document, uuid):
+        return document.get_key_bytes(f"{self.IMAGE_BYTES_KEY}{uuid}", None)
+
+
+    def set_image_bytes(self, document, uuid, bytes):
+        document.set_key_bytes(f"{self.IMAGE_BYTES_KEY}{uuid}", "krita_comfyui: Image Bytes", bytes)
+
+    def set_image_metadata(self, document, uuid, metadata):
+        document.set_key_json(f"{self.IMAGE_METADATA_KEY}{uuid}", "krita_comfyui: Image Metadata", metadata)
+
+
+    def save_new_image(self, document, info):
+        uuid = str(uuid4())
+
+        image = Image.from_base64(info["bytes"], info["width"], info["height"])
+        bytes = image.bytes()
+
+        metadata = {
+            "format": "rgba",
+            "width": info["width"],
+            "height": info["height"],
+            "x": info["x"],
+            "y": info["y"],
+            "name": info["name"],
+            "canvas_resize": info["canvas_resize"],
+            "resize_other_layers": info["resize_other_layers"],
+            "resize_algorithm": info["resize_algorithm"],
+        }
+
+        try:
+            self.set_image_bytes(document, uuid, bytes)
+            self.set_image_metadata(document, uuid, metadata)
+        # If something goes wrong, make absolutely sure that we clean up
+        except:
+            self.remove_image(document, uuid)
+            raise
+
+        return uuid, image, metadata
+
+
+    def save_new_group(self, document, group):
+        assert len(group) > 0
+
+        uuids = self.get_uuids(document)
+
+        group = [[self.save_new_image(document, info)[0] for info in batch] for batch in group]
+
+        uuids.append(group)
+        self.set_uuids(document, uuids)
+
+
+    def remove_image(self, document, uuid):
+        try:
+            document.remove_key(f"{self.IMAGE_BYTES_KEY}{uuid}")
+        finally:
+            document.remove_key(f"{self.IMAGE_METADATA_KEY}{uuid}")
+
+
+    # Migrates from the old format where groups weren't saved.
+    def migrate_uuids(self, uuids):
+        output = []
+
+        for group in uuids:
+            # It's an old style batch, so we wrap it into a group.
+            if len(group) > 0 and isinstance(group[0], str):
+                output.append([group])
+            else:
+                output.append(group)
+
+        return output
+
+
+    def get_uuids(self, document):
+        uuids = self.migrate_uuids(document.get_key_json(self.UUIDS_KEY, []))
+        self.verify_storage_integrity(document, uuids)
+        return uuids
+
+
+    def set_uuids(self, document, uuids):
+        if len(uuids) == 0:
+            document.remove_key(self.UUIDS_KEY)
+        else:
+            document.set_key_json(self.UUIDS_KEY, "krita_comfyui: Image UUIDs", uuids)
+
+        self.verify_storage_integrity(document, uuids)
+
+
+    def clear_uuids(self, document):
+        document.remove_key(self.UUIDS_KEY)
+        self.verify_storage_integrity(document, [])
+
+
 class ImageStorage(QObject):
     total_bytes_changed = pyqtSignal()
 
     def __init__(self, parent, thumbnail_size):
         super().__init__(parent)
 
+        self.serializer = ImageSerializer()
         self.thumbnail_size = thumbnail_size
         self.images = {}
         self.metadata = {}
@@ -54,38 +199,12 @@ class ImageStorage(QObject):
                 yield from batch
 
 
-    # Verifies that there aren't any dangling leftover images in the document.
-    def verify_storage_integrity(self, document):
-        seen_uuid = set()
-
-        for uuid in self.all_uuids():
-            seen_uuid.add(uuid)
-
-        for key in document.all_keys():
-            uuid = key.removeprefix("krita_comfyui/image_metadata/")
-            if uuid != key:
-                assert uuid in seen_uuid
-
-            uuid = key.removeprefix("krita_comfyui/image_bytes/")
-            if uuid != key:
-                assert uuid in seen_uuid
-
-
-    def save_uuids(self, document):
-        if len(self.uuids) == 0:
-            document.remove_key("krita_comfyui/image_uuids")
-        else:
-            document.set_key_json("krita_comfyui/image_uuids", "krita_comfyui: Image UUIDs", self.uuids)
-
-        self.verify_storage_integrity(document)
-
-
     def load_uuid(self, document, uuid):
         assert not uuid in self.images
         assert not uuid in self.metadata
 
-        metadata = document.get_key_json(f"krita_comfyui/image_metadata/{uuid}", None)
-        bytes = document.get_key_bytes(f"krita_comfyui/image_bytes/{uuid}", None)
+        metadata = self.serializer.load_image_metadata(document, uuid)
+        bytes = self.serializer.load_image_bytes(document, uuid)
 
         if metadata is None or bytes is None:
             self.images[uuid] = Image.from_qicon(
@@ -107,33 +226,10 @@ class ImageStorage(QObject):
             }
 
         else:
-            metadata = self.migrate_metadata(metadata)
             image = Image.from_packed_bytes(bytes, metadata["width"], metadata["height"], swap_rgb=False)
             self.total_bytes += image.byte_size()
             self.images[uuid] = image
             self.metadata[uuid] = metadata
-
-
-    # Migrates from old image metadata to the new metadata format.
-    def migrate_metadata(self, metadata):
-        metadata["canvas_resize"] = metadata.get("canvas_resize", DEFAULT_CANVAS_RESIZE)
-        metadata["resize_other_layers"] = metadata.get("resize_other_layers", DEFAULT_RESIZE_OTHER_LAYERS)
-        metadata["resize_algorithm"] = metadata.get("resize_algorithm", DEFAULT_RESIZE_ALGORITHM)
-        return metadata
-
-
-    # Migrates from the old format where groups weren't saved.
-    def migrate_uuids(self, uuids):
-        output = []
-
-        for group in uuids:
-            # It's an old style batch, so we wrap it into a group.
-            if len(group) > 0 and isinstance(group[0], str):
-                output.append([group])
-            else:
-                output.append(group)
-
-        return output
 
 
     def load_all(self, document):
@@ -143,12 +239,10 @@ class ImageStorage(QObject):
         self.total_bytes = 0
 
         if document is not None:
-            self.uuids = self.migrate_uuids(document.get_key_json("krita_comfyui/image_uuids", []))
+            self.uuids = self.serializer.get_uuids(document)
 
             for uuid in self.all_uuids():
                 self.load_uuid(document, uuid)
-
-            self.verify_storage_integrity(document)
 
         self.total_bytes_changed.emit()
 
@@ -172,7 +266,7 @@ class ImageStorage(QObject):
         }
 
 
-    def delete_uuid(self, document, uuid):
+    def remove_uuid(self, document, uuid):
         try:
             image = self.images[uuid]
             self.total_bytes -= image.byte_size()
@@ -189,52 +283,21 @@ class ImageStorage(QObject):
         except KeyError:
             pass
 
-        try:
-            document.remove_key(f"krita_comfyui/image_bytes/{uuid}")
-        finally:
-            document.remove_key(f"krita_comfyui/image_metadata/{uuid}")
+        self.serializer.remove_image(document, uuid)
 
 
     def save(self, document, info):
-        uuid = str(uuid4())
-
-        image = Image.from_base64(info["bytes"], info["width"], info["height"])
-        bytes = image.bytes()
-
-        self.total_bytes += image.byte_size()
-
-        metadata = {
-            "format": "rgba",
-            "width": info["width"],
-            "height": info["height"],
-            "x": info["x"],
-            "y": info["y"],
-            "name": info["name"],
-            "canvas_resize": info["canvas_resize"],
-            "resize_other_layers": info["resize_other_layers"],
-            "resize_algorithm": info["resize_algorithm"],
-        }
+        uuid, image, metadata = self.serializer.save_new_image(document, info)
 
         assert not uuid in self.images
         assert not uuid in self.metadata
 
-        try:
-            self.images[uuid] = image
-            self.metadata[uuid] = metadata
+        self.total_bytes += image.byte_size()
 
-            document.set_key_bytes(f"krita_comfyui/image_bytes/{uuid}", "krita_comfyui: Image Bytes", bytes)
-            document.set_key_json(f"krita_comfyui/image_metadata/{uuid}", "krita_comfyui: Image Metadata", metadata)
-
-        # If something goes wrong, make absolutely sure that we clean up
-        except:
-            self.delete_uuid(document, uuid)
-            raise
+        self.images[uuid] = image
+        self.metadata[uuid] = metadata
 
         return uuid
-
-
-    def set_metadata(self, document, uuid, metadata):
-        document.set_key_json(f"krita_comfyui/image_metadata/{uuid}", "krita_comfyui: Image Metadata", metadata)
 
 
     def set_metadata_boolean(self, document, uuid, key: str, value: bool):
@@ -252,7 +315,7 @@ class ImageStorage(QObject):
                 except KeyError:
                     pass
 
-            self.set_metadata(document, uuid, metadata)
+            self.serializer.set_image_metadata(document, uuid, metadata)
 
 
     def set_applied(self, document, uuid, applied):
@@ -268,43 +331,41 @@ class ImageStorage(QObject):
         metadata = self.metadata[uuid]
         metadata["x"] -= x
         metadata["y"] -= y
-        self.set_metadata(document, uuid, metadata)
+        self.serializer.set_image_metadata(document, uuid, metadata)
 
         return (metadata["x"], metadata["y"])
 
 
     def save_group(self, document, group):
+        assert len(group) > 0
+
         group = [[self.save(document, info) for info in batch] for batch in group]
 
         self.total_bytes_changed.emit()
 
-        assert len(group) > 0
-
         self.uuids.append(group)
-        self.save_uuids(document)
+        self.serializer.set_uuids(document, self.uuids)
 
         return [[self.lookup_uuid(uuid) for uuid in batch] for batch in group]
 
 
     def clear(self, document):
         for uuid in self.all_uuids():
-            self.delete_uuid(document, uuid)
+            self.remove_uuid(document, uuid)
 
-        document.remove_key("krita_comfyui/image_uuids")
+        self.serializer.clear_uuids(document)
 
         self.images = {}
         self.metadata = {}
         self.uuids = []
         self.total_bytes = 0
 
-        self.verify_storage_integrity(document)
-
         self.total_bytes_changed.emit()
 
 
     def remove(self, document, uuids):
         for uuid in uuids:
-            self.delete_uuid(document, uuid)
+            self.remove_uuid(document, uuid)
 
         self.total_bytes_changed.emit()
 
@@ -318,7 +379,7 @@ class ImageStorage(QObject):
 
         delete_all(self.uuids, remove_group)
 
-        self.save_uuids(document)
+        self.serializer.set_uuids(document, self.uuids)
 
 
 class TextWidget(QWidget):
@@ -419,19 +480,18 @@ class TextWidget(QWidget):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            self.set_text([])
+            self.set_text(self.document.current(), [])
 
 
-    def set_text(self, texts):
-        document = self.document.current()
-
+    def set_text(self, document, texts):
         if document is not None:
             if len(texts) == 0:
                 document.remove_key("krita_comfyui/output_texts")
             else:
                 document.set_key_json("krita_comfyui/output_texts", "krita_comfyui: Output Texts", texts)
 
-        self.display_text(texts)
+        if self.document.is_equal(document):
+            self.display_text(texts)
 
 
 class ImageWidget(QListWidget):
@@ -652,10 +712,7 @@ class ImageWidget(QListWidget):
                 item.setIcon(self.thumbnail(image["image"], True))
                 images.append(image)
 
-            document = self.document.current()
-            if document is not None:
-                self.update_selected_state(document)
-
+            self.update_selected_state(document)
             return images
 
 
@@ -928,11 +985,12 @@ class ImageWidget(QListWidget):
             #self.scrollToBottom()
 
 
-    def new_images(self, group):
+    def new_images(self, document, group):
         if len(group) > 0:
-            document = self.document.current()
-            if document is not None:
+            if self.document.is_equal(document):
                 self.add_images(self.storage.save_group(document, group), allow_selection=False)
+            else:
+                self.storage.serializer.save_new_group(document, group)
 
 
     def show_context_menu(self, pos: QPoint):
@@ -1032,17 +1090,13 @@ class ComfyUIOutputWidget(DockWidget):
                 if "krita_comfyui_text" in output:
                     texts.extend(output["krita_comfyui_text"])
 
-            # The image group is sorted by the order.
-            self.add_images([batch for order, batch in sorted(images.items(), key=lambda x: x[0])])
-
             # Sort text by order and name
             texts.sort(key=lambda x: (x["order"], x["name"].casefold()))
 
-            self.set_text(texts)
+            # The image group is sorted by the order.
+            images = [batch for order, batch in sorted(images.items(), key=lambda x: x[0])]
 
-
-    def set_text(self, texts):
-        self._widget.text.set_text(texts)
-
-    def add_images(self, group):
-        self._widget.image.new_images(group)
+            for document in Document.all():
+                if document.root_layer().id == info.document_id:
+                    self._widget.image.new_images(document, images)
+                    self._widget.text.set_text(document, texts)

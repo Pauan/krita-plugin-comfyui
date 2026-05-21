@@ -261,9 +261,13 @@ class Workflow(Storage):
 
         self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)
 
-        return WorkflowGraph(
+        graph = WorkflowGraph(
             document=self.document,
             json=self.graph,
             seed=seed,
             ui_values=ui_values,
         ).evaluate()
+
+        document_id = self.document.root_layer().id
+
+        return (graph, document_id)

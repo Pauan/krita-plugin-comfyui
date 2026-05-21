@@ -397,8 +397,8 @@ class WorkflowWidget(QWidget):
                     ui_values[input.id].append(info)
 
         with self.catch_errors():
-            graph = self.workflow.to_graph(ui_values)
-            self.extension.client.execute_graph(graph)
+            graph, document_id = self.workflow.to_graph(ui_values)
+            self.extension.client.execute_graph(graph, document_id=document_id)
 
 
     def open_settings(self):

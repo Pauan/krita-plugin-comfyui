@@ -383,6 +383,11 @@ class Document:
 
 
     @staticmethod
+    def all():
+        return tuple(Document(document) for document in Krita.documents())
+
+
+    @staticmethod
     def create(width, height, name, color_model, color_depth, color_profile, pixels_per_inch):
         instance = Krita.instance()
 
