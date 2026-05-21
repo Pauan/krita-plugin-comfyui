@@ -622,32 +622,37 @@ class Document:
 
 
     def _resize(self, new_bounds, canvas_resize):
-        if canvas_resize != "do nothing":
-            current_bounds = self._get_current_bounds()
-            original_bounds = self._get_original_bounds()
+        current_bounds = self._get_current_bounds()
+        original_bounds = self._get_original_bounds()
 
-            if canvas_resize == "increase":
-                if original_bounds is None:
-                    new_bounds = new_bounds.union(current_bounds)
-                else:
-                    new_bounds = new_bounds.union(original_bounds)
+        if canvas_resize == "do nothing":
+            if original_bounds is None:
+                new_bounds = current_bounds
+            else:
+                new_bounds = original_bounds
 
-            if new_bounds != current_bounds:
-                # We want to keep the original canvas bounds.
-                # So this avoids overwriting the canvas bounds with the image preview bounds.
-                if original_bounds is None:
-                    self.set_key_json("krita_comfyui/original_bounds", "krita_comfyui: Original Bounds", current_bounds.to_json())
+        elif canvas_resize == "increase":
+            if original_bounds is None:
+                new_bounds = new_bounds.union(current_bounds)
+            else:
+                new_bounds = new_bounds.union(original_bounds)
 
-                # The document bounds always has an {x, y} of 0 so we have to store the actual {x, y}
-                self.set_key_json("krita_comfyui/current_bounds", "krita_comfyui: Current Bounds", new_bounds.to_json())
+        if new_bounds != current_bounds:
+            # We want to keep the original canvas bounds.
+            # So this avoids overwriting the canvas bounds with the image preview bounds.
+            if original_bounds is None:
+                self.set_key_json("krita_comfyui/original_bounds", "krita_comfyui: Original Bounds", current_bounds.to_json())
 
-                self._document.resizeImage(
-                    new_bounds.x - current_bounds.x,
-                    new_bounds.y - current_bounds.y,
-                    new_bounds.width,
-                    new_bounds.height,
-                )
-                return True
+            # The document bounds always has an {x, y} of 0 so we have to store the actual {x, y}
+            self.set_key_json("krita_comfyui/current_bounds", "krita_comfyui: Current Bounds", new_bounds.to_json())
+
+            self._document.resizeImage(
+                new_bounds.x - current_bounds.x,
+                new_bounds.y - current_bounds.y,
+                new_bounds.width,
+                new_bounds.height,
+            )
+            return True
 
         return False
 
@@ -972,6 +977,11 @@ class Layer:
     def is_locked(self, value):
         if self.is_locked != value:
             self._node.setLocked(value)
+
+
+    def merge_down(self):
+        self._node.mergeDown()
+        self._node = None
 
 
     def write_image(self, image, x, y):

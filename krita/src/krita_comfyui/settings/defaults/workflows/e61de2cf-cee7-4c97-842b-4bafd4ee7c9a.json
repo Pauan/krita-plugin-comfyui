@@ -33,20 +33,21 @@
         "title": "Krita Output"
       }
     },
-    "2": {
-      "inputs": {},
-      "class_type": "krita_comfyui: KritaCanvas",
-      "_meta": {
-        "title": "Krita Canvas"
-      }
-    },
     "3": {
       "inputs": {
-        "resize_type": "scale by multiplier",
-        "resize_type.multiplier": 2,
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "32",
+          1
+        ],
+        "resize_type.height": [
+          "33",
+          1
+        ],
+        "resize_type.crop": "center",
         "scale_method": "bicubic",
         "input": [
-          "2",
+          "30",
           0
         ]
       },
@@ -55,24 +56,12 @@
         "title": "Resize Image/Mask"
       }
     },
-    "4": {
-      "inputs": {
-        "image": [
-          "2",
-          0
-        ]
-      },
-      "class_type": "GetImageSize",
-      "_meta": {
-        "title": "Get Image Size"
-      }
-    },
     "5": {
       "inputs": {
-        "expression": "-(a // 2)",
+        "expression": "-(a // 4)",
         "values.a": [
-          "4",
-          0
+          "31",
+          2
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -82,10 +71,10 @@
     },
     "6": {
       "inputs": {
-        "expression": "-(a // 2)",
+        "expression": "-(a // 4)",
         "values.a": [
-          "4",
-          1
+          "31",
+          3
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -114,11 +103,19 @@
     },
     "8": {
       "inputs": {
-        "resize_type": "scale by multiplier",
-        "resize_type.multiplier": 0.5,
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "34",
+          1
+        ],
+        "resize_type.height": [
+          "35",
+          1
+        ],
+        "resize_type.crop": "center",
         "scale_method": "bicubic",
         "input": [
-          "2",
+          "30",
           0
         ]
       },
@@ -154,10 +151,10 @@
     },
     "14": {
       "inputs": {
-        "expression": "(a // 2)",
+        "expression": "a - (a // 4)",
         "values.a": [
-          "4",
-          0
+          "31",
+          2
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -167,10 +164,10 @@
     },
     "15": {
       "inputs": {
-        "expression": "(a // 2)",
+        "expression": "a - (a // 4)",
         "values.a": [
-          "4",
-          1
+          "31",
+          3
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -202,14 +199,14 @@
         "name": "Smaller",
         "order": 1,
         "x": [
-          "14",
+          "5",
           1
         ],
         "y": [
-          "15",
+          "6",
           1
         ],
-        "canvas_resize": "increase",
+        "canvas_resize": "crop",
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "images": [
@@ -239,6 +236,90 @@
       "class_type": "krita_comfyui: KritaOutput",
       "_meta": {
         "title": "Krita Output"
+      }
+    },
+    "28": {
+      "inputs": {
+        "image": "alpha test.png"
+      },
+      "class_type": "LoadImage",
+      "_meta": {
+        "title": "Load Image"
+      }
+    },
+    "30": {
+      "inputs": {
+        "image": [
+          "28",
+          0
+        ],
+        "alpha": [
+          "28",
+          1
+        ]
+      },
+      "class_type": "JoinImageWithAlpha",
+      "_meta": {
+        "title": "Join Image with Alpha"
+      }
+    },
+    "31": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvas",
+      "_meta": {
+        "title": "Krita Canvas"
+      }
+    },
+    "32": {
+      "inputs": {
+        "expression": "a * 2",
+        "values.a": [
+          "31",
+          2
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "33": {
+      "inputs": {
+        "expression": "a * 2",
+        "values.a": [
+          "31",
+          3
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "34": {
+      "inputs": {
+        "expression": "a // 2",
+        "values.a": [
+          "31",
+          2
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "35": {
+      "inputs": {
+        "expression": "a // 2",
+        "values.a": [
+          "31",
+          3
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
       }
     }
   }

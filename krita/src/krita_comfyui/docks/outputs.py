@@ -740,7 +740,8 @@ class ImageWidget(QListWidget):
         document = self.document.current()
 
         if document is not None:
-            activeLayer = document.active_layer()
+            active_layer = document.active_layer()
+            parent = active_layer.parent
 
             selected_images = self.apply_selected_images(document)
 
@@ -749,9 +750,11 @@ class ImageWidget(QListWidget):
             bounds = self.resize_image_bounds(document, selected_images)
 
             for info in selected_images:
-                activeLayer.write_image(info["image"], info["x"] - bounds.x, info["y"] - bounds.y)
-
-            document.refresh()
+                # The write_image method does not blend with the existing layer, it completely overwrites the pixels.
+                # So in order to blend properly, we create a new layer and then merge it with the active layer.
+                layer = Layer.fromImage(document, info["name"], info["image"], info["x"] - bounds.x, info["y"] - bounds.y)
+                parent.insert_child(layer, active_layer)
+                layer.merge_down()
 
 
     def apply_new_document(self):
@@ -916,8 +919,8 @@ class ImageWidget(QListWidget):
                     if self.count() > 0:
                         self.add_spacer(spacer_height)
 
-                        # In between each batch we add a small spacer.
-                        spacer_height = 0
+                    # In between each batch we add a small spacer.
+                    spacer_height = 0
 
                 for info in batch:
                     self.add_image(info, size=size, is_single=is_single, allow_selection=allow_selection)
