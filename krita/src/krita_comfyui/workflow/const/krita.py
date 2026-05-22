@@ -2,7 +2,6 @@
 import json
 from . import WorkflowError, Link, is_link, zip_inputs, check_booleans
 from ...util.krita import Bounds
-from ..prompt import Lora
 
 
 def crop_to_bounds(node_id, name, values):
@@ -49,6 +48,19 @@ class KritaUi:
 
             for link, key in zip(links, self.outputs):
                 link.values.extend(value[key] for value in values)
+
+        return links
+
+
+class KritaUiPrompt(KritaUi):
+    def __init__(self):
+        super().__init__("prompt", ["positive", "negative", "loras", "is_default"])
+
+    def get_outputs(self, workflow, node_id, node):
+        links = super().get_outputs(workflow, node_id, node)
+
+        # Flattens the loras into a single flat list
+        links[2].values = [lora for value in links[2].values for lora in value]
 
         return links
 
@@ -105,10 +117,13 @@ class KritaDebug:
         else:
             outputs = {}
 
-            text = workflow.evaluate_link(inputs["text"])
+            text = inputs.get("text", None)
 
-            # We need to do this so that way it's possible to debug loras from a Krita Ui Prompt.
-            text.values = [self.serialize_any(x) for x in text.values]
+            if text is not None:
+                text = workflow.evaluate_link(text)
+
+                # We need to do this so that way it's possible to debug loras from a Krita Ui Prompt.
+                text.values = [self.serialize_any(x) for x in text.values]
 
             for key, value in inputs.items():
                 if key == "enabled":
@@ -245,23 +260,27 @@ class ApplyLoras:
             seen_loras = set()
 
             for lora in loras.values:
-                if not isinstance(lora, Lora):
+                if not isinstance(lora, dict):
                     raise WorkflowError(f"[#{node_id} Apply Loras]\nloras must be constant")
 
-                if lora.path in seen_loras:
-                    raise WorkflowError(f"Duplicate lora: {lora.path}")
+                path = lora["path"]
+                model_weight = lora["model_weight"]
+                clip_weight = lora["clip_weight"]
 
-                seen_loras.add(lora.path)
+                if path in seen_loras:
+                    raise WorkflowError(f"Duplicate lora: {path}")
 
-                assert lora.model_weight != 0.0 or lora.clip_weight != 0.0
+                seen_loras.add(path)
+
+                assert model_weight != 0.0 or clip_weight != 0.0
 
                 load_lora = workflow.graph.node(
                     "LoraLoader",
                     model=model,
                     clip=clip,
-                    lora_name=lora.path,
-                    strength_model=lora.model_weight,
-                    strength_clip=lora.clip_weight,
+                    lora_name=path,
+                    strength_model=model_weight,
+                    strength_clip=clip_weight,
                 )
 
                 model = load_lora.out(0)
@@ -283,7 +302,7 @@ CONST_NODES = {
     "krita_comfyui: KritaUiInt": KritaUi("int", ["value", "is_default"]),
     "krita_comfyui: KritaUiLayerId": KritaUi("layer_id", ["value", "layer_name", "is_default"]),
     "krita_comfyui: KritaUiString": KritaUi("string", ["value", "is_default"]),
-    "krita_comfyui: KritaUiPrompt": KritaUi("prompt", ["positive", "negative", "loras", "is_default"]),
+    "krita_comfyui: KritaUiPrompt": KritaUiPrompt(),
 
     "krita_comfyui: KritaCanvas": KritaCanvas(),
     "krita_comfyui: KritaLayers": KritaLayers(),

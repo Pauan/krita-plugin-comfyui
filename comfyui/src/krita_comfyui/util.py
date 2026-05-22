@@ -102,24 +102,13 @@ def graph_list(graph, items):
 
 
 def serialize_any(text):
-    output = ""
-
     if isinstance(text, str):
-        output = text
-
-    elif isinstance(text, (int, float, bool)):
-        output = str(text)
-
-    elif text is not None:
+        return text
+    else:
         try:
-            output = json.dumps(text, indent=2)
-        except:
-            try:
-                output = str(text)
-            except:
-                output = "Text could not be serialized."
-
-    return output
+            return json.dumps(text, indent=2)
+        except Exception:
+            return str(text)
 
 
 # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1741-L1750

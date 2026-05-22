@@ -135,6 +135,16 @@ class DictBase:
             return item
 
 
+    def get(self, id, *, default=None):
+        metadata = self.root._metadata(id, default)
+        id = metadata.get_id()
+
+        try:
+            return self.serialized[id]
+        except KeyError:
+            return metadata.get_default()
+
+
     def keys(self):
         return self.serialized.keys()
 

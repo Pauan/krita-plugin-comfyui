@@ -56,21 +56,6 @@ class Prompt:
             return f"({prompt}:{self.weight})"
 
 
-class Lora:
-    def __init__(self, path, weight):
-        self.path = path
-        self.model_weight = weight
-        self.clip_weight = weight
-
-    # Used by Krita Debug
-    def __str__(self):
-        return json.dumps({
-            "path": self.path,
-            "model_weight": self.model_weight,
-            "clip_weight": self.clip_weight,
-        }, indent=2)
-
-
 class ParserState:
     def __init__(self, bundles):
         self.bundles = bundles
@@ -88,9 +73,9 @@ class ParserState:
                 value = function.group(2).strip()
 
                 if name == "bundle":
-                    try:
-                        bundle = self.bundles[value]
-                    except KeyError:
+                    bundle = self.bundles.get(value, default=None)
+
+                    if bundle is None:
                         raise WorkflowError(f"Bundle {value} not found.")
 
                     if value in seen_bundles:
@@ -99,7 +84,11 @@ class ParserState:
                     self.parse(bundle, weight, seen_bundles.union({ value }))
 
                 elif name == "lora":
-                    self.loras.append(Lora(value, weight))
+                    self.loras.append({
+                        "path": value,
+                        "model_weight": weight,
+                        "clip_weight": weight,
+                    })
 
                 else:
                     raise WorkflowError(f"Unknown function {prompt}")

@@ -61,7 +61,7 @@ class WorkflowWidget(QWidget):
         self.document.document_changed.connect(self.on_document_changed)
         self.document.layers_changed.connect(self.update_layer_inputs)
 
-        self.prompt_parser = PromptParser()
+        self.prompt_parser = PromptParser(self.extension.settings.bundles)
 
         self.layout = LayoutManager(self)
 
@@ -364,54 +364,56 @@ class WorkflowWidget(QWidget):
 
 
     def run_workflow(self):
-        ui_values = {}
-
-        for id in self.workflow.layout_ids:
-            ui_values[id] = []
-
-        # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
-        for widget in self.ui_widgets:
-            inputs = widget.inputs
-
-            input = inputs.value
-
-            if input is not None:
-                # TODO maybe do this for enabled_if too ?
-                if inputs.visible_if is None or inputs.visible_if.is_equal():
-                    info = {
-                        "value": input.value,
-                        "is_default": input.value == input.default,
-                    }
-
-                    if isinstance(widget, UiPrompt):
-                        parsed = self.prompt_parser.parse(input.value)
-                        info["positive"] = parsed.serialize_positive()
-                        info["negative"] = parsed.serialize_negative()
-                        info["loras"] = parsed.loras
-
-                    elif isinstance(widget, UiLayerId):
-                        info["layer_name"] = ""
-
-                        option = widget.current_option()
-
-                        if option is not None:
-                            try:
-                                info["layer_name"] = option["layer_name"]
-                            except KeyError:
-                                pass
-
-                    elif isinstance(widget, UiCombo):
-                        info["label"] = ""
-
-                        option = widget.current_option()
-
-                        if option is not None:
-                            info["label"] = option["label"]
-                            assert info["label"] == widget.currentText()
-
-                    ui_values[input.id].append(info)
-
         with self.catch_errors():
+            ui_values = {}
+
+            for id in self.workflow.layout_ids:
+                ui_values[id] = []
+
+            # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
+            for widget in self.ui_widgets:
+                inputs = widget.inputs
+
+                input = inputs.value
+
+                if input is not None:
+                    is_visible = inputs.visible_if is None or inputs.visible_if.is_equal()
+                    is_enabled = inputs.enabled_if is None or inputs.enabled_if.is_equal()
+
+                    if is_visible and is_enabled:
+                        info = {
+                            "value": input.value,
+                            "is_default": input.value == input.default,
+                        }
+
+                        if isinstance(widget, UiPrompt):
+                            parsed = self.prompt_parser.parse(input.value)
+                            info["positive"] = parsed.serialize_positive()
+                            info["negative"] = parsed.serialize_negative()
+                            info["loras"] = parsed.loras
+
+                        elif isinstance(widget, UiLayerId):
+                            info["layer_name"] = ""
+
+                            option = widget.current_option()
+
+                            if option is not None:
+                                try:
+                                    info["layer_name"] = option["layer_name"]
+                                except KeyError:
+                                    pass
+
+                        elif isinstance(widget, UiCombo):
+                            info["label"] = ""
+
+                            option = widget.current_option()
+
+                            if option is not None:
+                                info["label"] = option["label"]
+                                assert info["label"] == widget.currentText()
+
+                        ui_values[input.id].append(info)
+
             graph, document_id = self.workflow.to_graph(ui_values)
             self.extension.client.execute_graph(graph, document_id=document_id)
 

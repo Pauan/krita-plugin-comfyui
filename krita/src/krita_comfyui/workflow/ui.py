@@ -445,7 +445,7 @@ class UiPrompt(UiStringMultiline):
 
     @staticmethod
     def from_json(storage, json, settings):
-        return UiStringMultiline(
+        return UiPrompt(
             value=storage.item(json["id"]),
             settings=settings,
             visible_if=InputEqual.from_json(storage, json, "visible_if"),

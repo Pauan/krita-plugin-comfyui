@@ -1935,7 +1935,7 @@
           "346",
           0
         ],
-        "delimiter": ""
+        "delimiter": ", "
       },
       "class_type": "StringConcatenate",
       "_meta": {
@@ -1952,7 +1952,7 @@
           "346",
           1
         ],
-        "delimiter": ""
+        "delimiter": ", "
       },
       "class_type": "StringConcatenate",
       "_meta": {
