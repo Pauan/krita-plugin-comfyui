@@ -441,6 +441,7 @@ class UiPrompt(UiStringMultiline):
             self.timer = None
 
         self.settings = settings
+        self.minimum_characters = self.settings.settings.get("autocomplete_minimum_characters")
 
 
     @staticmethod
@@ -531,6 +532,17 @@ class UiPrompt(UiStringMultiline):
             self.hide_completer()
 
 
+    def should_hide_completer(self, prefix):
+        if len(prefix) < self.minimum_characters:
+            return True
+        else:
+            tag = self.settings.danbooru_tags.get(prefix, None)
+            if tag is not None and "alias_for" not in tag:
+                return True
+
+        return False
+
+
     def on_timer(self):
         if self.completer is not None:
             text = self.toPlainText()
@@ -538,7 +550,7 @@ class UiPrompt(UiStringMultiline):
             start, end = self.find_tag_boundary(text, self.textCursor())
             prefix = text[start:end]
 
-            if len(prefix) < 3:
+            if self.should_hide_completer(prefix):
                 self.hide_completer()
 
             else:
@@ -558,7 +570,7 @@ class UiPrompt(UiStringMultiline):
             start, end = self.find_tag_boundary(text, self.textCursor())
             prefix = text[start:end]
 
-            if len(prefix) < 3:
+            if self.should_hide_completer(prefix):
                 self.hide_completer()
                 self.timer.stop()
             else:

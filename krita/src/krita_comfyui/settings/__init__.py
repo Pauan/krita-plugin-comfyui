@@ -557,23 +557,30 @@ class Settings(QObject):
 
 
     def update_danbooru_tags(self):
-        minimum_posts = self.settings.item("danbooru_minimum_posts").get()
+        minimum_posts = self.settings.get("danbooru_minimum_posts")
+        minimum_characters = self.settings.get("autocomplete_minimum_characters")
 
         tags = []
 
         for name, tag in self.danbooru_tags.items():
-            alias = tag.get("alias_for", None)
+            if len(name) >= minimum_characters:
+                alias = tag.get("alias_for", None)
 
-            if alias is not None:
-                name = f"{name}  ➜  {alias}"
-                is_alias = True
-                post_count = self.danbooru_tags[alias]["post_count"]
-            else:
-                is_alias = False
-                post_count = tag["post_count"]
+                if alias is not None:
+                    # If the alias is a subset of the parent, we skip it.
+                    # This removes unnecessary aliases like 4girl -> 4girls and 1girls -> 1girl
+                    if alias.startswith(name) or (alias in name):
+                        continue
 
-            if post_count >= minimum_posts:
-                tags.append(DanbooruTagSorter(name, post_count, is_alias))
+                    name = f"{name}  ➜  {alias}"
+                    is_alias = True
+                    post_count = self.danbooru_tags[alias]["post_count"]
+                else:
+                    is_alias = False
+                    post_count = tag["post_count"]
+
+                if post_count >= minimum_posts:
+                    tags.append(DanbooruTagSorter(name, post_count, is_alias))
 
         tags.sort()
 
