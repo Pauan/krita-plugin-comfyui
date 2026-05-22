@@ -1,5 +1,5 @@
 from krita import DockWidget
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QListWidget,
@@ -14,6 +14,7 @@ from ..server import GraphState
 from ..util.krita import get_extension
 from ..util.qt import LayoutManager
 from ..workflow.widget import WorkflowWidget
+from ..workflow.ui import UiBoolean
 
 
 class JobWidget(QWidget):
@@ -118,12 +119,23 @@ class QueueList(QListWidget):
 
 
 class QueueWidget(QWidget):
-    def __init__(self):
+    def __init__(self, settings):
         super().__init__()
+
+        self.settings = settings
 
         self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
+            # TODO cleanup listeners when dock is removed
+            widget = UiBoolean.from_json(self.settings, {
+                "id": "enable_live_mode",
+                "tooltip": "Enable live mode, which automatically generates new images.",
+                "label": "Live mode",
+            })
+
+            column.widget(widget)
+
             with column.row(align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop) as row:
                 row.label(text="Job Queue")
 
@@ -171,6 +183,16 @@ class InputsWidget(QWidget):
         self.extension.client.graph_changed.connect(self.on_graph_changed)
         self.extension.client.connection_changed.connect(self.update_run_button)
 
+        self.enable_live_mode = self.extension.settings.settings.item("enable_live_mode")
+        # TODO cleanup listeners when dock is removed
+        self.enable_live_mode.add_listener(lambda old, new: self.update_run_button())
+
+        self.live_mode_running = False
+        self.live_mode_timer = QTimer(self)
+        self.live_mode_timer.setSingleShot(False)
+        self.live_mode_timer.setInterval(500)
+        self.live_mode_timer.timeout.connect(self.maybe_run_live_mode)
+
         self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
@@ -189,7 +211,7 @@ class InputsWidget(QWidget):
                     self.run_button = button
 
                     self.queue_menu = QMenu(self)
-                    self.queue = QueueWidget()
+                    self.queue = QueueWidget(self.extension.settings.settings)
 
                     widget_action = QWidgetAction(self.queue_menu)
                     widget_action.setDefaultWidget(self.queue)
@@ -198,39 +220,72 @@ class InputsWidget(QWidget):
                     for info in self.extension.client.current_queue():
                         self.queue.process_graph_info(self.extension.client, info)
 
-                    self.update()
+                    self.update_run_button()
 
                     button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
                     button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
                     button.setMenu(self.queue_menu)
-                    button.clicked.connect(self.workflow.run_workflow)
+                    button.clicked.connect(self.on_click)
 
         self.update_run_button()
 
 
+    def stop_live_mode(self):
+        self.live_mode_running = False
+        self.live_mode_timer.stop()
+        self.workflow.stop_live_mode()
+
+
+    def maybe_run_live_mode(self):
+        if self.live_mode_running:
+            if self.workflow.run_live_workflow():
+                self.live_mode_timer.stop()
+
+            elif not self.live_mode_timer.isActive():
+                self.live_mode_timer.start()
+        else:
+            self.stop_live_mode()
+
+
     def on_graph_changed(self, info):
         if info.state.is_error():
+            self.stop_live_mode()
+
             self.workflow.show_error(
                 message=info.error.format(),
                 backtrace=info.error.backtrace,
             )
 
         self.queue.process_graph_info(self.extension.client, info)
-        self.update()
+        self.update_run_button()
+
+        if info.state.is_success():
+            self.maybe_run_live_mode()
 
 
-    def update_run_button(self):
-        can_run = self.extension.client.is_connected and self.workflow.can_run()
+    def update_run_button_live(self, can_run):
+        if can_run:
+            if self.live_mode_running:
+                self.run_button.setToolTip("Stop live mode")
+            else:
+                self.run_button.setToolTip("Start live mode")
+        else:
+            self.run_button.setToolTip("Not connected to ComfyUI")
 
-        self.run_button.setEnabled(can_run)
+        if self.live_mode_running:
+            self.run_button.setText("Stop")
+            self.run_button.setIcon(GraphState.Executing.button_icon())
+        else:
+            self.run_button.setText("Start")
+            self.run_button.setIcon(GraphState.Idle.button_icon())
 
+
+    def update_run_button_normal(self, can_run, current_job):
         if can_run:
             self.run_button.setToolTip("Run workflow in ComfyUI")
         else:
             self.run_button.setToolTip("Not connected to ComfyUI")
 
-
-    def update(self):
         len = self.queue.jobs_len()
 
         if len == 0:
@@ -238,16 +293,39 @@ class InputsWidget(QWidget):
         else:
             self.run_button.setText(f"Run [{len}]")
 
+        if current_job is None:
+            self.run_button.setIcon(GraphState.Idle.button_icon())
+        else:
+            self.run_button.setIcon(current_job.info.state.button_icon())
 
+
+    def update_run_button(self):
         current_job = self.queue.get_first_job()
 
         if current_job is None:
-            self.run_button.setIcon(GraphState.Idle.button_icon())
             self.progress_bar.setValue(0)
-
         else:
-            self.run_button.setIcon(current_job.info.state.button_icon())
             current_job.update_progress_bar(self.progress_bar)
+
+        can_run = self.extension.client.is_connected and self.workflow.can_run()
+
+        self.run_button.setEnabled(can_run)
+
+        if self.enable_live_mode.get():
+            self.update_run_button_live(can_run)
+        else:
+            self.stop_live_mode()
+            self.update_run_button_normal(can_run, current_job)
+
+
+    def on_click(self):
+        if self.enable_live_mode.get():
+            self.live_mode_running = not self.live_mode_running
+            self.update_run_button()
+            self.maybe_run_live_mode()
+        else:
+            self.stop_live_mode()
+            self.workflow.run_workflow()
 
 
 class ComfyUIInputWidget(DockWidget):

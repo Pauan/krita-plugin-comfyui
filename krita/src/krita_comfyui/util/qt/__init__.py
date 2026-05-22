@@ -335,7 +335,7 @@ class Layout:
         self.qlayout.setCurrentIndex(index)
 
 
-    def column(self, stretch=0, align=None):
+    def column(self, *, stretch=0, align=None):
         layout = make_column()
 
         if stretch == 0:
@@ -350,7 +350,7 @@ class Layout:
         return Scope(layout)
 
 
-    def row(self, stretch=0, align=None):
+    def row(self, *, stretch=0, align=None):
         layout = make_row()
 
         if stretch == 0:
@@ -365,7 +365,7 @@ class Layout:
         return Scope(layout)
 
 
-    def stack(self, stretch=0, align=None):
+    def stack(self, *, stretch=0, align=None):
         layout = make_stack()
 
         if stretch == 0:
@@ -387,7 +387,7 @@ class Layout:
         self.qlayout.addSpacing(amount)
 
 
-    def widget(self, widget, stretch=0):
+    def widget(self, widget, *, stretch=0):
         if stretch == 0:
             self.qlayout.addWidget(widget)
         else:
@@ -400,7 +400,7 @@ class Layout:
         return self.widget(QListWidget())
 
 
-    def button(self, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
+    def button(self, *, stretch=0, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
         widget = QPushButton()
 
         if icon is not None:
@@ -415,10 +415,10 @@ class Layout:
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def toolbar(self, orientation=Qt.Orientation.Horizontal, tooltip=None):
+    def toolbar(self, *, stretch=0, orientation=Qt.Orientation.Horizontal, tooltip=None):
         widget = QToolBar()
 
         widget.setOrientation(orientation)
@@ -438,11 +438,11 @@ class Layout:
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        with self.widget(widget) as widget:
+        with self.widget(widget, stretch=stretch) as widget:
             return Scope(Toolbar(widget))
 
 
-    def tool_button(self, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
+    def tool_button(self, *, stretch=0, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
         widget = QToolButton()
 
         if icon is not None:
@@ -457,10 +457,10 @@ class Layout:
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def progress_bar(self, minimum=None, maximum=None, tooltip=None):
+    def progress_bar(self, *, stretch=0, minimum=None, maximum=None, tooltip=None):
         widget = QProgressBar()
 
         if minimum is not None:
@@ -472,10 +472,10 @@ class Layout:
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def label(self, text=None, selectable=False, tooltip=None):
+    def label(self, *, stretch=0, text=None, selectable=False, tooltip=None):
         widget = QLabel()
 
         if text is not None:
@@ -487,10 +487,10 @@ class Layout:
         if selectable is True:
             widget.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def combo_box(self, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
+    def combo_box(self, *, stretch=0, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
         widget = ComboBox()
 
         if tooltip is not None:
@@ -499,37 +499,37 @@ class Layout:
         if cursor is not None:
             widget.setCursor(cursor)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def slider(self, tooltip=None):
+    def slider(self, *, stretch=0, tooltip=None):
         widget = Slider()
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def int(self, tooltip=None):
+    def int(self, *, stretch=0, tooltip=None):
         widget = SpinBox()
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def float(self, tooltip=None):
+    def float(self, *, stretch=0, tooltip=None):
         widget = DoubleSpinBox()
 
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def group(self, title=None, align=None, flat=None, checkable=None, tooltip=None):
+    def group(self, *, stretch=0, title=None, align=None, flat=None, checkable=None, tooltip=None):
         widget = QGroupBox()
 
         if title is not None:
@@ -547,10 +547,10 @@ class Layout:
         if tooltip is not None:
             widget.setToolTip(tooltip)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
-    def scroll(self, max_height=None):
+    def scroll(self, *, stretch=0, max_height=None):
         widget = QScrollArea()
 
         widget.setWidgetResizable(True)
@@ -558,7 +558,7 @@ class Layout:
         if max_height is not None:
             widget.setMaximumHeight(max_height)
 
-        return self.widget(widget)
+        return self.widget(widget, stretch=stretch)
 
 
 class LayoutManager:

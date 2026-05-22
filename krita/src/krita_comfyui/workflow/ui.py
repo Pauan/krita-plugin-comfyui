@@ -427,7 +427,10 @@ class UiPrompt(UiStringMultiline):
 
         super().__init__(value, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines)
 
-        if autocomplete:
+        self.settings = settings
+        self.minimum_characters = self.settings.settings.get("autocomplete_minimum_characters")
+
+        if autocomplete and self.settings.settings.get("autocomplete_danbooru"):
             self.completer = DanbooruCompleter(self, settings.danbooru_tags_model)
             self.completer.activated.connect(self.on_autocomplete)
 
@@ -439,9 +442,6 @@ class UiPrompt(UiStringMultiline):
         else:
             self.completer = None
             self.timer = None
-
-        self.settings = settings
-        self.minimum_characters = self.settings.settings.get("autocomplete_minimum_characters")
 
 
     @staticmethod
@@ -512,24 +512,25 @@ class UiPrompt(UiStringMultiline):
 
 
     def on_autocomplete(self, tag_name):
-        tag_name = tag_name.split("  ➜  ")[-1]
+        if self.completer is not None:
+            tag_name = tag_name.split("  ➜  ")[-1]
 
-        tag = self.settings.danbooru_tags.get(tag_name, None)
+            tag = self.settings.danbooru_tags.get(tag_name, None)
 
-        if tag is not None:
-            assert not "alias_for" in tag
+            if tag is not None:
+                assert not "alias_for" in tag
 
-            text = self.toPlainText()
-            cursor = self.textCursor()
+                text = self.toPlainText()
+                cursor = self.textCursor()
 
-            start, end = self.find_tag_boundary(text, cursor)
+                start, end = self.find_tag_boundary(text, cursor)
 
-            cursor.beginEditBlock()
-            cursor.setPosition(start, QTextCursor.MoveMode.MoveAnchor)
-            cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
-            cursor.insertText(tag_name)
-            cursor.endEditBlock()
-            self.hide_completer()
+                cursor.beginEditBlock()
+                cursor.setPosition(start, QTextCursor.MoveMode.MoveAnchor)
+                cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+                cursor.insertText(tag_name)
+                cursor.endEditBlock()
+                self.hide_completer()
 
 
     def should_hide_completer(self, prefix):

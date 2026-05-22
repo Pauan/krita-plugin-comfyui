@@ -249,7 +249,7 @@ class Workflow(Storage):
         return self.document is not None and self.id != "" and self.graph is not None
 
 
-    def to_graph(self, ui_values):
+    def to_graph(self, ui_values, *, seed):
         if self.document is None:
             raise WorkflowError("Krita does not have an opened image")
 
@@ -257,8 +257,6 @@ class Workflow(Storage):
             raise WorkflowError("Workflow cannot be empty")
 
         assert self.graph is not None
-
-        seed = WorkflowGraph.random_seed()
 
         self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)
 

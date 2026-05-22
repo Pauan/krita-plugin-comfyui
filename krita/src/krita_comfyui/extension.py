@@ -48,7 +48,8 @@ class ComfyUIExtension(Extension):
 
     def on_graph_changed(self, graph):
         if graph.state.is_success():
-            self.notify.message.emit("Job finished")
+            if graph.should_notify:
+                self.notify.message.emit("Job finished")
 
         elif graph.state.is_error():
             self.notify.message.emit("Job errored!")

@@ -8,13 +8,14 @@ from PyQt6.QtWidgets import (
     QWidget,
     QFrame,
 )
-from ..util import number_of_decimals
+from ..util import number_of_decimals, Perf
 from ..util.krita import DocumentManager
 from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
 from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiPrompt, UiGroup, UiRow, UiList, UiLabel
 from .prompt import PromptParser
+from .graph import WorkflowGraph
 
 
 class WorkflowSelector(ComboBox):
@@ -74,6 +75,9 @@ class WorkflowWidget(QWidget):
         self.layer_combo_options = self.get_layer_combo_options()
         self.ui_widgets = []
         self.ui_layer_inputs = []
+
+        self.live_mode_graph = None
+        self.live_mode_seed = WorkflowGraph.random_seed()
 
         with self.layout.column() as column:
             with column.row() as row:
@@ -363,59 +367,83 @@ class WorkflowWidget(QWidget):
             self.show_error(message=str(e), backtrace="".join(traceback.format_exception(e)))
 
 
+    def get_ui_values(self):
+        ui_values = {}
+
+        for id in self.workflow.layout_ids:
+            ui_values[id] = []
+
+        # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
+        for widget in self.ui_widgets:
+            inputs = widget.inputs
+
+            input = inputs.value
+
+            if input is not None:
+                is_visible = inputs.visible_if is None or inputs.visible_if.is_equal()
+                is_enabled = inputs.enabled_if is None or inputs.enabled_if.is_equal()
+
+                if is_visible and is_enabled:
+                    info = {
+                        "value": input.value,
+                        "is_default": input.value == input.default,
+                    }
+
+                    if isinstance(widget, UiPrompt):
+                        parsed = self.prompt_parser.parse(input.value)
+                        info["positive"] = parsed.serialize_positive()
+                        info["negative"] = parsed.serialize_negative()
+                        info["loras"] = parsed.loras
+
+                    elif isinstance(widget, UiLayerId):
+                        info["layer_name"] = ""
+
+                        option = widget.current_option()
+
+                        if option is not None:
+                            try:
+                                info["layer_name"] = option["layer_name"]
+                            except KeyError:
+                                pass
+
+                    elif isinstance(widget, UiCombo):
+                        info["label"] = ""
+
+                        option = widget.current_option()
+
+                        if option is not None:
+                            info["label"] = option["label"]
+                            assert info["label"] == widget.currentText()
+
+                    ui_values[input.id].append(info)
+
+        return ui_values
+
+
     def run_workflow(self):
-        with self.catch_errors():
-            ui_values = {}
+        with Perf("run_workflow"):
+            with self.catch_errors():
+                graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=WorkflowGraph.random_seed())
+                self.extension.client.execute_graph(graph, document_id=document_id)
 
-            for id in self.workflow.layout_ids:
-                ui_values[id] = []
 
-            # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
-            for widget in self.ui_widgets:
-                inputs = widget.inputs
+    def run_live_workflow(self):
+        with Perf("run_live_workflow"):
+            with self.catch_errors():
+                graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=self.live_mode_seed)
 
-                input = inputs.value
+                cache = graph.serialize()
 
-                if input is not None:
-                    is_visible = inputs.visible_if is None or inputs.visible_if.is_equal()
-                    is_enabled = inputs.enabled_if is None or inputs.enabled_if.is_equal()
+                if self.live_mode_graph != cache:
+                    self.live_mode_graph = cache
+                    self.extension.client.execute_graph(graph, document_id=document_id, should_notify=False)
+                    return True
 
-                    if is_visible and is_enabled:
-                        info = {
-                            "value": input.value,
-                            "is_default": input.value == input.default,
-                        }
+            return False
 
-                        if isinstance(widget, UiPrompt):
-                            parsed = self.prompt_parser.parse(input.value)
-                            info["positive"] = parsed.serialize_positive()
-                            info["negative"] = parsed.serialize_negative()
-                            info["loras"] = parsed.loras
 
-                        elif isinstance(widget, UiLayerId):
-                            info["layer_name"] = ""
-
-                            option = widget.current_option()
-
-                            if option is not None:
-                                try:
-                                    info["layer_name"] = option["layer_name"]
-                                except KeyError:
-                                    pass
-
-                        elif isinstance(widget, UiCombo):
-                            info["label"] = ""
-
-                            option = widget.current_option()
-
-                            if option is not None:
-                                info["label"] = option["label"]
-                                assert info["label"] == widget.currentText()
-
-                        ui_values[input.id].append(info)
-
-            graph, document_id = self.workflow.to_graph(ui_values)
-            self.extension.client.execute_graph(graph, document_id=document_id)
+    def stop_live_mode(self):
+        self.live_mode_graph = None
 
 
     def open_settings(self):

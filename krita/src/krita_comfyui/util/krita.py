@@ -857,9 +857,11 @@ class Image:
         painter.end()
 
 
+    def to_pixmap(self):
+        return QPixmap.fromImage(self._qimage)
+
     def to_icon(self):
-        pixmap = QPixmap.fromImage(self._qimage)
-        return QIcon(pixmap)
+        return QIcon(self.to_pixmap())
 
 
     # TODO replace with base85
