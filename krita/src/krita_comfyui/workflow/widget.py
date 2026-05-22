@@ -13,7 +13,7 @@ from ..util.krita import DocumentManager
 from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
-from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiGroup, UiRow, UiList, UiLabel
+from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiPrompt, UiGroup, UiRow, UiList, UiLabel
 
 
 class WorkflowSelector(ComboBox):
@@ -169,7 +169,13 @@ class WorkflowWidget(QWidget):
 
 
             case "string":
-                widget = UiString.from_json(storage, info, self.extension.settings)
+                widget = UiString.from_json(storage, info)
+                self.ui_widgets.append(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
+
+
+            case "prompt":
+                widget = UiPrompt.from_json(storage, info, self.extension.settings)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 

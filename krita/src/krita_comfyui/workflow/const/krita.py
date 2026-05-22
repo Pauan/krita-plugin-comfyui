@@ -217,6 +217,7 @@ CONST_NODES = {
     "krita_comfyui: KritaUiInt": KritaUi("int", ["value", "is_default"]),
     "krita_comfyui: KritaUiLayerId": KritaUi("layer_id", ["value", "layer_name", "is_default"]),
     "krita_comfyui: KritaUiString": KritaUi("string", ["value", "is_default"]),
+    "krita_comfyui: KritaUiPrompt": KritaUi("prompt", ["positive", "negative", "is_default"]),
 
     "krita_comfyui: KritaCanvas": KritaCanvas(),
     "krita_comfyui: KritaLayers": KritaLayers(),

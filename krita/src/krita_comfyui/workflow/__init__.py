@@ -77,7 +77,7 @@ class Workflow(Storage):
         # If there is no default, pick a suitable default
         if default is None:
             match widget["type"]:
-                case "layer_id" | "combo" | "string": return ""
+                case "layer_id" | "combo" | "string" | "prompt": return ""
                 case "int": return 0
                 case "float" | "percentage": return 0.0
                 case "boolean": return True
@@ -94,6 +94,7 @@ class Workflow(Storage):
             case "layer_id": return "layer_id"
             case "combo": return "combo"
             case "string": return "string"
+            case "prompt": return "prompt"
             case "boolean": return "boolean"
             case "int": return "int"
             case "float" | "percentage": return "float"

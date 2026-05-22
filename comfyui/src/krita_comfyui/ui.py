@@ -90,6 +90,29 @@ class KritaUiString(io.ComfyNode):
         raise RuntimeError("Workflow must be run from Krita.")
 
 
+class KritaUiPrompt(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaUiPrompt",
+            display_name="Krita UI Prompt",
+            category="krita/ui",
+            description="Retrieves a positive / negative prompt from Krita.",
+            inputs=[
+                io.String.Input("id", default="", tooltip="Unique ID of the textbox."),
+            ],
+            outputs=[
+                io.String.Output(display_name="positive", is_output_list=True),
+                io.String.Output(display_name="negative", is_output_list=True),
+                io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, id) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
 class KritaUiLayerId(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:

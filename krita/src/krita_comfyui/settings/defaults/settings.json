@@ -1,4 +1,5 @@
 {
+  "danbooru_minimum_posts": 50,
   "logging_level": "debug",
   "workflow_order": [
     "f4516100-d999-4d82-8ecd-50dd545bc1fe",

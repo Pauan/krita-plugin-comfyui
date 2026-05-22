@@ -1,7 +1,7 @@
 from krita import SliderSpinBox, DoubleSliderSpinBox
 import math
-from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QAction, QTextOption, QFontMetricsF
+from PyQt6.QtCore import QSize, Qt, QTimer, QSortFilterProxyModel, QRegularExpression
+from PyQt6.QtGui import QAction, QTextCursor, QTextOption, QFontMetricsF
 from PyQt6.QtWidgets import (
     QWidget,
     QFrame,
@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QCompleter,
 )
 from ..util.qt import BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
-from ..util import number_of_lines, lerp, normalize, clamp
+from ..util import number_of_lines, lerp, normalize, clamp, Perf
 
 
 class InputEqual:
@@ -252,17 +252,15 @@ class UiString(QLineEdit):
 
 
     @staticmethod
-    def from_json(storage, json, settings):
+    def from_json(storage, json):
         multiline = json.get("multiline", False)
 
         if multiline:
             return UiStringMultiline(
                 value=storage.item(json["id"]),
-                settings=settings,
                 visible_if=InputEqual.from_json(storage, json, "visible_if"),
                 enabled_if=InputEqual.from_json(storage, json, "enabled_if"),
                 tooltip=json.get("tooltip", None),
-                autocomplete=json.get("autocomplete", None),
                 placeholder=json.get("placeholder", None),
                 background_color=json.get("background_color", None),
                 min_lines=json.get("min_lines", None),
@@ -291,27 +289,9 @@ class UiString(QLineEdit):
         self.inputs.value.set(self.text())
 
 
-class DanbooruCompleter(QCompleter):
-    def __init__(self, parent, model):
-        super().__init__(parent)
-
-        self.setModel(model)
-        self.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self.setFilterMode(Qt.MatchFlag.MatchContains)
-        self.setModelSorting(QCompleter.ModelSorting.UnsortedModel)
-        self.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
-        self.setWrapAround(False)
-        self.setWidget(parent)
-
-
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, value, settings, visible_if, enabled_if, background_color, placeholder, autocomplete, tooltip, min_lines, max_lines):
+    def __init__(self, value, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines):
         super().__init__()
-
-        if autocomplete:
-            self.completer = DanbooruCompleter(self, settings.danbooru_tags_model)
-        else:
-            self.completer = None
 
         if min_lines is None:
             min_lines = 2
@@ -327,7 +307,7 @@ class UiStringMultiline(QPlainTextEdit):
 
         self.textChanged.connect(self.on_changed)
 
-        self.setTabChangesFocus(True)
+        self.setTabChangesFocus(False)
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
         self.setFrameStyle(QFrame.Shape.StyledPanel)
@@ -373,6 +353,16 @@ class UiStringMultiline(QPlainTextEdit):
         self.setFixedHeight(self.get_pixel_height(lines))
 
 
+    def keyPressEvent(self, event):
+        match event.key():
+            # This allows the completer to handle these keys.
+            case Qt.Key.Key_Tab | Qt.Key.Key_Escape:
+                event.ignore()
+                return
+
+        super().keyPressEvent(event)
+
+
     def on_changed(self):
         self.inputs.value.set(self.toPlainText())
 
@@ -386,6 +376,184 @@ class UiStringMultiline(QPlainTextEdit):
         # from scrolling the parent, now it will only scroll the text box.
         if scrollbar is not None and scrollbar.isVisible():
             event.accept()
+
+
+class DanbooruCompleter(QCompleter):
+    def __init__(self, parent, model):
+        super().__init__(parent)
+
+        filtered_model = QSortFilterProxyModel(self)
+        filtered_model.setDynamicSortFilter(False)
+        filtered_model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        filtered_model.setSourceModel(model)
+
+        self.setModel(filtered_model)
+        #self.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        #self.setFilterMode(Qt.MatchFlag.MatchContains)
+        self.setModelSorting(QCompleter.ModelSorting.UnsortedModel)
+        self.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        self.setMaxVisibleItems(6)
+        self.setWrapAround(False)
+        self.setWidget(parent)
+
+    def splitPath(self, path):
+        self.model().setFilterRegularExpression(rf"^[^➜]*{QRegularExpression.escape(path)}")
+        return []
+
+
+class UiPrompt(UiStringMultiline):
+    def __init__(
+        self,
+        value,
+        visible_if,
+        enabled_if,
+        background_color,
+        placeholder,
+        tooltip,
+        min_lines,
+        max_lines,
+        # New arguments
+        settings,
+        autocomplete,
+    ):
+        super().__init__(value, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines)
+
+        if autocomplete:
+            self.completer = DanbooruCompleter(self, settings.danbooru_tags_model)
+            self.completer.activated.connect(self.on_autocomplete)
+
+            self.timer = QTimer(self)
+            self.timer.setSingleShot(True)
+            self.timer.setInterval(100)
+            self.timer.timeout.connect(self.on_timer)
+
+        else:
+            self.completer = None
+            self.timer = None
+
+        self.settings = settings
+
+
+    @staticmethod
+    def from_json(storage, json, settings):
+        return UiStringMultiline(
+            value=storage.item(json["id"]),
+            settings=settings,
+            visible_if=InputEqual.from_json(storage, json, "visible_if"),
+            enabled_if=InputEqual.from_json(storage, json, "enabled_if"),
+            tooltip=json.get("tooltip", None),
+            autocomplete=json.get("autocomplete", None),
+            placeholder=json.get("placeholder", None),
+            background_color=json.get("background_color", None),
+            min_lines=json.get("min_lines", None),
+            max_lines=json.get("max_lines", None),
+        )
+
+
+    # These characters are valid in danbooru tags
+    # https://danbooru.donmai.us/wiki_pages/help:tags
+    @staticmethod
+    def is_danbooru_character(char):
+        return char in r"""!"#$%&'()+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~"""
+
+
+    @classmethod
+    def find_tag_start(cls, text, cursor_index):
+        for index in reversed(range(0, cursor_index)):
+            if not cls.is_danbooru_character(text[index]):
+                return index + 1
+        return 0
+
+
+    @classmethod
+    def find_tag_end(cls, text, cursor_index):
+        length = len(text)
+
+        for index in range(cursor_index, length):
+            if not cls.is_danbooru_character(text[index]):
+                return index
+
+        return length
+
+
+    def find_tag_boundary(self, text, cursor):
+        cursor_index = cursor.position()
+
+        return (
+            self.find_tag_start(text, cursor_index),
+            self.find_tag_end(text, cursor_index),
+        )
+
+
+    def hide_completer(self):
+        if self.completer.popup().isVisible():
+            self.completer.popup().hide()
+
+        if self.completer.completionPrefix() != "":
+            self.completer.setCompletionPrefix("")
+
+
+    def show_completer(self):
+        popup_width = self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width()
+
+        rect = self.cursorRect()
+        rect.setWidth(min(300, popup_width))
+        self.completer.complete(rect)
+
+
+    def on_autocomplete(self, tag_name):
+        tag_name = tag_name.split("  ➜  ")[-1]
+
+        tag = self.settings.danbooru_tags.get(tag_name, None)
+
+        if tag is not None:
+            assert not "alias_for" in tag
+
+            text = self.toPlainText()
+            cursor = self.textCursor()
+
+            start, end = self.find_tag_boundary(text, cursor)
+
+            cursor.beginEditBlock()
+            cursor.setPosition(start, QTextCursor.MoveMode.MoveAnchor)
+            cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+            cursor.insertText(tag_name)
+            cursor.endEditBlock()
+            self.hide_completer()
+
+
+    def on_timer(self):
+        if self.completer is not None:
+            text = self.toPlainText()
+
+            start, end = self.find_tag_boundary(text, self.textCursor())
+            prefix = text[start:end]
+
+            if len(prefix) < 3:
+                self.hide_completer()
+
+            else:
+                if self.completer.completionPrefix() != prefix:
+                    self.completer.setCompletionPrefix(prefix)
+                    self.completer.popup().setCurrentIndex(self.completer.completionModel().index(0, 0))
+
+                self.show_completer()
+
+
+    def on_changed(self):
+        super().on_changed()
+
+        if self.completer is not None:
+            text = self.inputs.value.get()
+
+            start, end = self.find_tag_boundary(text, self.textCursor())
+            prefix = text[start:end]
+
+            if len(prefix) < 3:
+                self.hide_completer()
+                self.timer.stop()
+            else:
+                self.timer.start()
 
 
 class UiGroup(QWidget):

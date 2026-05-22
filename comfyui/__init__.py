@@ -56,6 +56,7 @@ class KritaComfyui(ComfyExtension):
             ui.KritaUiFloat,
             ui.KritaUiInt,
             ui.KritaUiLayerId,
+            ui.KritaUiPrompt,
             ui.KritaUiString,
 
             # krita/selection

@@ -825,7 +825,10 @@ class ComfyUIClient(QObject):
         else:
             for tag in tags:
                 self.last_danbooru_id = tag["id"]
-                self.pending_danbooru_tags[tag["name"]] = tag
+
+                name = tag["name"]
+                assert not name in self.pending_danbooru_tags
+                self.pending_danbooru_tags[name] = tag
 
             self.update_danbooru_tags()
 

@@ -5,7 +5,7 @@ from json import dump, dumps, load, loads
 from pathlib import Path
 from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal
 from PyQt6.QtWidgets import QMessageBox
-from ..util import timestamp
+from ..util import timestamp, Perf
 from ..util.qt import BlockSignals
 from ..util.storage import Storage, Metadata
 
@@ -351,6 +351,42 @@ class LogLevel(Enum):
         return LogLevel.order(self.value) <= LogLevel.order(value)
 
 
+@functools.total_ordering
+class DanbooruTagSorter:
+    def __init__(self, name, post_count, is_alias):
+        self.name = name
+        self.post_count = post_count
+        self.is_alias = is_alias
+        self.lowercase = name.casefold()
+
+    def cmp(self, other):
+        # Higher post count is sorted first
+        if self.post_count < other.post_count:
+            return 1
+        elif other.post_count < self.post_count:
+            return -1
+
+        # Non-aliases are sorted before aliases
+        if self.is_alias and not other.is_alias:
+            return 1
+        elif other.is_alias and not self.is_alias:
+            return -1
+
+        # Sorted alphabetically
+        if self.lowercase < other.lowercase:
+            return -1
+        elif other.lowercase < self.lowercase:
+            return 1
+
+        return 0
+
+    def __eq__(self, other):
+        return self.cmp(other) == 0
+
+    def __lt__(self, other):
+        return self.cmp(other) < 0
+
+
 class Settings(QObject):
     node_metadata_changed = pyqtSignal()
     danbooru_tags_changed = pyqtSignal()
@@ -370,25 +406,35 @@ class Settings(QObject):
         self.node_metadata = None
         self.cached_node_metadata = {}
 
-        self.settings = SettingsFile(self.dir / "settings.json", self.default_settings)
-        self.bundles = SettingsFile(self.dir / "bundles.json", self.default_bundles)
-        self.presets = SettingsFile(self.dir / "presets.json", self.default_presets)
+        with Perf("Loading settings"):
+            self.settings = SettingsFile(self.dir / "settings.json", self.default_settings)
 
-        self.workflows = Workflows(
-            self,
-            settings=self.settings.item("workflows"),
-            order=self.settings.item("workflow_order"),
-            folder=self.dir / "workflows",
-            defaults=self.default_workflows,
-        )
+        with Perf("Loading bundles"):
+            self.bundles = SettingsFile(self.dir / "bundles.json", self.default_bundles)
 
-        self.danbooru_tags = self.load_danbooru_tags()
-        self.danbooru_tags_model = QStringListModel()
-        self.update_danbooru_tags()
+        with Perf("Loading presets"):
+            self.presets = SettingsFile(self.dir / "presets.json", self.default_presets)
+
+        with Perf("Loading workflows"):
+            self.workflows = Workflows(
+                self,
+                settings=self.settings.item("workflows"),
+                order=self.settings.item("workflow_order"),
+                folder=self.dir / "workflows",
+                defaults=self.default_workflows,
+            )
+
+        with Perf("Loading danbooru tags"):
+            self.danbooru_tags = self.load_danbooru_tags()
+
+        with Perf("Processing danbooru tags"):
+            self.danbooru_tags_model = QStringListModel()
+            self.update_danbooru_tags()
 
         self.logging_level = self.settings.item("logging_level")
 
-        self.load_node_metadata()
+        with Perf("Loading node metadata"):
+            self.load_node_metadata()
 
 
     def clear_log(self):
@@ -511,17 +557,24 @@ class Settings(QObject):
 
 
     def update_danbooru_tags(self):
-        def sort_tag(item):
-            tag = item[1]
+        minimum_posts = self.settings.item("danbooru_minimum_posts").get()
 
+        tags = []
+
+        for name, tag in self.danbooru_tags.items():
             alias = tag.get("alias_for", None)
 
             if alias is not None:
-                # Aliases are sorted after non-aliases
-                return (self.danbooru_tags[alias]["post_count"], 0)
+                name = f"{name}  ➜  {alias}"
+                is_alias = True
+                post_count = self.danbooru_tags[alias]["post_count"]
             else:
-                return (tag["post_count"], 1)
+                is_alias = False
+                post_count = tag["post_count"]
 
-        names = [name for name, tag in sorted(self.danbooru_tags.items(), key=sort_tag, reverse=True)]
+            if post_count >= minimum_posts:
+                tags.append(DanbooruTagSorter(name, post_count, is_alias))
 
-        self.danbooru_tags_model.setStringList(names)
+        tags.sort()
+
+        self.danbooru_tags_model.setStringList([tag.name for tag in tags])
