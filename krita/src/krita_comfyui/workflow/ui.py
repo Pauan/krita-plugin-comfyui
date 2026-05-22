@@ -416,6 +416,15 @@ class UiPrompt(UiStringMultiline):
         settings,
         autocomplete,
     ):
+        if placeholder is None:
+            placeholder = "Prompt..."
+
+        if tooltip is None:
+            tooltip = "Prompt"
+
+        if autocomplete is None:
+            autocomplete = True
+
         super().__init__(value, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines)
 
         if autocomplete:

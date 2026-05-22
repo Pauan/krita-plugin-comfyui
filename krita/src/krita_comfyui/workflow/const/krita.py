@@ -1,6 +1,8 @@
 # This module contains constant-evaluation versions of the Krita nodes.
-from . import WorkflowError, Link, zip_inputs, check_booleans
+import json
+from . import WorkflowError, Link, is_link, zip_inputs, check_booleans
 from ...util.krita import Bounds
+from ..prompt import Lora
 
 
 def crop_to_bounds(node_id, name, values):
@@ -80,6 +82,15 @@ class KritaCanvas:
 
 
 class KritaDebug:
+    def serialize_any(self, text):
+        if isinstance(text, str) or is_link(text):
+            return text
+        else:
+            try:
+                return json.dumps(text, indent=2)
+            except Exception:
+                return str(text)
+
     def get_outputs(self, workflow, node_id, node):
         inputs = node["inputs"]
 
@@ -94,9 +105,16 @@ class KritaDebug:
         else:
             outputs = {}
 
+            text = workflow.evaluate_link(inputs["text"])
+
+            # We need to do this so that way it's possible to debug loras from a Krita Ui Prompt.
+            text.values = [self.serialize_any(x) for x in text.values]
+
             for key, value in inputs.items():
                 if key == "enabled":
                     outputs[key] = enabled.to_node(workflow.graph)
+                elif key == "text":
+                    outputs[key] = text.to_node(workflow.graph)
                 else:
                     outputs[key] = workflow.evaluate_link(value).to_node(workflow.graph)
 
@@ -210,6 +228,54 @@ class KritaSeed:
         )
 
 
+# This could be implemented in ComfyUI, except prompt loras are only
+# accessible in Krita, so we have to constant evaluate it.
+class ApplyLoras:
+    def get_outputs(self, workflow, node_id, node):
+        models = []
+        clips = []
+
+        inputs = node["inputs"]
+
+        model = workflow.evaluate_link(inputs["model"])
+        clip = workflow.evaluate_link(inputs["clip"])
+        loras = workflow.evaluate_link(inputs["loras"])
+
+        for model, clip in zip_inputs(model, clip):
+            seen_loras = set()
+
+            for lora in loras.values:
+                if not isinstance(lora, Lora):
+                    raise WorkflowError(f"[#{node_id} Apply Loras]\nloras must be constant")
+
+                if lora.path in seen_loras:
+                    raise WorkflowError(f"Duplicate lora: {lora.path}")
+
+                seen_loras.add(lora.path)
+
+                assert lora.model_weight != 0.0 or lora.clip_weight != 0.0
+
+                load_lora = workflow.graph.node(
+                    "LoraLoader",
+                    model=model,
+                    clip=clip,
+                    lora_name=lora.path,
+                    strength_model=lora.model_weight,
+                    strength_clip=lora.clip_weight,
+                )
+
+                model = load_lora.out(0)
+                clip = load_lora.out(1)
+
+            models.append(model)
+            clips.append(clip)
+
+        return (
+            Link(models),
+            Link(clips),
+        )
+
+
 CONST_NODES = {
     "krita_comfyui: KritaUiBoolean": KritaUi("boolean", ["value", "is_default"]),
     "krita_comfyui: KritaUiCombo": KritaUi("combo", ["value", "label", "is_default"]),
@@ -217,10 +283,11 @@ CONST_NODES = {
     "krita_comfyui: KritaUiInt": KritaUi("int", ["value", "is_default"]),
     "krita_comfyui: KritaUiLayerId": KritaUi("layer_id", ["value", "layer_name", "is_default"]),
     "krita_comfyui: KritaUiString": KritaUi("string", ["value", "is_default"]),
-    "krita_comfyui: KritaUiPrompt": KritaUi("prompt", ["positive", "negative", "is_default"]),
+    "krita_comfyui: KritaUiPrompt": KritaUi("prompt", ["positive", "negative", "loras", "is_default"]),
 
     "krita_comfyui: KritaCanvas": KritaCanvas(),
     "krita_comfyui: KritaLayers": KritaLayers(),
     "krita_comfyui: KritaDebug": KritaDebug(),
     "krita_comfyui: KritaSeed": KritaSeed(),
+    "krita_comfyui: ApplyLoras": ApplyLoras(),
 }

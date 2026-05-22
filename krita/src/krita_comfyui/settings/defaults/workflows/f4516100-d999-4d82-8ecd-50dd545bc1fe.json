@@ -17,12 +17,8 @@
       "prefix": "Image Strength: "
     },
     {
-      "type": "string",
-      "id": "prompt",
-      "multiline": true,
-      "autocomplete": true,
-      "tooltip": "Prompt",
-      "placeholder": "Prompt..."
+      "type": "prompt",
+      "id": "prompt"
     },
     {
       "type": "group",
@@ -56,10 +52,8 @@
               ]
             },
             {
-              "type": "string",
+              "type": "prompt",
               "id": "mask_regions_prompt",
-              "multiline": true,
-              "autocomplete": true,
               "tooltip": "Region prompt",
               "placeholder": "Region prompt...",
               "enabled_if": {
@@ -232,10 +226,8 @@
           "default": 5.0
         },
         {
-          "type": "string",
+          "type": "prompt",
           "id": "default_prompt",
-          "multiline": true,
-          "autocomplete": true,
           "tooltip": "Default prompt",
           "placeholder": "Default prompt..."
         },
@@ -328,56 +320,6 @@
   ],
 
   "graph": {
-    "45": {
-      "inputs": {
-        "id": "prompt"
-      },
-      "class_type": "krita_comfyui: KritaUiString",
-      "_meta": {
-        "title": "Krita UI String"
-      }
-    },
-    "46": {
-      "inputs": {
-        "text": [
-          "45",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: ParseLines",
-      "_meta": {
-        "title": "Parse Lines"
-      }
-    },
-    "47": {
-      "inputs": {
-        "jsons.json0": [
-          "48",
-          0
-        ],
-        "jsons.json1": [
-          "197",
-          0
-        ],
-        "jsons.json2": [
-          "46",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: ConcatenateJson",
-      "_meta": {
-        "title": "Concatenate JSON"
-      }
-    },
-    "48": {
-      "inputs": {
-        "text": "FILE: bundles.prompt"
-      },
-      "class_type": "prompt_helpers: ParseLines",
-      "_meta": {
-        "title": "Parse Lines"
-      }
-    },
     "53": {
       "inputs": {
         "id": "controlnet_model"
@@ -667,47 +609,10 @@
         "title": "and"
       }
     },
-    "175": {
-      "inputs": {
-        "jsons.json0": [
-          "48",
-          0
-        ],
-        "jsons.json1": [
-          "177",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: ConcatenateJson",
-      "_meta": {
-        "title": "Concatenate JSON"
-      }
-    },
-    "176": {
-      "inputs": {
-        "id": "mask_regions_prompt"
-      },
-      "class_type": "krita_comfyui: KritaUiString",
-      "_meta": {
-        "title": "Krita UI String"
-      }
-    },
-    "177": {
-      "inputs": {
-        "text": [
-          "176",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: ParseLines",
-      "_meta": {
-        "title": "Parse Lines"
-      }
-    },
     "178": {
       "inputs": {
         "prompt": [
-          "290",
+          "356",
           0
         ],
         "strength": 1,
@@ -726,7 +631,7 @@
     "182": {
       "inputs": {
         "prompt": [
-          "290",
+          "356",
           1
         ],
         "strength": 1,
@@ -745,7 +650,7 @@
     "187": {
       "inputs": {
         "global_prompt": [
-          "289",
+          "348",
           0
         ],
         "global_strength": 0.01,
@@ -753,7 +658,7 @@
         "add_to_regions": true,
         "combine_prompts": "String Concatenate",
         "clip": [
-          "288",
+          "362",
           1
         ],
         "regions": [
@@ -769,15 +674,15 @@
     "190": {
       "inputs": {
         "global_prompt": [
-          "289",
-          1
+          "349",
+          0
         ],
         "global_strength": 0.01,
         "global_inverse_strength": 0,
         "add_to_regions": true,
         "combine_prompts": "String Concatenate",
         "clip": [
-          "288",
+          "362",
           1
         ],
         "regions": [
@@ -788,27 +693,6 @@
       "class_type": "krita_comfyui: RegionsEncode",
       "_meta": {
         "title": "CLIP Regions Encode"
-      }
-    },
-    "196": {
-      "inputs": {
-        "id": "default_prompt"
-      },
-      "class_type": "krita_comfyui: KritaUiString",
-      "_meta": {
-        "title": "Krita UI String"
-      }
-    },
-    "197": {
-      "inputs": {
-        "text": [
-          "196",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: ParseLines",
-      "_meta": {
-        "title": "Parse Lines"
       }
     },
     "207": {
@@ -1330,7 +1214,7 @@
     "284": {
       "inputs": {
         "model": [
-          "288",
+          "362",
           0
         ],
         "positive": [
@@ -1386,50 +1270,6 @@
       "class_type": "VAELoader",
       "_meta": {
         "title": "Load VAE"
-      }
-    },
-    "288": {
-      "inputs": {
-        "model": [
-          "285",
-          0
-        ],
-        "clip": [
-          "286",
-          0
-        ],
-        "loras": [
-          "289",
-          2
-        ]
-      },
-      "class_type": "prompt_helpers: ApplyLoras",
-      "_meta": {
-        "title": "Apply Loras"
-      }
-    },
-    "289": {
-      "inputs": {
-        "json": [
-          "47",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: ProcessJSON",
-      "_meta": {
-        "title": "Process JSON"
-      }
-    },
-    "290": {
-      "inputs": {
-        "json": [
-          "175",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: ProcessJSON",
-      "_meta": {
-        "title": "Process JSON"
       }
     },
     "291": {
@@ -1591,7 +1431,7 @@
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "text": [
-          "289",
+          "348",
           0
         ]
       },
@@ -1623,41 +1463,6 @@
         "title": "Krita Debug"
       }
     },
-    "313": {
-      "inputs": {
-        "enabled": [
-          "291",
-          0
-        ],
-        "name": "Loras",
-        "order": 5,
-        "x": 0,
-        "y": 0,
-        "canvas_resize": "do nothing",
-        "resize_other_layers": false,
-        "resize_algorithm": "Bicubic",
-        "text": [
-          "314",
-          3
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "314": {
-      "inputs": {
-        "json": [
-          "47",
-          0
-        ]
-      },
-      "class_type": "prompt_helpers: DebugJSON",
-      "_meta": {
-        "title": "Debug JSON"
-      }
-    },
     "315": {
       "inputs": {
         "enabled": [
@@ -1672,8 +1477,8 @@
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "text": [
-          "289",
-          1
+          "349",
+          0
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -1790,7 +1595,7 @@
           2
         ],
         "string_b": [
-          "290",
+          "356",
           0
         ],
         "delimiter": ": "
@@ -1830,7 +1635,7 @@
           2
         ],
         "string_b": [
-          "290",
+          "356",
           1
         ],
         "delimiter": ": "
@@ -2100,6 +1905,130 @@
       "class_type": "krita_comfyui: Detail",
       "_meta": {
         "title": "Detail"
+      }
+    },
+    "346": {
+      "inputs": {
+        "id": "default_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "347": {
+      "inputs": {
+        "id": "prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "348": {
+      "inputs": {
+        "string_a": [
+          "347",
+          0
+        ],
+        "string_b": [
+          "346",
+          0
+        ],
+        "delimiter": ""
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "349": {
+      "inputs": {
+        "string_a": [
+          "347",
+          1
+        ],
+        "string_b": [
+          "346",
+          1
+        ],
+        "delimiter": ""
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "356": {
+      "inputs": {
+        "id": "mask_regions_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "359": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Loras",
+        "order": 5,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "361",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "361": {
+      "inputs": {
+        "inputs.input0": [
+          "347",
+          2
+        ],
+        "inputs.input1": [
+          "346",
+          2
+        ],
+        "inputs.input2": [
+          "356",
+          2
+        ]
+      },
+      "class_type": "CreateList",
+      "_meta": {
+        "title": "Create List"
+      }
+    },
+    "362": {
+      "inputs": {
+        "model": [
+          "285",
+          0
+        ],
+        "clip": [
+          "286",
+          0
+        ],
+        "loras": [
+          "361",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: ApplyLoras",
+      "_meta": {
+        "title": "Apply Loras"
       }
     }
   }

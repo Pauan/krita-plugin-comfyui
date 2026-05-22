@@ -11,6 +11,46 @@ def always_execute():
     return float("nan")
 
 
+@io.comfytype(io_type="KRITA_LAYER_ID")
+class LayerId(io.ComfyTypeIO):
+    Type = str
+
+
+@io.comfytype(io_type="KRITA_LORA")
+class Lora(io.ComfyTypeIO):
+    Type = dict
+
+
+@io.comfytype(io_type="KRITA_SELECTION")
+class Selection(io.ComfyTypeIO):
+    pass
+
+
+class ApplyLoras(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: ApplyLoras",
+            display_name="Apply Loras",
+            category="krita/util",
+            description="Applies loras to the model.",
+            inputs=[
+                io.Model.Input("model"),
+                io.Clip.Input("clip"),
+                Lora.Input("loras", optional=True),
+            ],
+            outputs=[
+                io.Model.Output(is_output_list=True),
+                io.Clip.Output(is_output_list=True),
+            ],
+            is_input_list=True,
+        )
+
+    @classmethod
+    def execute(cls, model, clip, loras=[]) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
 # @TODO Move this functionality into the ComfyUI CreateList node
 class MakeList(io.ComfyNode):
     @classmethod
@@ -19,6 +59,7 @@ class MakeList(io.ComfyNode):
         template_autogrow = io.Autogrow.TemplatePrefix(
             input=io.MatchType.Input("input", template=template_matchtype, optional=True),
             prefix="input",
+            min=0,
         )
         return io.Schema(
             node_id="krita_comfyui: MakeList",
@@ -138,16 +179,6 @@ class ReplaceTransparency(io.ComfyNode):
         return io.NodeOutput(image, expand=graph.finalize())
 
 
-@io.comfytype(io_type="KRITA_LAYER_ID")
-class LayerId(io.ComfyTypeIO):
-    Type = str
-
-
-@io.comfytype(io_type="KRITA_SELECTION")
-class Selection(io.ComfyTypeIO):
-    pass
-
-
 class LoadImageBase64(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -222,7 +253,7 @@ class KritaLayers(io.ComfyNode):
         return io.Schema(
             node_id="krita_comfyui: KritaLayers",
             display_name="Krita Layers",
-            category="krita",
+            category="krita/input",
             description="Retrieves one or more layers from Krita.",
             inputs=[
                 LayerId.Input("layer_id", tooltip="The unique ID of the layer."),
@@ -247,7 +278,7 @@ class KritaCanvas(io.ComfyNode):
         return io.Schema(
             node_id="krita_comfyui: KritaCanvas",
             display_name="Krita Canvas",
-            category="krita",
+            category="krita/input",
             description="Retrieves the entire canvas from Krita.",
             inputs=[
                 io.BoundingBox.Input("crop", optional=True, force_input=True, tooltip="Optional bounding box which will be used to crop the canvas image and mask."),
@@ -271,7 +302,7 @@ class KritaSeed(io.ComfyNode):
         return io.Schema(
             node_id="krita_comfyui: KritaSeed",
             display_name="Krita Seed",
-            category="krita",
+            category="krita/input",
             description="Retrieves the seed from Krita.",
             inputs=[],
             outputs=[
@@ -524,7 +555,7 @@ class KritaOutput(io.ComfyNode):
         return io.Schema(
             node_id="krita_comfyui: KritaOutput",
             display_name="Krita Output",
-            category="krita",
+            category="krita/output",
             description="Sends images to Krita.",
             inputs=[
                 io.Image.Input("images", tooltip="Images that will be sent to Krita."),
@@ -624,7 +655,7 @@ class KritaText(io.ComfyNode):
         return io.Schema(
             node_id="krita_comfyui: KritaText",
             display_name="Krita Text",
-            category="krita",
+            category="krita/output",
             description="Sends text to Krita.",
             inputs=[
                 io.AnyType.Input("text", tooltip="Will be converted into a string and sent to Krita."),
@@ -650,7 +681,7 @@ class KritaDebug(io.ComfyNode):
         return io.Schema(
             node_id="krita_comfyui: KritaDebug",
             display_name="Krita Debug",
-            category="krita/debug",
+            category="krita/output",
             description="Sends information to Krita for debugging.",
             inputs=[
                 io.Image.Input("images", tooltip="Images that will be debugged.", lazy=True, optional=True),

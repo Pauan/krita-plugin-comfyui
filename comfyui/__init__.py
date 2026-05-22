@@ -26,22 +26,22 @@ class KritaComfyui(ComfyExtension):
             controlnet.MakeControlNet,
             controlnet.ApplyControlNets,
 
-            # trasform
+            # transform
             nodes.Detail,
 
             # image
             nodes.AddAlphaToImage,
             nodes.ReplaceTransparency,
 
-            # krita
+            # krita/input
             nodes.KritaCanvas,
             nodes.KritaLayers,
-            nodes.KritaOutput,
             nodes.KritaSeed,
-            nodes.KritaText,
 
-            # krita/debug
+            # krita/output
             nodes.KritaDebug,
+            nodes.KritaOutput,
+            nodes.KritaText,
 
             # krita/region
             region_comfyui.RegionMask,
@@ -49,15 +49,6 @@ class KritaComfyui(ComfyExtension):
             region_comfyui.RegionsEncode,
             region_comfyui.RegionsDebug,
             #region_comfyui.ApplyAttentionMasks,
-
-            # krita/ui
-            ui.KritaUiBoolean,
-            ui.KritaUiCombo,
-            ui.KritaUiFloat,
-            ui.KritaUiInt,
-            ui.KritaUiLayerId,
-            ui.KritaUiPrompt,
-            ui.KritaUiString,
 
             # krita/selection
             nodes.KritaSelection,
@@ -69,6 +60,18 @@ class KritaComfyui(ComfyExtension):
             nodes.KritaSelectionMask,
             nodes.KritaSelectionShrink,
             nodes.KritaSelectionSmooth,
+
+            # krita/ui
+            ui.KritaUiBoolean,
+            ui.KritaUiCombo,
+            ui.KritaUiFloat,
+            ui.KritaUiInt,
+            ui.KritaUiLayerId,
+            ui.KritaUiPrompt,
+            ui.KritaUiString,
+
+            # krita/util
+            nodes.ApplyLoras,
         ]
 
 async def comfy_entrypoint() -> KritaComfyui:

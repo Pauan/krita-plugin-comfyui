@@ -1,5 +1,5 @@
 from comfy_api.latest import io
-from .nodes import LayerId
+from .nodes import Lora, LayerId
 
 
 class KritaUiFloat(io.ComfyNode):
@@ -104,6 +104,7 @@ class KritaUiPrompt(io.ComfyNode):
             outputs=[
                 io.String.Output(display_name="positive", is_output_list=True),
                 io.String.Output(display_name="negative", is_output_list=True),
+                Lora.Output(display_name="loras", is_output_list=True),
                 io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
             ],
         )

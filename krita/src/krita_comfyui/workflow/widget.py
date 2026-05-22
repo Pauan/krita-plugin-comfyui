@@ -14,6 +14,7 @@ from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
 from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiPrompt, UiGroup, UiRow, UiList, UiLabel
+from .prompt import PromptParser
 
 
 class WorkflowSelector(ComboBox):
@@ -59,6 +60,8 @@ class WorkflowWidget(QWidget):
         self.document = DocumentManager(self)
         self.document.document_changed.connect(self.on_document_changed)
         self.document.layers_changed.connect(self.update_layer_inputs)
+
+        self.prompt_parser = PromptParser()
 
         self.layout = LayoutManager(self)
 
@@ -380,7 +383,13 @@ class WorkflowWidget(QWidget):
                         "is_default": input.value == input.default,
                     }
 
-                    if isinstance(widget, UiLayerId):
+                    if isinstance(widget, UiPrompt):
+                        parsed = self.prompt_parser.parse(input.value)
+                        info["positive"] = parsed.serialize_positive()
+                        info["negative"] = parsed.serialize_negative()
+                        info["loras"] = parsed.loras
+
+                    elif isinstance(widget, UiLayerId):
                         info["layer_name"] = ""
 
                         option = widget.current_option()
