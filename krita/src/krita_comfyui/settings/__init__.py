@@ -3,7 +3,7 @@ import functools
 from enum import Enum
 from json import dump, dumps, load, loads
 from pathlib import Path
-from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal
+from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
 from ..util import timestamp, Perf
 from ..util.qt import BlockSignals
@@ -528,6 +528,7 @@ class Settings(QObject):
         self.cached_node_metadata = {}
 
 
+    @pyqtSlot(dict)
     def save_node_metadata(self, metadata):
         self.node_metadata = metadata
         self.cached_node_metadata = {}
@@ -546,6 +547,7 @@ class Settings(QObject):
             return {}
 
 
+    @pyqtSlot(dict)
     def save_danbooru_tags(self, tags):
         self.danbooru_tags = tags
 

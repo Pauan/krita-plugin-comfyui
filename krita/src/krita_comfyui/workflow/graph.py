@@ -140,4 +140,7 @@ class WorkflowGraph:
             if not has_output_links.get(id, False):
                 self.evaluate_node(id)
 
-        return self.graph
+
+        output = self.graph
+        self.graph = None
+        return output

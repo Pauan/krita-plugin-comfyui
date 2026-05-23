@@ -55,14 +55,14 @@ class Graph:
     # Returns a tuple of (image, mask)
     def image(self, image):
         image.check_format()
-        node = self.node("krita_comfyui: LoadImageBase64", base64=image.to_base64(), width=image.width, height=image.height)
+        node = self.node("krita_comfyui: LoadImageBase64", base64=image, width=image.width, height=image.height)
         return (node.out(0), node.out(1))
 
 
     # Sends a Mask to ComfyUI
     def mask(self, mask):
         mask.check_format()
-        return self.node("krita_comfyui: LoadMaskBase64", base64=mask.to_base64(), width=mask.width, height=mask.height).out(0)
+        return self.node("krita_comfyui: LoadMaskBase64", base64=mask, width=mask.width, height=mask.height).out(0)
 
 
     # Causes an error to be thrown when evaluating the graph
@@ -70,8 +70,23 @@ class Graph:
         return self.node("krita_comfyui: ThrowError", message=message).out(0)
 
 
-    def serialize(self):
-        return self.nodes
+    def finalize(self):
+        output = self.nodes
+
+        self.nodes = None
+
+        # Converting images to base64 is expensive, so we delay it until now.
+        for value in output.values():
+            match value["class_type"]:
+                case "krita_comfyui: LoadImageBase64" | "krita_comfyui: LoadMaskBase64":
+                    inputs = value["inputs"]
+
+                    base64 = inputs["base64"]
+
+                    if not isinstance(base64, str):
+                        inputs["base64"] = base64.to_base64()
+
+        return output
 
 
     def debug(self):

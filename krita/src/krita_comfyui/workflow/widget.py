@@ -420,6 +420,8 @@ class WorkflowWidget(QWidget):
 
     def on_document_changed(self):
         with self.catch_errors():
+            self.stop_live_mode()
+
             if self.workflow.change_document(self.document.current()):
                 self.layer_combo_options = self.get_layer_combo_options()
                 self.update_widgets()
@@ -511,10 +513,12 @@ class WorkflowWidget(QWidget):
         with Perf("run_workflow"):
             with self.catch_errors():
                 graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=WorkflowGraph.random_seed())
+
                 self.extension.client.execute_graph(
-                    graph,
+                    graph=graph,
                     document_id=document_id,
                     is_live_mode=False,
+                    should_notify=True,
                 )
 
 
@@ -523,15 +527,18 @@ class WorkflowWidget(QWidget):
             with self.catch_errors():
                 graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=self.live_mode_state.seed)
 
-                cache = graph.serialize()
+                #cache = graph.finalize()
 
-                if self.live_mode_state.set_graph(cache):
-                    self.extension.client.execute_graph(
-                        graph,
-                        document_id=document_id,
-                        should_notify=False,
-                        is_live_mode=True,
-                    )
+                # We're executing the graph, so we don't need the timer.
+                self.live_mode_state.timer.stop()
+
+                #if self.live_mode_state.set_graph(cache):
+                self.extension.client.execute_graph(
+                    graph=graph,
+                    document_id=document_id,
+                    is_live_mode=True,
+                    should_notify=False,
+                )
 
 
     def is_live_mode_enabled(self):

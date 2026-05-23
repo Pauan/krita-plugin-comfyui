@@ -14,15 +14,18 @@ async def notify(notifier, message):
 class NotifyWorker(QObject):
     message = pyqtSignal(str)
 
-    notifier = desktop_notifier.DesktopNotifier(
-        app_name="Krita ComfyUI",
-        app_icon=None,
-    )
-
     def __init__(self):
         super().__init__()
+
+        self.notifier = None
         self.message.connect(self.on_message)
 
     @pyqtSlot(str)
     def on_message(self, message):
+        if self.notifier is None:
+            self.notifier = desktop_notifier.DesktopNotifier(
+                app_name="Krita ComfyUI",
+                app_icon=None,
+            )
+
         asyncio.run(notify(self.notifier, message))

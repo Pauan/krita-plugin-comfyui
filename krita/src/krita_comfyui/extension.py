@@ -14,15 +14,21 @@ class ComfyUIExtension(Extension):
         # The notifier needs to run async functions.
         # Instead of connecting Python's async event loop into the QEventLoop,
         # it's easier to just run it on a separate thread.
-        self.thread = QThread(self)
+        self.notify_thread = QThread(self)
         self.notify = NotifyWorker()
-        self.notify.moveToThread(self.thread)
+        self.notify.moveToThread(self.notify_thread)
 
         self.settings = Settings(self)
         self.settings_dialog = SettingsDialog(self.settings)
         self.settings.clear_log()
 
-        self.client = ComfyUIClient(self, self.settings, url="127.0.0.1:8188", reconnect_delay=10000)
+        self.client = ComfyUIClient(self.settings, url="127.0.0.1:8188", reconnect_delay=10000)
+
+        # We execute jobs in a separate thread so it doesn't freeze the UI.
+        self.client_thread = QThread(self)
+        # We immediately connect to ComfyUI so we can update the node metadata
+        self.client_thread.started.connect(self.client.connect)
+        self.client.moveToThread(self.client_thread)
 
         self.client.graph_changed.connect(self.on_graph_changed)
 
@@ -40,10 +46,8 @@ class ComfyUIExtension(Extension):
 
 
     def setup(self):
-        self.thread.start()
-
-        # We immediately connect to ComfyUI so we can update the node metadata
-        self.client.connect()
+        self.notify_thread.start()
+        self.client_thread.start()
 
 
     def on_graph_changed(self, graph):
@@ -57,7 +61,12 @@ class ComfyUIExtension(Extension):
 
     def shutdown(self):
         self.client.disconnect()
-        self.thread.quit()
-        self.thread.deleteLater()
+        self.client.deleteLater()
+        self.client_thread.quit()
+        self.client_thread.deleteLater()
+
+        self.notify_thread.quit()
+        self.notify_thread.deleteLater()
         self.notify.deleteLater()
+
         self.settings_dialog.deleteLater()

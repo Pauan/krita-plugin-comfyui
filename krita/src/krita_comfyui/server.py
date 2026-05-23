@@ -3,10 +3,11 @@ import uuid
 from enum import Enum, auto
 from . import util
 from .settings import LogLevel
+from .util.graph import Graph
 
-from PyQt6.QtCore import QObject, QTimer, QUrl, QUrlQuery, QByteArray, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, QUrl, QUrlQuery, QByteArray, pyqtSignal, pyqtSlot
 from PyQt6.QtWebSockets import QWebSocket
-from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply, QAbstractSocket
 
 
 class ComfyError:
@@ -277,9 +278,7 @@ class Prompt:
         self.error = None
         self.outputs = []
 
-        serialized = graph.serialize()
-
-        self.progress = PromptProgress(serialized)
+        self.progress = PromptProgress(self.graph)
 
         self.prompt_id = str(uuid.uuid4())
 
@@ -288,7 +287,7 @@ class Prompt:
         self.body = json.dumps({
             "client_id": self.client_id,
             "prompt_id": self.prompt_id,
-            "prompt": serialized,
+            "prompt": self.graph,
         }).encode("utf-8")
 
 
@@ -351,7 +350,8 @@ class WebsocketClient(QObject):
         self.timer.timeout.connect(self._open_connection)
 
         self.client = QWebSocket(url)
-        self.client.error.connect(self.on_error)
+        self.client.setParent(self)
+        self.client.errorOccurred.connect(self.on_error)
         self.client.textMessageReceived.connect(self.on_text_message)
         self.client.connected.connect(self.on_connected)
         self.client.disconnected.connect(self.on_disconnected)
@@ -365,6 +365,7 @@ class WebsocketClient(QObject):
     def is_ready(self):
         return self.should_connect and self.state == ConnectState.Connected
 
+    @pyqtSlot()
     def _open_connection(self):
         if self.should_connect and self.state == ConnectState.Disconnected:
             self.client.open(QUrl(self.url))
@@ -382,6 +383,7 @@ class WebsocketClient(QObject):
             self.client.close()
             self._change_state(ConnectState.Disconnected)
 
+    @pyqtSlot()
     def on_connected(self):
         if self.should_connect:
             assert self.state != ConnectState.Connected
@@ -389,26 +391,139 @@ class WebsocketClient(QObject):
         else:
             assert self.state == ConnectState.Disconnected
 
+    @pyqtSlot()
     def on_disconnected(self):
         if self.should_connect:
             self.timer.start(self.reconnect_delay)
         self._change_state(ConnectState.Disconnected)
 
-    def on_error(self, error_code):
+    @pyqtSlot(QAbstractSocket.SocketError)
+    def on_error(self, error):
         self.error.emit(self.client.errorString())
 
+    @pyqtSlot(str)
     def on_text_message(self, message):
         if self.is_ready():
             self.messages.emit(json.loads(message))
+
+
+# Because the server is running in another thread, when you
+# call a server method it doesn't execute the code directly,
+# instead it queues up a Command which will be executed later.
+class Command:
+    pass
+
+
+class StopExecuteGraphCommand(Command):
+    def __init__(self, graph_id):
+        super().__init__()
+        self.graph_id = graph_id
+
+    def run(self, client):
+        remove = [prompt for prompt in client.queue if prompt.graph_id == self.graph_id]
+
+        for prompt in remove:
+            is_running = prompt.state.is_running()
+
+            prompt.cancel()
+            client.queue.remove(prompt)
+            client.graph_changed.emit(prompt.graph_info())
+
+            if is_running:
+                client.interrupt_prompt(prompt)
+
+        client.execute_queue()
+
+
+class ClearQueuePendingCommand(Command):
+    def run(self, client):
+        remove = [prompt for prompt in client.queue if prompt.state.is_idle()]
+
+        for prompt in remove:
+            prompt.cancel()
+            client.queue.remove(prompt)
+            client.graph_changed.emit(prompt.graph_info())
+
+        client.execute_queue()
+
+
+class ClearQueueLiveModeCommand(Command):
+    def run(self, client):
+        remove = [prompt for prompt in client.queue if prompt.is_live_mode]
+
+        for prompt in remove:
+            is_running = prompt.state.is_running()
+
+            prompt.cancel()
+            client.queue.remove(prompt)
+
+            if is_running:
+                client.interrupt_prompt(prompt)
+
+            client.graph_changed.emit(prompt.graph_info())
+
+        client.execute_queue()
+
+
+class ClearQueueCommand(Command):
+    def run(self, client):
+        if len(client.queue) > 0:
+            old = client.queue
+
+            client.queue = []
+
+            for prompt in old:
+                is_running = prompt.state.is_running()
+
+                prompt.cancel()
+                client.graph_changed.emit(prompt.graph_info())
+
+                if is_running:
+                    client.interrupt_prompt(prompt)
+
+
+class ExecuteGraphCommand(Command):
+    def __init__(self, graph, document_id, is_live_mode, should_notify):
+        super().__init__()
+        self.graph = graph
+        self.document_id = document_id
+        self.is_live_mode = is_live_mode
+        self.should_notify = should_notify
+
+
+    def run(self, client):
+        client.settings.log_json(self.graph.debug(), label="Execute Graph", level=LogLevel.DEBUG)
+
+        graph_id = str(client.graph_id)
+
+        client.graph_id += 1
+
+        prompt = Prompt(
+            self.document_id,
+            client.client_id,
+            graph_id,
+            self.graph.finalize(),
+            self.is_live_mode,
+            self.should_notify,
+        )
+
+        client.queue.append(prompt)
+
+        graph_info = prompt.graph_info()
+
+        client.graph_changed.emit(graph_info)
+
+        client.execute_queue()
 
 
 class ComfyUIClient(QObject):
     graph_changed = pyqtSignal(GraphInfo)
     connection_changed = pyqtSignal()
 
+    run_command = pyqtSignal(Command)
 
-    def __init__(self, parent, settings, url, reconnect_delay):
-        super().__init__(parent)
+    def __init__(self, settings, url, reconnect_delay):
+        super().__init__()
 
         self.client_id = str(uuid.uuid4())
         self.graph_id = 0
@@ -416,7 +531,7 @@ class ComfyUIClient(QObject):
         self.settings = settings
         self.url = url
         self.queue = []
-        self.is_connected = False
+        self.is_websocket_connected = False
 
         self.pending_danbooru_tags = None
         self.last_danbooru_id = None
@@ -429,6 +544,13 @@ class ComfyUIClient(QObject):
         self.websocket.messages.connect(self.on_websocket_message)
         self.websocket.error.connect(self.on_websocket_error)
         self.websocket.state_changed.connect(self.on_websocket_state_changed)
+
+        self.run_command.connect(self.on_run_command)
+
+
+    @pyqtSlot(Command)
+    def on_run_command(self, command):
+        command.run(self)
 
 
     def request(self, *, url, metadata, username=None, password=None, headers=[], query={}):
@@ -515,10 +637,12 @@ class ComfyUIClient(QObject):
                 self.graph_changed.emit(prompt.graph_info())
 
 
+    @pyqtSlot(str)
     def on_websocket_error(self, message):
         self.settings.log_str(f"WebSocket Error: {message}", level=LogLevel.ERROR)
 
 
+    @pyqtSlot(ConnectState)
     def on_websocket_state_changed(self, state):
         if state == ConnectState.Disconnected:
             # When the WebSocket disconnects, we assume that the entire ComfyUI server
@@ -542,7 +666,7 @@ class ComfyUIClient(QObject):
             self.update_node_metadata()
             self.execute_queue()
 
-        self.update_is_connected()
+        self.update_is_websocket_connected()
 
 
     def on_prompt_executing(self, prompt_id):
@@ -628,6 +752,7 @@ class ComfyUIClient(QObject):
             self.execute_queue()
 
 
+    @pyqtSlot(dict)
     def on_websocket_message(self, message):
         self.settings.log_json(message, label="Websocket Message", level=LogLevel.TRACE)
 
@@ -657,6 +782,7 @@ class ComfyUIClient(QObject):
             self.on_prompt_error(data["prompt_id"], data)
 
 
+    @pyqtSlot(QNetworkReply)
     def on_http_finished(self, reply):
         error = None
         status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
@@ -716,90 +842,34 @@ class ComfyUIClient(QObject):
         reply.deleteLater()
 
 
-    def update_is_connected(self):
+    def update_is_websocket_connected(self):
         is_ready = self.websocket.is_ready()
 
-        if self.is_connected != is_ready:
-            self.is_connected = is_ready
+        if self.is_websocket_connected != is_ready:
+            self.is_websocket_connected = is_ready
             self.connection_changed.emit()
 
 
+    @pyqtSlot(result=bool)
+    def is_connected(self):
+        return self.is_websocket_connected
+
+
+    @pyqtSlot()
     def connect(self):
         self.websocket.connect()
         self.execute_queue()
-        self.update_is_connected()
+        self.update_is_websocket_connected()
         #self.update_danbooru_tags()
 
 
+    @pyqtSlot()
     def disconnect(self):
         self.websocket.disconnect()
-        self.update_is_connected()
+        self.update_is_websocket_connected()
 
 
-    # Stop executing a specific graph
-    def stop_execute_graph(self, graph_id):
-        remove = [prompt for prompt in self.queue if prompt.graph_id == graph_id]
-
-        for prompt in remove:
-            is_running = prompt.state.is_running()
-
-            prompt.cancel()
-            self.queue.remove(prompt)
-            self.graph_changed.emit(prompt.graph_info())
-
-            if is_running:
-                self.interrupt_prompt(prompt)
-
-        self.execute_queue()
-
-
-    # Removes pending prompts which haven't been sent yet
-    def clear_queue_pending(self):
-        remove = [prompt for prompt in self.queue if prompt.state.is_idle()]
-
-        for prompt in remove:
-            prompt.cancel()
-            self.queue.remove(prompt)
-            self.graph_changed.emit(prompt.graph_info())
-
-        self.execute_queue()
-
-
-    # Removes all live mode prompts
-    def clear_queue_live_mode(self):
-        remove = [prompt for prompt in self.queue if prompt.is_live_mode]
-
-        for prompt in remove:
-            is_running = prompt.state.is_running()
-
-            prompt.cancel()
-            self.queue.remove(prompt)
-
-            if is_running:
-                self.interrupt_prompt(prompt)
-
-            self.graph_changed.emit(prompt.graph_info())
-
-        self.execute_queue()
-
-
-    # Removes all prompts, including prompts that are in progress
-    def clear_queue(self):
-        if len(self.queue) > 0:
-            old = self.queue
-
-            self.queue = []
-
-            for prompt in old:
-                is_running = prompt.state.is_running()
-
-                prompt.cancel()
-                self.graph_changed.emit(prompt.graph_info())
-
-                if is_running:
-                    self.interrupt_prompt(prompt)
-
-
+    @pyqtSlot(result=list)
     def current_queue(self):
         return [prompt.graph_info() for prompt in self.queue]
 
@@ -891,21 +961,30 @@ class ComfyUIClient(QObject):
         ))
 
 
-    def execute_graph(self, graph, *, document_id, is_live_mode, should_notify=True):
-        self.settings.log_json(graph.debug(), label="Execute Graph", level=LogLevel.DEBUG)
+    # Stop executing a specific graph
+    def stop_execute_graph(self, graph_id):
+        self.run_command.emit(StopExecuteGraphCommand(graph_id))
 
-        graph_id = str(self.graph_id)
 
-        self.graph_id += 1
+    # Removes pending prompts which haven't been sent yet
+    def clear_queue_pending(self):
+        self.run_command.emit(ClearQueuePendingCommand())
 
-        prompt = Prompt(document_id, self.client_id, graph_id, graph, is_live_mode, should_notify)
 
-        self.queue.append(prompt)
+    # Removes all live mode prompts
+    def clear_queue_live_mode(self):
+        self.run_command.emit(ClearQueueLiveModeCommand())
 
-        graph_info = prompt.graph_info()
 
-        self.graph_changed.emit(graph_info)
+    # Removes all prompts, including prompts that are in progress
+    def clear_queue(self):
+        self.run_command.emit(ClearQueueCommand())
 
-        self.execute_queue()
 
-        return graph_info
+    def execute_graph(self, *, graph, document_id, is_live_mode, should_notify):
+        self.run_command.emit(ExecuteGraphCommand(
+            graph=graph,
+            document_id=document_id,
+            is_live_mode=is_live_mode,
+            should_notify=should_notify,
+        ))

@@ -289,7 +289,7 @@ class InputsWidget(QWidget):
             current_job.update_progress_bar(self.progress_bar)
 
 
-        if not self.extension.client.is_connected:
+        if not self.extension.client.is_connected():
             tooltip = "Not connected to ComfyUI"
         elif not self.workflow.can_run():
             tooltip = "No workflow selected"

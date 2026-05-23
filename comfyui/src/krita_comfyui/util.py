@@ -114,8 +114,12 @@ def serialize_any(text):
 # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1741-L1750
 def decode_image(text, width, height):
     bytes = base64.b64decode(text)
+    assert len(bytes) == (width * height) * 4
+
     image = Image.frombuffer("RGBA", (width, height), bytes)
 
+    assert image.width == width
+    assert image.height == height
     assert image.mode == "RGBA"
 
     mask = np.array(image.getchannel("A")).astype(np.float32) / 255.0
@@ -133,8 +137,12 @@ def decode_image(text, width, height):
 
 def decode_mask(text, width, height):
     bytes = base64.b64decode(text)
+    assert len(bytes) == (width * height)
+
     image = Image.frombuffer("L", (width, height), bytes)
 
+    assert image.width == width
+    assert image.height == height
     assert image.mode == "L"
 
     mask = np.array(image).astype(np.float32) / 255.0

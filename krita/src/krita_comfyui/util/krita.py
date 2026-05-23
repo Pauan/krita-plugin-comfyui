@@ -477,8 +477,8 @@ class Document:
                 try:
                     if visible:
                         preview.is_visible = False
+                        self.refresh()
 
-                    self.refresh()
                     #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
                     return Image.from_krita_qimage(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
@@ -488,7 +488,6 @@ class Document:
                         self.refresh()
 
             else:
-                self.refresh()
                 #return Image.from_packed_bytes(self._document.pixelData(bounds.x, bounds.y, bounds.width, bounds.height), bounds.width, bounds.height)
                 return Image.from_krita_qimage(self._document.projection(bounds.x, bounds.y, bounds.width, bounds.height))
 
