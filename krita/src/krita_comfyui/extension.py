@@ -9,6 +9,7 @@ from .util.notify import NotifyWorker
 
 class ComfyUIExtension(Extension):
     stop_live_mode = pyqtSignal()
+    live_mode_started = pyqtSignal()
 
 
     def __init__(self, parent):

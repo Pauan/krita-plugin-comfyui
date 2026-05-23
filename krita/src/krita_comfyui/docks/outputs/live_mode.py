@@ -17,6 +17,7 @@ class LiveModeImage(QLabel):
         super().__init__()
 
         self.extension = extension
+        self.extension.live_mode_started.connect(self.on_live_mode_started)
 
         self.document = document
         self.document.document_changed.connect(self.load_image)
@@ -196,8 +197,6 @@ class LiveModeImage(QLabel):
 
 
     def set_selected(self, document, selected, *, update_preview=True):
-        self.extension.stop_live_mode.emit()
-
         self.current_image.set_selected(document, selected)
         self.overlay.setVisible(selected)
 
@@ -207,6 +206,7 @@ class LiveModeImage(QLabel):
 
     def update_image_preview(self, document):
         if self.current_image is not None and self.current_image.is_selected():
+            self.extension.stop_live_mode.emit()
             self.current_image.show_preview(document)
         else:
             document.hide_preview_layer()
@@ -225,6 +225,14 @@ class LiveModeImage(QLabel):
         if document is not None:
             if self.current_image is not None:
                 self.set_selected(document, not self.current_image.is_selected())
+
+
+    def on_live_mode_started(self):
+        document = self.document.current()
+
+        if document is not None:
+            if self.current_image is not None:
+                self.set_selected(document, False)
 
 
     def apply_selected(self, document):

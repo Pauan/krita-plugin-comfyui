@@ -64,7 +64,6 @@ class LiveModeState(QObject):
         self.seed = WorkflowGraph.random_seed()
         self.is_running = False
         self.first_run = True
-        self.was_modified = False
         self.wait_until = None
 
         self.enable_live_mode = extension.settings.settings.item("enable_live_mode")
@@ -118,9 +117,6 @@ class LiveModeState(QObject):
 
         if is_modified or self.first_run:
             self.first_run = False
-
-            if is_modified:
-                self.was_modified = True
 
             document.modified = False
 
@@ -569,6 +565,10 @@ class WorkflowWidget(QWidget):
         if self.live_mode_state.stop():
             self.extension.client.clear_queue_live_mode()
 
+            # TODO more robust way to handle this
+            if self.workflow.document is not None:
+                self.workflow.document.modified = True
+
             if emit:
                 self.live_mode_changed.emit()
 
@@ -583,5 +583,6 @@ class WorkflowWidget(QWidget):
             self.stop_live_mode()
         else:
             if self.live_mode_state.start():
+                self.extension.live_mode_started.emit()
                 self.maybe_run_live_mode()
                 self.live_mode_changed.emit()
