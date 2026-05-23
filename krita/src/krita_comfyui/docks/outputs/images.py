@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QObject, QPoint, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -10,224 +10,9 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
 )
-from ...util.krita import Document, Layer, Image, Bounds
+from ...util.krita import Image, Bounds
 from ...util.qt import BlockSignals
-from .serializer import ImageSerializer, DEFAULT_CANVAS_RESIZE, DEFAULT_RESIZE_OTHER_LAYERS, DEFAULT_RESIZE_ALGORITHM
-
-
-# Deletes elements from the list which the function returns True
-def delete_all(list, f):
-    indexes = []
-
-    for index in reversed(range(len(list))):
-        if f(list[index]):
-            indexes.append(index)
-
-    for index in indexes:
-        del list[index]
-
-
-class ImageStorage(QObject):
-    total_bytes_changed = pyqtSignal()
-
-    def __init__(self, parent, thumbnail_size):
-        super().__init__(parent)
-
-        self.serializer = ImageSerializer()
-        self.thumbnail_size = thumbnail_size
-        self.images = {}
-        self.metadata = {}
-        self.uuids = []
-        self.total_bytes = 0
-
-
-    def all_uuids(self):
-        for group in self.uuids:
-            for batch in group:
-                yield from batch
-
-
-    def load_uuid(self, document, uuid):
-        assert not uuid in self.images
-        assert not uuid in self.metadata
-
-        metadata = self.serializer.load_image_metadata(document, uuid)
-        bytes = self.serializer.load_image_bytes(document, uuid)
-
-        if metadata is None or bytes is None:
-            self.images[uuid] = Image.from_qicon(
-                Krita.icon("window-close"),
-                width=self.thumbnail_size,
-                height=self.thumbnail_size,
-            )
-
-            self.metadata[uuid] = {
-                "format": "rgba",
-                "width": self.thumbnail_size,
-                "height": self.thumbnail_size,
-                "x": 0,
-                "y": 0,
-                "name": "[ERROR]",
-                "canvas_resize": DEFAULT_CANVAS_RESIZE,
-                "resize_other_layers": DEFAULT_RESIZE_OTHER_LAYERS,
-                "resize_algorithm": DEFAULT_RESIZE_ALGORITHM,
-            }
-
-        else:
-            image = Image.from_packed_bytes(bytes, metadata["width"], metadata["height"], swap_rgb=False)
-            self.total_bytes += image.byte_size()
-            self.images[uuid] = image
-            self.metadata[uuid] = metadata
-
-
-    def load_all(self, document):
-        self.images = {}
-        self.metadata = {}
-        self.uuids = []
-        self.total_bytes = 0
-
-        if document is not None:
-            self.uuids = self.serializer.get_uuids(document)
-
-            for uuid in self.all_uuids():
-                self.load_uuid(document, uuid)
-
-        self.total_bytes_changed.emit()
-
-        return [[[self.lookup_uuid(uuid) for uuid in batch] for batch in group] for group in self.uuids]
-
-
-    def lookup_uuid(self, uuid):
-        metadata = self.metadata[uuid]
-
-        return {
-            "uuid": uuid,
-            "image": self.images[uuid],
-            "x": metadata["x"],
-            "y": metadata["y"],
-            "name": metadata["name"],
-            "applied": metadata.get("applied", False),
-            "selected": metadata.get("selected", False),
-            "canvas_resize": metadata["canvas_resize"],
-            "resize_other_layers": metadata["resize_other_layers"],
-            "resize_algorithm": metadata["resize_algorithm"],
-        }
-
-
-    def remove_uuid(self, document, uuid):
-        try:
-            image = self.images[uuid]
-            self.total_bytes -= image.byte_size()
-        except KeyError:
-            pass
-
-        try:
-            del self.images[uuid]
-        except KeyError:
-            pass
-
-        try:
-            del self.metadata[uuid]
-        except KeyError:
-            pass
-
-        self.serializer.remove_image(document, uuid)
-
-
-    def save(self, document, info):
-        uuid, image, metadata = self.serializer.save_new_image(document, info)
-
-        assert not uuid in self.images
-        assert not uuid in self.metadata
-
-        self.total_bytes += image.byte_size()
-
-        self.images[uuid] = image
-        self.metadata[uuid] = metadata
-
-        return uuid
-
-
-    def set_metadata_boolean(self, document, uuid, key: str, value: bool):
-        metadata = self.metadata[uuid]
-
-        old_value = metadata.get(key, False)
-
-        if old_value != value:
-            if value:
-                metadata[key] = value
-
-            else:
-                try:
-                    del metadata[key]
-                except KeyError:
-                    pass
-
-            self.serializer.set_image_metadata(document, uuid, metadata)
-
-
-    def set_applied(self, document, uuid, applied):
-        self.set_metadata_boolean(document, uuid, "applied", applied)
-
-    def set_selected(self, document, uuid, selected):
-        self.set_metadata_boolean(document, uuid, "selected", selected)
-
-
-    def update_position(self, document, uuid, x, y):
-        assert x != 0 or y != 0
-
-        metadata = self.metadata[uuid]
-        metadata["x"] -= x
-        metadata["y"] -= y
-        self.serializer.set_image_metadata(document, uuid, metadata)
-
-        return (metadata["x"], metadata["y"])
-
-
-    def save_group(self, document, group):
-        assert len(group) > 0
-
-        group = [[self.save(document, info) for info in batch] for batch in group]
-
-        self.total_bytes_changed.emit()
-
-        self.uuids.append(group)
-        self.serializer.set_uuids(document, self.uuids)
-
-        return [[self.lookup_uuid(uuid) for uuid in batch] for batch in group]
-
-
-    def clear(self, document):
-        for uuid in self.all_uuids():
-            self.remove_uuid(document, uuid)
-
-        self.serializer.clear_uuids(document)
-
-        self.images = {}
-        self.metadata = {}
-        self.uuids = []
-        self.total_bytes = 0
-
-        self.total_bytes_changed.emit()
-
-
-    def remove(self, document, uuids):
-        for uuid in uuids:
-            self.remove_uuid(document, uuid)
-
-        self.total_bytes_changed.emit()
-
-        def remove_batch(batch):
-            delete_all(batch, lambda uuid: uuid in uuids)
-            return len(batch) == 0
-
-        def remove_group(group):
-            delete_all(group, remove_batch)
-            return len(group) == 0
-
-        delete_all(self.uuids, remove_group)
-
-        self.serializer.set_uuids(document, self.uuids)
+from .serialized import SerializedImages
 
 
 class ImageWidget(QListWidget):
@@ -237,16 +22,18 @@ class ImageWidget(QListWidget):
 
     number_of_images = 4
 
+    total_bytes_changed = pyqtSignal()
+
     def __init__(self, document):
         super().__init__()
 
         self.document = document
         self.document.document_changed.connect(self.load_document)
 
+        self.total_bytes = 0
+
         # Displays the thumbnails at twice the image_size resolution then downscales it
         self.thumbnail_size = self.image_size * 2
-
-        self.storage = ImageStorage(self, self.thumbnail_size)
 
         self.selected = []
         self.clicked_on_selected = False
@@ -313,12 +100,26 @@ class ImageWidget(QListWidget):
 
 
     def load_document(self):
+        old_bytes = self.total_bytes
+
         with BlockSignals(self):
+            self.total_bytes = 0
             self.selected = []
             self.clear()
 
-            for group in self.storage.load_all(self.document.current()):
-                self.add_images(group, allow_selection=True)
+            document = self.document.current()
+
+            if document is None:
+                self.images = None
+
+            else:
+                self.images = SerializedImages.load(document)
+
+                for group in self.images.get_images():
+                    self.add_images(group, allow_selection=True)
+
+        if self.total_bytes != old_bytes:
+            self.total_bytes_changed.emit()
 
 
     def thumbnail(self, image, applied):
@@ -386,26 +187,27 @@ class ImageWidget(QListWidget):
             item.setSelected(True)
 
 
-    def update_selected_state(self, document):
+    def all_data(self):
         for i in range(self.count()):
             item = self.item(i)
             data = item.data(Qt.ItemDataRole.UserRole)
 
             if data is not None:
-                self.storage.set_selected(document, data["uuid"], item.isSelected())
+                yield data
 
 
+    # When images are selected / deselected we have to serialize that information.
+    def update_selected_state(self, document):
+        for data in self.all_data():
+            self.images.get_image(data["uuid"]).set_selected(document, item.isSelected())
+
+
+    # When the canvas is resized / scaled we have to shift the {x, y} of all the
+    # images so that they are properly aligned with the new canvas bounds.
     def update_position(self, document, x, y):
         if x != 0 or y != 0:
-            for i in range(self.count()):
-                item = self.item(i)
-                data = item.data(Qt.ItemDataRole.UserRole)
-
-                if data is not None:
-                    (new_x, new_y) = self.storage.update_position(document, data["uuid"], x, y)
-                    data["x"] = new_x
-                    data["y"] = new_y
-                    item.setData(Qt.ItemDataRole.UserRole, data)
+            for data in self.all_data():
+                self.images.get_image(data["uuid"]).update_position(document, x, y)
 
 
     def selection_changed(self):
@@ -420,17 +222,8 @@ class ImageWidget(QListWidget):
 
             # Show a preview of the last selected image
             if len(selected) > 0:
-                image = selected[-1][1]
-
-                name = image["name"]
-
-                document.show_preview_layer(
-                    name=f"[Preview] {name}",
-                    image=image["image"],
-                    x=image["x"],
-                    y=image["y"],
-                    canvas_resize=image["canvas_resize"],
-                )
+                data = selected[-1][1]
+                self.images.get_image(data["uuid"]).show_preview(document)
 
             else:
                 document.hide_preview_layer()
@@ -442,73 +235,23 @@ class ImageWidget(QListWidget):
 
             images = []
 
-            for (item, image) in self.selected_images():
-                self.storage.set_applied(document, image["uuid"], True)
+            for (item, data) in self.selected_images():
+                image = self.images.get_image(data["uuid"])
 
+                # It doesn't need to save the metadata because the metadata will be saved by update_selected_state
+                image.set_applied(document, True, save=False)
+
+                # This ensures that the metadata will be properly saved by update_selected_state
+                assert image.is_selected()
+                assert item.isSelected()
                 item.setSelected(False)
-                item.setIcon(self.thumbnail(image["image"], True))
+                assert not item.isSelected()
+
+                item.setIcon(self.thumbnail(image.image, True))
                 images.append(image)
 
             self.update_selected_state(document)
             return images
-
-
-    def get_image_bounds(self, document, images):
-        bounds = None
-        resize_layers = None
-        resize_algorithm = None
-
-        for info in images:
-            image_bounds = None
-
-            match info["canvas_resize"]:
-                case "do nothing":
-                    pass
-
-                case "increase":
-                    image = info["image"]
-                    image_bounds = Bounds(info["x"], info["y"], image.width, image.height).union(document.bounds())
-
-                case "crop":
-                    image = info["image"]
-                    image_bounds = Bounds(info["x"], info["y"], image.width, image.height)
-
-                case value:
-                    raise ValueError(f"canvas_resize has unknown value {value}")
-
-            if image_bounds is not None:
-                if bounds is None:
-                    bounds = image_bounds
-                else:
-                    bounds = bounds.union(image_bounds)
-
-                if info["resize_other_layers"]:
-                    if resize_algorithm is None:
-                        resize_algorithm = info["resize_algorithm"]
-
-                    if resize_layers is None:
-                        resize_layers = image_bounds
-                    else:
-                        resize_layers = resize_layers.union(image_bounds)
-
-        return bounds, resize_layers, resize_algorithm
-
-
-    def resize_image_bounds(self, document, selected_images):
-        bounds, resize_layers, resize_algorithm = self.get_image_bounds(document, selected_images)
-
-        if bounds is not None:
-            if resize_layers is not None:
-                document.scale_to_bounds(bounds, resize_layers, resize_algorithm)
-            else:
-                document.resize_to_bounds(bounds)
-
-            self.update_position(document, bounds.x, bounds.y)
-
-        else:
-            bounds = document.bounds()
-
-        return bounds
 
 
     def apply_new_layer(self):
@@ -516,72 +259,25 @@ class ImageWidget(QListWidget):
 
         if document is not None:
             selected_images = self.apply_selected_images(document)
-
-            document.remove_preview_layer()
-
-            bounds = self.resize_image_bounds(document, selected_images)
-
-            for info in selected_images:
-                layer = Layer.fromImage(document, info["name"], info["image"], info["x"] - bounds.x, info["y"] - bounds.y)
-                layer.move_to_top(document.root_layer())
-
-                #activeLayer = document.active_layer()
-                #parent = activeLayer.parent
-                #parent.insert_child(layer, activeLayer)
+            bounds = SerializedImages.apply_new_layers(document, selected_images)
+            self.update_position(document, bounds.x, bounds.y)
 
 
     def apply_existing_layer(self):
         document = self.document.current()
 
         if document is not None:
-            active_layer = document.active_layer()
-            parent = active_layer.parent
-
             selected_images = self.apply_selected_images(document)
-
-            document.remove_preview_layer()
-
-            bounds = self.resize_image_bounds(document, selected_images)
-
-            for info in selected_images:
-                # The write_image method does not blend with the existing layer, it completely overwrites the pixels.
-                # So in order to blend properly, we create a new layer and then merge it with the active layer.
-                layer = Layer.fromImage(document, info["name"], info["image"], info["x"] - bounds.x, info["y"] - bounds.y)
-                parent.insert_child(layer, active_layer)
-                layer.merge_down()
+            bounds = SerializedImages.apply_existing_layer(document, selected_images)
+            self.update_position(document, bounds.x, bounds.y)
 
 
     def apply_new_document(self):
         document = self.document.current()
 
         if document is not None:
-            profile = document.color_profile()
-            resolution = document.pixels_per_inch()
-
             selected_images = self.apply_selected_images(document)
-
-            # If we remove the preview layer then it causes the global selection mask to break.
-            document.hide_preview_layer()
-
-            bounds, resize_layers, resize_algorithm = self.get_image_bounds(document, selected_images)
-
-            new_document = Document.create(
-                bounds.width,
-                bounds.height,
-                document.name,
-                # TODO copy these from the existing document?
-                "RGBA",
-                "U8",
-                profile,
-                resolution,
-            )
-
-            for layer in new_document.root_layer().all_children():
-                layer.remove()
-
-            for info in selected_images:
-                layer = Layer.fromImage(new_document, info["name"], info["image"], info["x"] - bounds.x, info["y"] - bounds.y)
-                new_document.root_layer().insert_child(layer, None)
+            SerializedImages.apply_new_document(document, selected_images)
 
 
     def delete_selected(self):
@@ -620,7 +316,39 @@ class ImageWidget(QListWidget):
                 else:
                     document.hide_preview_layer()
 
-                self.storage.remove(document, uuids)
+                old_bytes = self.total_bytes
+
+                for serialized in self.images.remove_uuids(document, uuids):
+                    self.total_bytes -= serialized.image.byte_size()
+                    assert self.total_bytes >= 0
+
+                if self.total_bytes != old_bytes:
+                    self.total_bytes_changed.emit()
+
+
+    def delete_all(self):
+        reply = QMessageBox.question(
+            self,
+            "Delete all",
+            "Are you sure you want to delete all ComfyUI output images?",
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            old_bytes = self.total_bytes
+
+            with BlockSignals(self):
+                document = self.document.current()
+
+                if document is not None:
+                    document.remove_preview_layer()
+                    self.images.clear(document)
+
+                self.total_bytes = 0
+                self.selected = []
+                self.clear()
+
+            if self.total_bytes != old_bytes:
+                self.total_bytes_changed.emit()
 
 
     # Returns true if the previous image is single
@@ -638,24 +366,6 @@ class ImageWidget(QListWidget):
         return True
 
 
-    def delete_all(self):
-        reply = QMessageBox.question(
-            self,
-            "Delete all",
-            "Are you sure you want to delete all ComfyUI output images?",
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            with BlockSignals(self):
-                document = self.document.current()
-                if document is not None:
-                    document.remove_preview_layer()
-                    self.storage.clear(document)
-
-                self.selected = []
-                self.clear()
-
-
     def add_spacer(self, height):
         spacer = QListWidgetItem("")
         spacer.setFlags(Qt.ItemFlag.NoItemFlags)
@@ -665,22 +375,15 @@ class ImageWidget(QListWidget):
         self.addItem(spacer)
 
 
-    def add_image(self, info, *, size, is_single, allow_selection):
-        tooltip = info["name"]
+    def add_image(self, serialized, *, size, is_single, allow_selection):
+        tooltip = serialized.metadata["name"]
 
-        item = QListWidgetItem(self.thumbnail(info["image"], applied=info["applied"]), None)
+        item = QListWidgetItem(self.thumbnail(serialized.image, applied=serialized.is_applied()), None)
 
         item.setSizeHint(QSize(size, size))
 
         item.setData(Qt.ItemDataRole.UserRole, {
-            "uuid": info["uuid"],
-            "image": info["image"],
-            "x": info["x"],
-            "y": info["y"],
-            "name": info["name"],
-            "canvas_resize": info["canvas_resize"],
-            "resize_other_layers": info["resize_other_layers"],
-            "resize_algorithm": info["resize_algorithm"],
+            "uuid": serialized.uuid,
             "is_single": is_single,
         })
 
@@ -688,7 +391,9 @@ class ImageWidget(QListWidget):
 
         self.addItem(item)
 
-        if info["selected"]:
+        self.total_bytes += serialized.image.byte_size()
+
+        if serialized.is_selected():
             assert allow_selection
             item.setSelected(True)
             self.selected.append(item)
@@ -716,17 +421,28 @@ class ImageWidget(QListWidget):
                     # In between each batch we add a small spacer.
                     spacer_height = 0
 
-                for info in batch:
-                    self.add_image(info, size=size, is_single=is_single, allow_selection=allow_selection)
+                for serialized in batch:
+                    self.add_image(serialized, size=size, is_single=is_single, allow_selection=allow_selection)
 
             #self.scrollToBottom()
 
 
     def new_images(self, document, group):
         if self.document.is_equal(document):
-            self.add_images(self.storage.save_group(document, group), allow_selection=False)
+            old_bytes = self.total_bytes
+
+            self.add_images(self.images.add_new_group(document, group), allow_selection=False)
+
+            if self.total_bytes != old_bytes:
+                self.total_bytes_changed.emit()
+
         else:
-            self.storage.serializer.save_new_group(document, group)
+            # Since it's in a different document, we save the images
+            # inside of a new SerializedImages for that document.
+            #
+            # Since it's in another document we don't need to load
+            # the existing images, we only need to save new images.
+            SerializedImages.load(document, load_images=False).add_new_group(document, group)
 
 
     def show_context_menu(self, pos: QPoint):

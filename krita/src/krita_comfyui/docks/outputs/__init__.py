@@ -69,14 +69,14 @@ class ComfyUIOutputWidget(DockWidget):
 
         self._widget = OutputsWidget(self.extension.settings.settings)
         self._widget.setParent(self)
-        self._widget.image.storage.total_bytes_changed.connect(self.update_title)
+        self._widget.image.total_bytes_changed.connect(self.update_title)
         self.setWidget(self._widget)
 
         self.update_title()
 
 
     def update_title(self):
-        bytes = self._widget.image.storage.total_bytes
+        bytes = self._widget.image.total_bytes
 
         if bytes == 0:
             self.setWindowTitle("ComfyUI Outputs")

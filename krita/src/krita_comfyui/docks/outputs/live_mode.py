@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QPoint, QSize, Qt
+from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import (
     QLabel,
@@ -8,10 +8,12 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 from ...util.qt import LayoutManager
-from .serializer import ImageSerializer
+from .serialized import SerializedImages, SerializedImage
 
 
 class LiveModeImage(QLabel):
+    clicked = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.image_width = 0
@@ -20,10 +22,16 @@ class LiveModeImage(QLabel):
 
 
     def set_image(self, image):
-        self.image_width = image.width
-        self.image_height = image.height
-        self.update_margins()
-        self.setPixmap(image.to_pixmap())
+        if image is None:
+            self.image_width = 0
+            self.image_height = 0
+            self.update_margins()
+            self.clear()
+        else:
+            self.image_width = image.width
+            self.image_height = image.height
+            self.update_margins()
+            self.setPixmap(image.to_pixmap())
 
 
     def update_margins(self):
@@ -32,13 +40,19 @@ class LiveModeImage(QLabel):
             height = self.height()
 
             if width > 0 and height > 0:
-                if width * self.image_height > height * self.image_width:
-                    margin = int((width - (self.image_width * height / self.image_height)) / 2)
-                    self.setContentsMargins(margin, 0, margin, 0)
-                    return
-                else:
-                    margin = int((height - (self.image_height * width / self.image_width)) / 2)
+                desired_ratio = self.image_width / self.image_height
+                actual_ratio = width / height
+
+                # Image is too tall, shrink it vertically
+                if actual_ratio < desired_ratio:
+                    margin = max(0, int((height - (width / desired_ratio)) * 0.5))
                     self.setContentsMargins(0, margin, 0, margin)
+                    return
+
+                # Image is too wide, shrink it horizontally
+                elif actual_ratio > desired_ratio:
+                    margin = max(0, int((width - (height * desired_ratio)) * 0.5))
+                    self.setContentsMargins(margin, 0, margin, 0)
                     return
 
         self.setContentsMargins(0, 0, 0, 0)
@@ -47,6 +61,13 @@ class LiveModeImage(QLabel):
     def resizeEvent(self, event):
         self.update_margins()
         super().resizeEvent(event)
+
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+
+        if event.buttons() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
 
 
 class LiveModeWarning(QFrame):
@@ -77,8 +98,10 @@ class LiveModeWarning(QFrame):
                 self.warning_label = label
                 label.setContentsMargins(0, 0, 0, 0)
 
+
     def hide(self):
         self.setVisible(False)
+
 
     def show(self, message):
         self.warning_label.setText(message)
@@ -89,10 +112,9 @@ class LiveModeWidget(QFrame):
     def __init__(self, document):
         super().__init__()
 
-        #self.document = document
-        #self.document.document_changed.connect(self.load_document)
+        self.document = document
+        self.document.document_changed.connect(self.load_image)
 
-        self.image_serializer = ImageSerializer()
         self.layout_manager = LayoutManager(self)
 
         self.current_image = None
@@ -123,15 +145,32 @@ class LiveModeWidget(QFrame):
 
             with column.widget(LiveModeImage()) as widget:
                 self.image_widget = widget
+                widget.clicked.connect(self.on_image_clicked)
+
+        self.load_image()
 
 
-    def set_image(self, image, metadata):
-        self.current_image = {
-            "image": image,
-            "metadata": metadata,
-        }
+    def load_image(self):
+        document = self.document.current()
 
-        self.image_widget.set_image(image)
+        if document is not None:
+            serialized = SerializedImage.load(document, SerializedImage.live_mode_uuid())
+
+            if serialized is not None:
+                self.set_image(document, serialized)
+                return
+
+        self.clear_image()
+
+
+    def clear_image(self):
+        self.current_image = None
+        self.image_widget.set_image(None)
+
+
+    def set_image(self, document, serialized):
+        self.current_image = serialized
+        self.image_widget.set_image(serialized.image)
 
 
     @staticmethod
@@ -148,12 +187,21 @@ class LiveModeWidget(QFrame):
             self.warning_widget.hide()
 
         # If there are multiple images we use the last one.
-        info = images[-1]
-        image, metadata = self.image_serializer.process_new_image(info)
-        self.set_image(image, metadata)
+        serialized = SerializedImage.save_new_image(document, SerializedImage.live_mode_uuid(), images[-1])
+
+        self.set_image(document, serialized)
+
+        document.hide_preview_layer()
 
 
     def show_context_menu(self, pos: QPoint):
+        document = self.document.current()
+
+        if document is not None:
+            if self.current_image is not None:
+                self.current_image.set_selected(document, True)
+                self.update_image_preview(document)
+
         has_image = self.current_image is not None
 
         for menu in self.image_menus:
@@ -162,17 +210,63 @@ class LiveModeWidget(QFrame):
         self.menu.exec(self.mapToGlobal(pos))
 
 
+    def update_image_preview(self, document):
+        if self.current_image.is_selected():
+            self.current_image.show_preview(document)
+        else:
+            document.hide_preview_layer()
+
+
+    def on_image_clicked(self):
+        document = self.document.current()
+
+        if document is not None:
+            if self.current_image is not None:
+                is_selected = self.current_image.is_selected()
+                self.current_image.set_selected(document, not is_selected)
+                self.update_image_preview(document)
+
+
     def apply_new_layer(self):
-        pass
+        document = self.document.current()
+
+        if document is not None:
+            if self.current_image is not None:
+                # TODO update the bounds of non-live images
+                SerializedImages.apply_new_layers(document, [self.current_image])
 
 
     def apply_existing_layer(self):
-        pass
+        document = self.document.current()
+
+        if document is not None:
+            if self.current_image is not None:
+                # TODO update the bounds of non-live images
+                SerializedImages.apply_existing_layer(document, [self.current_image])
 
 
     def apply_new_document(self):
-        pass
+        document = self.document.current()
+
+        if document is not None:
+            if self.current_image is not None:
+                SerializedImages.apply_new_document(document, [self.current_image])
 
 
     def delete_all(self):
-        pass
+        reply = QMessageBox.question(
+            self,
+            "Delete live mode",
+            "Are you sure you want to delete the live mode image?",
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            document = self.document.current()
+
+            if document is not None:
+                if self.current_image is not None:
+                    self.current_image.remove(document)
+
+                document.remove_preview_layer()
+
+            self.clear_image()
