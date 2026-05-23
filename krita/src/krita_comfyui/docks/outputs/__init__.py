@@ -42,8 +42,10 @@ class OutputsWidget(QWidget):
 
     def on_live_mode_changed(self, live_mode):
         if live_mode:
+            self.live_mode.update_preview()
             self.stack.set_current_index(1)
         else:
+            self.image.update_preview()
             self.stack.set_current_index(0)
 
 

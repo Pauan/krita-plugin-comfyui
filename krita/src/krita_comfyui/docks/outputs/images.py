@@ -96,7 +96,7 @@ class ImageWidget(QListWidget):
 
         scrollbar_width = self.verticalScrollBar().sizeHint().width()
 
-        return scrollbar_width + images + 1
+        return scrollbar_width + images + 3
 
 
     def load_document(self):
@@ -193,12 +193,12 @@ class ImageWidget(QListWidget):
             data = item.data(Qt.ItemDataRole.UserRole)
 
             if data is not None:
-                yield data
+                yield item, data
 
 
     # When images are selected / deselected we have to serialize that information.
     def update_selected_state(self, document):
-        for data in self.all_data():
+        for item, data in self.all_data():
             self.images.get_image(data["uuid"]).set_selected(document, item.isSelected())
 
 
@@ -206,8 +206,25 @@ class ImageWidget(QListWidget):
     # images so that they are properly aligned with the new canvas bounds.
     def update_position(self, document, x, y):
         if x != 0 or y != 0:
-            for data in self.all_data():
+            for item, data in self.all_data():
                 self.images.get_image(data["uuid"]).update_position(document, x, y)
+
+
+    def maybe_show_preview(self, document, selected):
+        # Show a preview of the last selected image
+        if len(selected) > 0:
+            data = selected[-1][1]
+            self.images.get_image(data["uuid"]).show_preview(document)
+
+        else:
+            document.hide_preview_layer()
+
+
+    def update_preview(self):
+        document = self.document.current()
+
+        if document is not None:
+            self.maybe_show_preview(document, self.selected_images())
 
 
     def selection_changed(self):
@@ -219,14 +236,7 @@ class ImageWidget(QListWidget):
 
         if document is not None:
             self.update_selected_state(document)
-
-            # Show a preview of the last selected image
-            if len(selected) > 0:
-                data = selected[-1][1]
-                self.images.get_image(data["uuid"]).show_preview(document)
-
-            else:
-                document.hide_preview_layer()
+            self.maybe_show_preview(document, selected)
 
 
     def apply_selected_images(self, document):

@@ -217,6 +217,13 @@ class LiveModeWidget(QFrame):
             document.hide_preview_layer()
 
 
+    def update_preview(self):
+        document = self.document.current()
+
+        if document is not None:
+            self.update_image_preview(document)
+
+
     def on_image_clicked(self):
         document = self.document.current()
 

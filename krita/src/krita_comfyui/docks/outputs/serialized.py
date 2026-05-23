@@ -285,7 +285,7 @@ class SerializedImages:
             new_group.append(new_batch)
 
         self.uuids.append(new_group)
-        self.save()
+        self.save(document)
 
         return [[self.images[uuid] for uuid in batch] for batch in new_group]
 
