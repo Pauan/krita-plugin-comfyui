@@ -12,26 +12,56 @@ from .serialized import SerializedImages, SerializedImage
 
 
 class LiveModeImage(QLabel):
-    clicked = pyqtSignal()
+    on_deleted = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, document):
         super().__init__()
+
+        self.document = document
+        self.document.document_changed.connect(self.load_image)
+
+        self.layout_manager = LayoutManager(self)
+
         self.image_width = 0
         self.image_height = 0
+
+        self.current_image = None
+
+        self.image_menus = []
+
+        self.menu = QMenu(self)
+        self.image_menus.append(self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer))
+        self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Selected layer", self.apply_existing_layer))
+        self.image_menus.append(self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document))
+        self.menu.addSeparator()
+        self.image_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete", self.delete_all))
+
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+
         self.setScaledContents(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
+        with self.layout_manager.column() as column:
+            with column.label() as label:
+                self.overlay = label
 
-    def set_image(self, image):
-        if image is None:
-            self.image_width = 0
-            self.image_height = 0
-            self.update_margins()
-            self.clear()
-        else:
-            self.image_width = image.width
-            self.image_height = image.height
-            self.update_margins()
-            self.setPixmap(image.to_pixmap())
+                self.overlay.setVisible(False)
+
+                highlight = self.palette().color(QPalette.ColorRole.Highlight)
+                r = highlight.red()
+                g = highlight.green()
+                b = highlight.blue()
+
+                # TODO figure out a way to automatically use the correct alpha
+                self.overlay.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: rgba({r}, {g}, {b}, 30%);
+                        border: 1px solid rgb({r}, {g}, {b});
+                    }}
+                """)
+
+        self.load_image()
 
 
     def update_margins(self):
@@ -58,98 +88,6 @@ class LiveModeImage(QLabel):
         self.setContentsMargins(0, 0, 0, 0)
 
 
-    def resizeEvent(self, event):
-        self.update_margins()
-        super().resizeEvent(event)
-
-
-    def mousePressEvent(self, event):
-        super().mousePressEvent(event)
-
-        if event.buttons() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()
-
-
-class LiveModeWarning(QFrame):
-    def __init__(self):
-        super().__init__()
-
-        self.layout_manager = LayoutManager(self)
-
-        self.setVisible(False)
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.setFrameShape(QFrame.Shape.Panel)
-        self.setFrameShadow(QFrame.Shadow.Raised)
-
-        self.setStyleSheet("""
-            QFrame {
-                padding: 6px;
-                color: white;
-                background-color: #6b1400;
-            }
-        """)
-
-        with self.layout_manager.row() as row:
-            with row.label() as icon:
-                icon.setContentsMargins(0, 0, 0, 0)
-                icon.setPixmap(Krita.icon("warning").pixmap(QSize(16, 16)))
-
-            with row.label(stretch=1) as label:
-                self.warning_label = label
-                label.setContentsMargins(0, 0, 0, 0)
-
-
-    def hide(self):
-        self.setVisible(False)
-
-
-    def show(self, message):
-        self.warning_label.setText(message)
-        self.setVisible(True)
-
-
-class LiveModeWidget(QFrame):
-    def __init__(self, document):
-        super().__init__()
-
-        self.document = document
-        self.document.document_changed.connect(self.load_image)
-
-        self.layout_manager = LayoutManager(self)
-
-        self.current_image = None
-
-        self.image_menus = []
-
-        self.menu = QMenu(self)
-        self.image_menus.append(self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer))
-        self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Selected layer", self.apply_existing_layer))
-        self.image_menus.append(self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document))
-        self.menu.addSeparator()
-        self.image_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete", self.delete_all))
-
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.show_context_menu)
-
-        self.setAutoFillBackground(True)
-        self.setBackgroundRole(QPalette.ColorRole.Base)
-        self.setFrameStyle(QFrame.Shape.Panel)
-        self.setFrameShadow(QFrame.Shadow.Sunken)
-
-        # This causes it to shrink the image to fit within the space.
-        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
-
-        with self.layout_manager.column() as column:
-            with column.widget(LiveModeWarning()) as warning:
-                self.warning_widget = warning
-
-            with column.widget(LiveModeImage()) as widget:
-                self.image_widget = widget
-                widget.clicked.connect(self.on_image_clicked)
-
-        self.load_image()
-
-
     def load_image(self):
         document = self.document.current()
 
@@ -157,7 +95,7 @@ class LiveModeWidget(QFrame):
             serialized = SerializedImage.load(document, SerializedImage.live_mode_uuid())
 
             if serialized is not None:
-                self.set_image(document, serialized)
+                self.set_image(serialized)
                 return
 
         self.clear_image()
@@ -165,53 +103,48 @@ class LiveModeWidget(QFrame):
 
     def clear_image(self):
         self.current_image = None
-        self.image_widget.set_image(None)
+
+        self.image_width = 0
+        self.image_height = 0
+        self.update_margins()
+
+        self.clear()
+        self.overlay.setVisible(False)
 
 
-    def set_image(self, document, serialized):
+    def set_image(self, serialized):
         self.current_image = serialized
-        self.image_widget.set_image(serialized.image)
+
+        self.image_width = serialized.image.width
+        self.image_height = serialized.image.height
+        self.update_margins()
+
+        self.setPixmap(serialized.image.to_pixmap())
+        self.overlay.setVisible(serialized.is_selected())
 
 
-    @staticmethod
-    def flattened_images(group):
-        return [info for batch in group for info in batch]
-
-
-    def new_images(self, document, group):
-        images = self.flattened_images(group)
-
-        if len(images) > 1:
-            self.warning_widget.show(f"Generated {len(images)} images, only showing the last one.")
+    def new_image(self, document, serialized):
+        if self.current_image is None:
+            selected = False
         else:
-            self.warning_widget.hide()
+            selected = self.current_image.is_selected()
 
-        # If there are multiple images we use the last one.
-        serialized = SerializedImage.save_new_image(document, SerializedImage.live_mode_uuid(), images[-1])
+        self.set_image(serialized)
 
-        self.set_image(document, serialized)
+        assert not self.current_image.is_selected()
 
-        document.hide_preview_layer()
+        if selected:
+            self.set_selected(document, selected)
 
 
-    def show_context_menu(self, pos: QPoint):
-        document = self.document.current()
-
-        if document is not None:
-            if self.current_image is not None:
-                self.current_image.set_selected(document, True)
-                self.update_image_preview(document)
-
-        has_image = self.current_image is not None
-
-        for menu in self.image_menus:
-            menu.setEnabled(has_image)
-
-        self.menu.exec(self.mapToGlobal(pos))
+    def set_selected(self, document, selected):
+        self.current_image.set_selected(document, selected)
+        self.overlay.setVisible(selected)
+        self.update_image_preview(document)
 
 
     def update_image_preview(self, document):
-        if self.current_image.is_selected():
+        if self.current_image is not None and self.current_image.is_selected():
             self.current_image.show_preview(document)
         else:
             document.hide_preview_layer()
@@ -229,9 +162,7 @@ class LiveModeWidget(QFrame):
 
         if document is not None:
             if self.current_image is not None:
-                is_selected = self.current_image.is_selected()
-                self.current_image.set_selected(document, not is_selected)
-                self.update_image_preview(document)
+                self.set_selected(document, not self.current_image.is_selected())
 
 
     def apply_new_layer(self):
@@ -277,3 +208,116 @@ class LiveModeWidget(QFrame):
                 document.remove_preview_layer()
 
             self.clear_image()
+
+            self.on_deleted.emit()
+
+
+    def show_context_menu(self, pos: QPoint):
+        has_image = self.current_image is not None
+
+        document = self.document.current()
+
+        if document is not None:
+            if has_image:
+                self.set_selected(document, True)
+
+        for menu in self.image_menus:
+            menu.setEnabled(has_image)
+
+        self.menu.exec(self.mapToGlobal(pos))
+
+
+    def resizeEvent(self, event):
+        self.update_margins()
+        super().resizeEvent(event)
+
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+
+        if event.buttons() == Qt.MouseButton.LeftButton:
+            self.on_image_clicked()
+
+
+class LiveModeWarning(QFrame):
+    def __init__(self):
+        super().__init__()
+
+        self.layout_manager = LayoutManager(self)
+
+        self.setVisible(False)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.setFrameShape(QFrame.Shape.Panel)
+        self.setFrameShadow(QFrame.Shadow.Raised)
+
+        self.setStyleSheet("""
+            QFrame {
+                padding: 6px;
+                color: white;
+                background-color: #6b1400;
+            }
+        """)
+
+        with self.layout_manager.row() as row:
+            with row.label() as icon:
+                icon.setContentsMargins(0, 0, 0, 0)
+                icon.setPixmap(Krita.icon("warning").pixmap(QSize(16, 16)))
+
+            with row.label(stretch=1) as label:
+                self.warning_label = label
+                label.setContentsMargins(0, 0, 0, 0)
+
+
+    def hide(self):
+        self.setVisible(False)
+
+
+    def show(self, message):
+        self.warning_label.setText(message)
+        self.setVisible(True)
+
+
+class LiveModeWidget(QFrame):
+    def __init__(self, document):
+        super().__init__()
+
+        self.layout_manager = LayoutManager(self)
+
+        self.setAutoFillBackground(True)
+        self.setBackgroundRole(QPalette.ColorRole.Base)
+        self.setFrameStyle(QFrame.Shape.Panel)
+        self.setFrameShadow(QFrame.Shadow.Sunken)
+
+        # This causes it to shrink the image to fit within the space.
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+
+        with self.layout_manager.column() as column:
+            with column.widget(LiveModeWarning()) as warning:
+                self.warning_widget = warning
+
+            with column.widget(LiveModeImage(document)) as widget:
+                self.image_widget = widget
+                self.image_widget.on_deleted.connect(self.warning_widget.hide)
+
+
+    @staticmethod
+    def flattened_images(group):
+        return tuple(info for batch in group for info in batch)
+
+
+    def new_images(self, document, group):
+        images = self.flattened_images(group)
+
+        if len(images) > 1:
+            self.warning_widget.show(f"Generated {len(images)} images, only showing the last one.")
+        else:
+            self.warning_widget.hide()
+
+        # If there are multiple images we use the last one.
+        serialized = SerializedImage.save_new_image(document, SerializedImage.live_mode_uuid(), images[-1])
+
+        self.image_widget.new_image(document, serialized)
+
+
+    def update_preview(self):
+        self.image_widget.update_preview()
