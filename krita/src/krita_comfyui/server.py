@@ -176,13 +176,14 @@ class GraphState(Enum):
 
 
 class GraphInfo:
-    def __init__(self, document_id, graph_id, progress, state, error, outputs, should_notify):
+    def __init__(self, document_id, graph_id, progress, state, error, outputs, is_live_mode, should_notify):
         self.document_id = document_id
         self.graph_id = graph_id
         self.progress = progress
         self.state = state
         self.error = error
         self.outputs = outputs
+        self.is_live_mode = is_live_mode
         self.should_notify = should_notify
 
 
@@ -266,11 +267,12 @@ class PromptProgress:
 
 
 class Prompt:
-    def __init__(self, document_id, client_id, graph_id, graph, should_notify):
+    def __init__(self, document_id, client_id, graph_id, graph, is_live_mode, should_notify):
         self.document_id = document_id
         self.client_id = client_id
         self.graph_id = graph_id
         self.graph = graph
+        self.is_live_mode = is_live_mode
         self.should_notify = should_notify
         self.error = None
         self.outputs = []
@@ -307,13 +309,22 @@ class Prompt:
         else:
             progress = self.progress.percent()
 
-        return GraphInfo(self.document_id, self.graph_id, progress, self.state, self.error, self.outputs.copy(), self.should_notify)
+        return GraphInfo(
+            self.document_id,
+            self.graph_id,
+            progress,
+            self.state,
+            self.error,
+            self.outputs.copy(),
+            self.is_live_mode,
+            self.should_notify,
+        )
 
 
     # Returns a fresh Prompt with the same graph.
     # This is needed for retrying the Prompt in the case of a disconnection.
     def copy(self):
-        return Prompt(self.document_id, self.client_id, self.graph_id, self.graph, self.should_notify)
+        return Prompt(self.document_id, self.client_id, self.graph_id, self.graph, self.is_live_mode, self.should_notify)
 
 
 class ConnectState(Enum):
@@ -862,14 +873,14 @@ class ComfyUIClient(QObject):
         ))
 
 
-    def execute_graph(self, graph, *, document_id, should_notify=True):
+    def execute_graph(self, graph, *, document_id, is_live_mode, should_notify=True):
         self.settings.log_json(graph.debug(), label="Execute Graph", level=LogLevel.DEBUG)
 
         graph_id = str(self.graph_id)
 
         self.graph_id += 1
 
-        prompt = Prompt(document_id, self.client_id, graph_id, graph, should_notify)
+        prompt = Prompt(document_id, self.client_id, graph_id, graph, is_live_mode, should_notify)
 
         self.queue.append(prompt)
 

@@ -12,13 +12,13 @@ from .serialized import SerializedImages, SerializedImage
 
 
 class LiveModeImage(QLabel):
-    on_deleted = pyqtSignal()
-
-    def __init__(self, document):
+    def __init__(self, document, warning_widget):
         super().__init__()
 
         self.document = document
         self.document.document_changed.connect(self.load_image)
+
+        self.warning_widget = warning_widget
 
         self.layout_manager = LayoutManager(self)
 
@@ -89,6 +89,8 @@ class LiveModeImage(QLabel):
 
 
     def load_image(self):
+        self.warning_widget.hide()
+
         document = self.document.current()
 
         if document is not None:
@@ -123,18 +125,46 @@ class LiveModeImage(QLabel):
         self.overlay.setVisible(serialized.is_selected())
 
 
-    def new_image(self, document, serialized):
-        if self.current_image is None:
+    @staticmethod
+    def flattened_images(group):
+        return tuple(info for batch in group for info in batch)
+
+
+    def new_image(self, document, group, is_visible):
+        images = self.flattened_images(group)
+
+
+        is_same_document = self.document.is_equal(document)
+
+        if is_same_document:
+            if len(images) > 1:
+                self.warning_widget.show(f"Generated {len(images)} images, only showing the last one.")
+            else:
+                self.warning_widget.hide()
+
+            current_image = self.current_image
+        else:
+            current_image = SerializedImage.load(document, SerializedImage.live_mode_uuid())
+
+
+        if current_image is None:
             selected = False
         else:
-            selected = self.current_image.is_selected()
+            selected = current_image.is_selected()
 
-        self.set_image(serialized)
 
-        assert not self.current_image.is_selected()
+        # If there are multiple images we use the last one.
+        serialized = SerializedImage.save_new_image(document, SerializedImage.live_mode_uuid(), images[-1])
+        assert not serialized.is_selected()
 
         if selected:
-            self.set_selected(document, selected)
+            serialized.set_selected(document, selected)
+
+        if is_same_document:
+            self.set_image(serialized)
+
+            if is_visible:
+                self.update_image_preview(document)
 
 
     def set_selected(self, document, selected):
@@ -209,7 +239,7 @@ class LiveModeImage(QLabel):
 
             self.clear_image()
 
-            self.on_deleted.emit()
+            self.warning_widget.hide()
 
 
     def show_context_menu(self, pos: QPoint):
@@ -295,28 +325,12 @@ class LiveModeWidget(QFrame):
             with column.widget(LiveModeWarning()) as warning:
                 self.warning_widget = warning
 
-            with column.widget(LiveModeImage(document)) as widget:
+            with column.widget(LiveModeImage(document, self.warning_widget)) as widget:
                 self.image_widget = widget
-                self.image_widget.on_deleted.connect(self.warning_widget.hide)
 
 
-    @staticmethod
-    def flattened_images(group):
-        return tuple(info for batch in group for info in batch)
-
-
-    def new_images(self, document, group):
-        images = self.flattened_images(group)
-
-        if len(images) > 1:
-            self.warning_widget.show(f"Generated {len(images)} images, only showing the last one.")
-        else:
-            self.warning_widget.hide()
-
-        # If there are multiple images we use the last one.
-        serialized = SerializedImage.save_new_image(document, SerializedImage.live_mode_uuid(), images[-1])
-
-        self.image_widget.new_image(document, serialized)
+    def new_images(self, document, group, is_visible):
+        self.image_widget.new_image(document, group, is_visible)
 
 
     def update_preview(self):

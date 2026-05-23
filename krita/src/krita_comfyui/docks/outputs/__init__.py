@@ -53,10 +53,10 @@ class OutputsWidget(QWidget):
         self.text.set_text(document, text)
 
 
-    def new_images(self, document, images):
+    def new_images(self, document, images, is_live_mode):
         if len(images) > 0:
-            if self.enable_live_mode.get():
-                self.live_mode.new_images(document, images)
+            if is_live_mode:
+                self.live_mode.new_images(document, images, self.enable_live_mode.get())
             else:
                 self.image.new_images(document, images)
 
@@ -135,5 +135,5 @@ class ComfyUIOutputWidget(DockWidget):
 
             for document in Document.all():
                 if document.root_layer().id == info.document_id:
-                    self._widget.new_images(document, images)
+                    self._widget.new_images(document, images, info.is_live_mode)
                     self._widget.set_text(document, texts)

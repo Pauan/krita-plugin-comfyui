@@ -424,7 +424,11 @@ class WorkflowWidget(QWidget):
         with Perf("run_workflow"):
             with self.catch_errors():
                 graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=WorkflowGraph.random_seed())
-                self.extension.client.execute_graph(graph, document_id=document_id)
+                self.extension.client.execute_graph(
+                    graph,
+                    document_id=document_id,
+                    is_live_mode=False,
+                )
 
 
     def run_live_workflow(self):
@@ -436,7 +440,12 @@ class WorkflowWidget(QWidget):
 
                 if self.live_mode_graph != cache:
                     self.live_mode_graph = cache
-                    self.extension.client.execute_graph(graph, document_id=document_id, should_notify=False)
+                    self.extension.client.execute_graph(
+                        graph,
+                        document_id=document_id,
+                        should_notify=False,
+                        is_live_mode=True,
+                    )
                     return True
 
             return False
