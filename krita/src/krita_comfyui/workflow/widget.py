@@ -1,7 +1,8 @@
+import time
 import traceback
 import contextlib
 from krita import DockWidget
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
@@ -48,8 +49,86 @@ class WorkflowSelector(ComboBox):
                 self.setCurrentIndex(index)
 
 
+class LiveModeState(QObject):
+    # When running live mode we poll for changes every 100 ms.
+    POLL_DELAY = 100
+
+    # If a change happens we wait this amount of milliseconds
+    # before we check for changes again.
+    CHANGED_DELAY = 250
+
+
+    def __init__(self, parent, extension):
+        super().__init__(parent)
+
+        self.seed = WorkflowGraph.random_seed()
+        self.graph = None
+        self.is_running = False
+        self.wait_until = None
+
+        self.enable_live_mode = extension.settings.settings.item("enable_live_mode")
+
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(False)
+        self.timer.setInterval(self.POLL_DELAY)
+
+
+    def stop(self):
+        if self.is_running:
+            self.graph = None
+            self.is_running = False
+            self.wait_until = None
+            self.timer.stop()
+            return True
+
+        return False
+
+
+    def start(self):
+        if not self.is_running:
+            assert not self.timer.isActive()
+            self.is_running = True
+            return True
+
+        return False
+
+
+    def can_run(self):
+        if self.is_running:
+            now = time.monotonic_ns()
+
+            if self.wait_until is None or now >= self.wait_until:
+                self.wait_until = now + (self.CHANGED_DELAY * 1000000)
+                return True
+
+            # We keep polling until CHANGED_DELAY has passed.
+            if not self.timer.isActive():
+                self.timer.start()
+            return False
+
+        else:
+            assert not self.timer.isActive()
+            return False
+
+
+    def set_graph(self, graph):
+        if self.graph != graph:
+            self.graph = graph
+
+            # We're executing the graph, so we don't need the timer.
+            self.timer.stop()
+            return True
+
+        else:
+            # The graph didn't change, so we need to poll for changes.
+            if not self.timer.isActive():
+                self.timer.start()
+            return False
+
+
 class WorkflowWidget(QWidget):
     can_run_changed = pyqtSignal()
+    live_mode_changed = pyqtSignal()
 
     def __init__(self, extension):
         super().__init__()
@@ -61,6 +140,11 @@ class WorkflowWidget(QWidget):
         self.document = DocumentManager(self)
         self.document.document_changed.connect(self.on_document_changed)
         self.document.layers_changed.connect(self.update_layer_inputs)
+
+        self.live_mode_state = LiveModeState(self, self.extension)
+        # TODO cleanup listeners when dock is removed
+        self.live_mode_state.enable_live_mode.add_listener(self.on_live_mode_changed)
+        self.live_mode_state.timer.timeout.connect(self.maybe_run_live_mode)
 
         self.prompt_parser = PromptParser(self.extension.settings.bundles)
 
@@ -75,9 +159,6 @@ class WorkflowWidget(QWidget):
         self.layer_combo_options = self.get_layer_combo_options()
         self.ui_widgets = []
         self.ui_layer_inputs = []
-
-        self.live_mode_graph = None
-        self.live_mode_seed = WorkflowGraph.random_seed()
 
         with self.layout.column() as column:
             with column.row() as row:
@@ -115,6 +196,10 @@ class WorkflowWidget(QWidget):
         with self.catch_errors():
             if self.workflow.change_document(self.document.current()):
                 self.update_widgets()
+
+
+    def open_settings(self):
+        self.extension.show_settings()
 
 
     # If the widget has a link_to, we need to fetch the
@@ -349,6 +434,8 @@ class WorkflowWidget(QWidget):
 
 
     def show_error(self, message, backtrace=None):
+        self.stop_live_mode()
+
         self.error.setText(message)
 
         if backtrace is None:
@@ -434,26 +521,50 @@ class WorkflowWidget(QWidget):
     def run_live_workflow(self):
         with Perf("run_live_workflow"):
             with self.catch_errors():
-                graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=self.live_mode_seed)
+                graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=self.live_mode_state.seed)
 
                 cache = graph.serialize()
 
-                if self.live_mode_graph != cache:
-                    self.live_mode_graph = cache
+                if self.live_mode_state.set_graph(cache):
                     self.extension.client.execute_graph(
                         graph,
                         document_id=document_id,
                         should_notify=False,
                         is_live_mode=True,
                     )
-                    return True
-
-            return False
 
 
-    def stop_live_mode(self):
-        self.live_mode_graph = None
+    def is_live_mode_enabled(self):
+        return self.live_mode_state.enable_live_mode.get()
+
+    def is_live_mode_running(self):
+        return self.live_mode_state.is_running
 
 
-    def open_settings(self):
-        self.extension.show_settings()
+    def on_live_mode_changed(self, old, new):
+        if not new:
+            self.stop_live_mode(emit=False)
+
+        self.live_mode_changed.emit()
+
+
+    def stop_live_mode(self, *, emit=True):
+        if self.live_mode_state.stop():
+            self.extension.client.clear_queue_live_mode()
+
+            if emit:
+                self.live_mode_changed.emit()
+
+
+    def maybe_run_live_mode(self):
+        if self.live_mode_state.can_run():
+            self.run_live_workflow()
+
+
+    def toggle_live_mode_running(self):
+        if self.is_live_mode_running():
+            self.stop_live_mode()
+        else:
+            if self.live_mode_state.start():
+                self.maybe_run_live_mode()
+                self.live_mode_changed.emit()

@@ -765,6 +765,24 @@ class ComfyUIClient(QObject):
         self.execute_queue()
 
 
+    # Removes all live mode prompts
+    def clear_queue_live_mode(self):
+        remove = [prompt for prompt in self.queue if prompt.is_live_mode]
+
+        for prompt in remove:
+            is_running = prompt.state.is_running()
+
+            prompt.cancel()
+            self.queue.remove(prompt)
+
+            if is_running:
+                self.interrupt_prompt(prompt)
+
+            self.graph_changed.emit(prompt.graph_info())
+
+        self.execute_queue()
+
+
     # Removes all prompts, including prompts that are in progress
     def clear_queue(self):
         if len(self.queue) > 0:
