@@ -518,7 +518,7 @@ class ExecuteGraphCommand(Command):
 
 class ComfyUIClient(QObject):
     graph_changed = pyqtSignal(GraphInfo)
-    connection_changed = pyqtSignal()
+    connection_changed = pyqtSignal(bool)
 
     run_command = pyqtSignal(Command)
 
@@ -847,7 +847,7 @@ class ComfyUIClient(QObject):
 
         if self.is_websocket_connected != is_ready:
             self.is_websocket_connected = is_ready
-            self.connection_changed.emit()
+            self.connection_changed.emit(self.is_websocket_connected)
 
 
     @pyqtSlot(result=bool)

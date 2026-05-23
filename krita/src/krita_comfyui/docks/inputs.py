@@ -181,7 +181,9 @@ class InputsWidget(QWidget):
 
         self.extension = get_extension(ComfyUIExtension)
         self.extension.client.graph_changed.connect(self.on_graph_changed)
-        self.extension.client.connection_changed.connect(self.update_run_button)
+        self.extension.client.connection_changed.connect(self.on_connection_changed)
+
+        self.is_connected = self.extension.client.is_connected()
 
         self.layout = LayoutManager(self)
 
@@ -218,6 +220,11 @@ class InputsWidget(QWidget):
                     button.setMenu(self.queue_menu)
                     button.clicked.connect(self.on_click)
 
+        self.update_run_button()
+
+
+    def on_connection_changed(self, connected):
+        self.is_connected = connected
         self.update_run_button()
 
 
@@ -289,7 +296,7 @@ class InputsWidget(QWidget):
             current_job.update_progress_bar(self.progress_bar)
 
 
-        if not self.extension.client.is_connected():
+        if not self.is_connected:
             tooltip = "Not connected to ComfyUI"
         elif not self.workflow.can_run():
             tooltip = "No workflow selected"

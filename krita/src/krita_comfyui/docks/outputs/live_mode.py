@@ -1,5 +1,5 @@
 from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QPalette
+from PyQt6.QtGui import QPalette, QIcon
 from PyQt6.QtWidgets import (
     QLabel,
     QFrame,
@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 from ...util.qt import LayoutManager
+from ...util.krita import Image
 from .serialized import SerializedImages, SerializedImage
 
 
@@ -41,6 +42,12 @@ class LiveModeImage(QLabel):
 
         self.setScaledContents(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.apply_image = QLabel(self)
+        self.apply_image.setPixmap(QIcon(Image.filename("diamond.svg")).pixmap(QSize(19, 19)))
+        self.apply_image.setFixedSize(QSize(19, 19))
+        self.apply_image.setContentsMargins(0, 0, 0, 0)
+        self.apply_image.setVisible(False)
 
         with self.layout_manager.column() as column:
             with column.label() as label:
@@ -77,12 +84,14 @@ class LiveModeImage(QLabel):
                 if actual_ratio < desired_ratio:
                     margin = max(0, int((height - (width / desired_ratio)) * 0.5))
                     self.setContentsMargins(0, margin, 0, margin)
+                    self.apply_image.move(4, 4 + margin)
                     return
 
                 # Image is too wide, shrink it horizontally
                 elif actual_ratio > desired_ratio:
                     margin = max(0, int((width - (height * desired_ratio)) * 0.5))
                     self.setContentsMargins(margin, 0, margin, 0)
+                    self.apply_image.move(4 + margin, 4)
                     return
 
         self.setContentsMargins(0, 0, 0, 0)
@@ -112,6 +121,11 @@ class LiveModeImage(QLabel):
 
         self.clear()
         self.overlay.setVisible(False)
+        self.apply_image.setVisible(False)
+
+
+    def update_applied(self):
+        self.apply_image.setVisible(self.current_image.is_applied())
 
 
     def set_image(self, serialized):
@@ -123,6 +137,7 @@ class LiveModeImage(QLabel):
 
         self.setPixmap(serialized.image.to_pixmap())
         self.overlay.setVisible(serialized.is_selected())
+        self.update_applied()
 
 
     @staticmethod
@@ -167,10 +182,12 @@ class LiveModeImage(QLabel):
                 self.update_image_preview(document)
 
 
-    def set_selected(self, document, selected):
+    def set_selected(self, document, selected, *, update_preview=True):
         self.current_image.set_selected(document, selected)
         self.overlay.setVisible(selected)
-        self.update_image_preview(document)
+
+        if update_preview:
+            self.update_image_preview(document)
 
 
     def update_image_preview(self, document):
@@ -195,11 +212,19 @@ class LiveModeImage(QLabel):
                 self.set_selected(document, not self.current_image.is_selected())
 
 
+    def apply_selected(self, document):
+        self.set_selected(document, False, update_preview=False)
+        self.current_image.set_applied(document, True)
+        self.update_applied()
+
+
     def apply_new_layer(self):
         document = self.document.current()
 
         if document is not None:
             if self.current_image is not None:
+                self.apply_selected(document)
+
                 # TODO update the bounds of non-live images
                 SerializedImages.apply_new_layers(document, [self.current_image])
 
@@ -209,6 +234,8 @@ class LiveModeImage(QLabel):
 
         if document is not None:
             if self.current_image is not None:
+                self.apply_selected(document)
+
                 # TODO update the bounds of non-live images
                 SerializedImages.apply_existing_layer(document, [self.current_image])
 
@@ -218,6 +245,8 @@ class LiveModeImage(QLabel):
 
         if document is not None:
             if self.current_image is not None:
+                self.apply_selected(document)
+
                 SerializedImages.apply_new_document(document, [self.current_image])
 
 
