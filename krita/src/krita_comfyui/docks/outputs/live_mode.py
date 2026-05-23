@@ -386,7 +386,8 @@ class LiveModeWidget(QFrame):
 
 
     def new_images(self, document, group, is_visible):
-        self.image_widget.new_image(document, group, is_visible)
+        with document.disable_modification():
+            self.image_widget.new_image(document, group, is_visible)
 
 
     def update_preview(self):

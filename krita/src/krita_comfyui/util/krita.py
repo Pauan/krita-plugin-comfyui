@@ -406,6 +406,19 @@ class Document:
         return new_document
 
 
+    def disable_modification(self):
+        return HideModifications(self._document)
+
+
+    @property
+    def modified(self):
+        return self._document.modified()
+
+    @modified.setter
+    def modified(self, value):
+        self._document.setModified(value)
+
+
     @property
     def name(self):
         return self._document.name()
@@ -468,7 +481,7 @@ class Document:
 
 
     def canvas(self, bounds):
-        with HideModifications(self._document):
+        with self.disable_modification():
             preview = self.find_preview_layer()
 
             if preview is not None:
@@ -537,12 +550,6 @@ class Document:
 
 
     def resize_to_bounds(self, new_bounds):
-        print("Resize")
-        print(new_bounds != self.bounds())
-        print(self.bounds())
-        print(new_bounds)
-        print("")
-
         if new_bounds != self.bounds():
             self._document.resizeImage(
                 new_bounds.x,
@@ -554,13 +561,6 @@ class Document:
 
     def scale_to_bounds(self, new_bounds, scale_bounds, scale_algorithm):
         current_bounds = self.bounds()
-
-        print("Scale")
-        print(new_bounds != current_bounds)
-        print(current_bounds)
-        print(new_bounds)
-        print(scale_bounds)
-        print("")
 
         if new_bounds != current_bounds:
             scale_bounds.check_within_bounds(new_bounds)
@@ -584,7 +584,7 @@ class Document:
 
 
     def remove_preview_layer(self):
-        with HideModifications(self._document):
+        with self.disable_modification():
             layer = self.find_preview_layer()
 
             if layer is not None:
@@ -595,7 +595,7 @@ class Document:
 
 
     def hide_preview_layer(self):
-        with HideModifications(self._document):
+        with self.disable_modification():
             layer = self.find_preview_layer()
 
             needs_refresh = False
@@ -684,7 +684,7 @@ class Document:
 
 
     def show_preview_layer(self, name, image, x, y, canvas_resize):
-        with HideModifications(self._document), ActiveNode(self._document):
+        with self.disable_modification(), ActiveNode(self._document):
             layer = self.find_preview_layer()
 
             if layer is None:

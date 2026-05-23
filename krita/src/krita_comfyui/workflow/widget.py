@@ -62,8 +62,9 @@ class LiveModeState(QObject):
         super().__init__(parent)
 
         self.seed = WorkflowGraph.random_seed()
-        self.graph = None
         self.is_running = False
+        self.first_run = True
+        self.was_modified = False
         self.wait_until = None
 
         self.enable_live_mode = extension.settings.settings.item("enable_live_mode")
@@ -75,8 +76,8 @@ class LiveModeState(QObject):
 
     def stop(self):
         if self.is_running:
-            self.graph = None
             self.is_running = False
+            self.first_run = True
             self.wait_until = None
             self.timer.stop()
             return True
@@ -87,6 +88,7 @@ class LiveModeState(QObject):
     def start(self):
         if not self.is_running:
             assert not self.timer.isActive()
+            assert self.first_run
             self.is_running = True
             return True
 
@@ -111,9 +113,16 @@ class LiveModeState(QObject):
             return False
 
 
-    def set_graph(self, graph):
-        if self.graph != graph:
-            self.graph = graph
+    def check_changed(self, document):
+        is_modified = document.modified
+
+        if is_modified or self.first_run:
+            self.first_run = False
+
+            if is_modified:
+                self.was_modified = True
+
+            document.modified = False
 
             # We're executing the graph, so we don't need the timer.
             self.timer.stop()
@@ -525,20 +534,26 @@ class WorkflowWidget(QWidget):
     def run_live_workflow(self):
         with Perf("run_live_workflow"):
             with self.catch_errors():
-                graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=self.live_mode_state.seed)
+                with Perf("check_changed"):
+                    is_changed = self.live_mode_state.check_changed(self.workflow.document)
 
-                #cache = graph.finalize()
+                if is_changed:
+                    with Perf("get_ui_values"):
+                        ui_values = self.get_ui_values()
 
-                # We're executing the graph, so we don't need the timer.
-                self.live_mode_state.timer.stop()
+                    with Perf("to_graph"):
+                        graph, document_id = self.workflow.to_graph(ui_values, seed=self.live_mode_state.seed)
 
-                #if self.live_mode_state.set_graph(cache):
-                self.extension.client.execute_graph(
-                    graph=graph,
-                    document_id=document_id,
-                    is_live_mode=True,
-                    should_notify=False,
-                )
+                    with Perf("execute_graph"):
+                        #if self.live_mode_state.set_graph(cache):
+                        self.extension.client.execute_graph(
+                            graph=graph,
+                            document_id=document_id,
+                            is_live_mode=True,
+                            should_notify=False,
+                        )
+
+                        assert not self.workflow.document.modified
 
 
     def is_live_mode_enabled(self):

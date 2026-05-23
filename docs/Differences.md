@@ -25,6 +25,8 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * Previewing images that are larger than the current canvas size works.
 
+* Live mode is much faster, more robust, and doesn't cause Krita to freeze.
+
 ## Improvements
 
 * The UI is smaller and cleaner.
