@@ -1,5 +1,5 @@
 from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension
-from PyQt6.QtCore import QThread
+from PyQt6.QtCore import QThread, pyqtSignal
 
 from .server import ComfyUIClient
 from .settings import Settings
@@ -8,6 +8,9 @@ from .util.notify import NotifyWorker
 
 
 class ComfyUIExtension(Extension):
+    stop_live_mode = pyqtSignal()
+
+
     def __init__(self, parent):
         super().__init__(parent)
 

@@ -143,6 +143,7 @@ class WorkflowWidget(QWidget):
         super().__init__()
 
         self.extension = extension
+        self.extension.stop_live_mode.connect(self.stop_live_mode)
         self.extension.settings.node_metadata_changed.connect(self.on_metadata_changed)
         self.extension.settings.workflows.changed.connect(self.on_workflows_changed)
 
@@ -532,28 +533,22 @@ class WorkflowWidget(QWidget):
 
 
     def run_live_workflow(self):
-        with Perf("run_live_workflow"):
-            with self.catch_errors():
-                with Perf("check_changed"):
-                    is_changed = self.live_mode_state.check_changed(self.workflow.document)
+        with self.catch_errors():
+            is_changed = self.live_mode_state.check_changed(self.workflow.document)
 
-                if is_changed:
-                    with Perf("get_ui_values"):
-                        ui_values = self.get_ui_values()
+            if is_changed:
+                ui_values = self.get_ui_values()
 
-                    with Perf("to_graph"):
-                        graph, document_id = self.workflow.to_graph(ui_values, seed=self.live_mode_state.seed)
+                graph, document_id = self.workflow.to_graph(ui_values, seed=WorkflowGraph.random_seed())
 
-                    with Perf("execute_graph"):
-                        #if self.live_mode_state.set_graph(cache):
-                        self.extension.client.execute_graph(
-                            graph=graph,
-                            document_id=document_id,
-                            is_live_mode=True,
-                            should_notify=False,
-                        )
+                self.extension.client.execute_graph(
+                    graph=graph,
+                    document_id=document_id,
+                    is_live_mode=True,
+                    should_notify=False,
+                )
 
-                        assert not self.workflow.document.modified
+                assert not self.workflow.document.modified
 
 
     def is_live_mode_enabled(self):

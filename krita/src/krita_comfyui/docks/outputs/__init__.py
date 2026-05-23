@@ -12,7 +12,7 @@ from .text import TextWidget
 
 
 class OutputsWidget(QWidget):
-    def __init__(self, settings):
+    def __init__(self, extension, settings):
         super().__init__()
 
         self.settings = settings
@@ -33,7 +33,7 @@ class OutputsWidget(QWidget):
                 self.image = ImageWidget(self.document)
                 stack.widget(self.image)
 
-                self.live_mode = LiveModeWidget(self.document)
+                self.live_mode = LiveModeWidget(extension, self.document)
                 stack.widget(self.live_mode)
 
         # TODO remove the event listener when the QWidget is destroyed
@@ -69,7 +69,7 @@ class ComfyUIOutputWidget(DockWidget):
         self.extension = get_extension(ComfyUIExtension)
         self.extension.client.graph_changed.connect(self.on_graph_changed)
 
-        self._widget = OutputsWidget(self.extension.settings.settings)
+        self._widget = OutputsWidget(self.extension, self.extension.settings.settings)
         self._widget.setParent(self)
         self._widget.image.total_bytes_changed.connect(self.update_title)
         self.setWidget(self._widget)

@@ -13,8 +13,10 @@ from .serialized import SerializedImages, SerializedImage
 
 
 class LiveModeImage(QLabel):
-    def __init__(self, document, warning_widget):
+    def __init__(self, extension, document, warning_widget):
         super().__init__()
+
+        self.extension = extension
 
         self.document = document
         self.document.document_changed.connect(self.load_image)
@@ -194,6 +196,8 @@ class LiveModeImage(QLabel):
 
 
     def set_selected(self, document, selected, *, update_preview=True):
+        self.extension.stop_live_mode.emit()
+
         self.current_image.set_selected(document, selected)
         self.overlay.setVisible(selected)
 
@@ -364,7 +368,7 @@ class LiveModeWarning(QFrame):
 
 
 class LiveModeWidget(QFrame):
-    def __init__(self, document):
+    def __init__(self, extension, document):
         super().__init__()
 
         self.layout_manager = LayoutManager(self)
@@ -381,7 +385,7 @@ class LiveModeWidget(QFrame):
             with column.widget(LiveModeWarning()) as warning:
                 self.warning_widget = warning
 
-            with column.widget(LiveModeImage(document, self.warning_widget)) as widget:
+            with column.widget(LiveModeImage(extension, document, self.warning_widget)) as widget:
                 self.image_widget = widget
 
 
