@@ -98,18 +98,21 @@ class LiveModeImage(QLabel):
 
 
     def load_image(self):
-        self.warning_widget.hide()
-
         document = self.document.current()
 
         if document is not None:
+            self.warning_widget.load(document)
+
             serialized = SerializedImage.load(document, SerializedImage.live_mode_uuid())
 
             if serialized is not None:
                 self.set_image(serialized)
-                return
+            else:
+                self.clear_image()
 
-        self.clear_image()
+        else:
+            self.warning_widget.hide()
+            self.clear_image()
 
 
     def clear_image(self):
@@ -149,13 +152,21 @@ class LiveModeImage(QLabel):
         images = self.flattened_images(group)
 
 
+        if len(images) > 1:
+            warning = f"Generated {len(images)} images, only showing the last one."
+        else:
+            warning = None
+
+        self.warning_widget.store(document, warning)
+
+
         is_same_document = self.document.is_equal(document)
 
         if is_same_document:
-            if len(images) > 1:
-                self.warning_widget.show(f"Generated {len(images)} images, only showing the last one.")
-            else:
+            if warning is None:
                 self.warning_widget.hide()
+            else:
+                self.warning_widget.show(warning)
 
             current_image = self.current_image
         else:
@@ -265,10 +276,10 @@ class LiveModeImage(QLabel):
                     self.current_image.remove(document)
 
                 document.remove_preview_layer()
-
-            self.clear_image()
+                self.warning_widget.store(document, None)
 
             self.warning_widget.hide()
+            self.clear_image()
 
 
     def show_context_menu(self, pos: QPoint):
@@ -325,6 +336,22 @@ class LiveModeWarning(QFrame):
             with row.label(stretch=1) as label:
                 self.warning_label = label
                 label.setContentsMargins(0, 0, 0, 0)
+
+
+    def store(self, document, value):
+        if value is None:
+            document.remove_key("krita_comfyui/live_mode_warning")
+        else:
+            document.set_key_str("krita_comfyui/live_mode_warning", "krita_comfyui: Live Mode Warning", value)
+
+
+    def load(self, document):
+        message = document.get_key_str("krita_comfyui/live_mode_warning", None)
+
+        if message is None:
+            self.hide()
+        else:
+            self.show(message)
 
 
     def hide(self):
