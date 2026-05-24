@@ -13,8 +13,10 @@ from .serialized import SerializedImages, SerializedImage
 
 
 class LiveModeImage(QLabel):
-    def __init__(self, extension, document, warning_widget):
+    def __init__(self, root, extension, document, warning_widget):
         super().__init__()
+
+        self.root = root
 
         self.extension = extension
         self.extension.live_mode_started.connect(self.on_live_mode_started)
@@ -118,8 +120,16 @@ class LiveModeImage(QLabel):
             self.clear_image()
 
 
+    def update_total_bytes(self, value):
+        if self.root.total_bytes != value:
+            self.root.total_bytes = value
+            self.root.total_bytes_changed.emit()
+
+
     def clear_image(self):
         self.current_image = None
+
+        self.update_total_bytes(0)
 
         self.image_width = 0
         self.image_height = 0
@@ -136,6 +146,8 @@ class LiveModeImage(QLabel):
 
     def set_image(self, serialized):
         self.current_image = serialized
+
+        self.update_total_bytes(serialized.image.byte_size())
 
         self.image_width = serialized.image.width
         self.image_height = serialized.image.height
@@ -376,8 +388,13 @@ class LiveModeWarning(QFrame):
 
 
 class LiveModeWidget(QFrame):
+    total_bytes_changed = pyqtSignal()
+
+
     def __init__(self, extension, document):
         super().__init__()
+
+        self.total_bytes = 0
 
         self.layout_manager = LayoutManager(self)
 
@@ -393,7 +410,7 @@ class LiveModeWidget(QFrame):
             with column.widget(LiveModeWarning()) as warning:
                 self.warning_widget = warning
 
-            with column.widget(LiveModeImage(extension, document, self.warning_widget)) as widget:
+            with column.widget(LiveModeImage(self, extension, document, self.warning_widget)) as widget:
                 self.image_widget = widget
 
 

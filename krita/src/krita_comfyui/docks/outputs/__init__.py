@@ -49,6 +49,33 @@ class OutputsWidget(QWidget):
             self.stack.set_current_index(0)
 
 
+    def get_title(self):
+        bytes = self.live_mode.total_bytes + self.image.total_bytes
+
+        if bytes == 0:
+            return "ComfyUI Outputs"
+
+        else:
+            bytes = float(bytes)
+            suffix = "bytes"
+
+            if bytes >= 1024.0:
+                bytes = bytes / 1024.0
+                suffix = "KB"
+
+            if bytes >= 1024.0:
+                bytes = bytes / 1024.0
+                suffix = "MB"
+
+            if bytes >= 1024.0:
+                bytes = bytes / 1024.0
+                suffix = "GB"
+
+            bytes = round(bytes, 2)
+
+            return f"ComfyUI Outputs  ({bytes:g} {suffix})"
+
+
     def set_text(self, document, text):
         self.text.set_text(document, text)
 
@@ -72,36 +99,14 @@ class ComfyUIOutputWidget(DockWidget):
         self._widget = OutputsWidget(self.extension, self.extension.settings.settings)
         self._widget.setParent(self)
         self._widget.image.total_bytes_changed.connect(self.update_title)
+        self._widget.live_mode.total_bytes_changed.connect(self.update_title)
         self.setWidget(self._widget)
 
         self.update_title()
 
 
     def update_title(self):
-        bytes = self._widget.image.total_bytes
-
-        if bytes == 0:
-            self.setWindowTitle("ComfyUI Outputs")
-
-        else:
-            bytes = float(bytes)
-            suffix = "bytes"
-
-            if bytes >= 1024.0:
-                bytes = bytes / 1024.0
-                suffix = "KB"
-
-            if bytes >= 1024.0:
-                bytes = bytes / 1024.0
-                suffix = "MB"
-
-            if bytes >= 1024.0:
-                bytes = bytes / 1024.0
-                suffix = "GB"
-
-            bytes = round(bytes, 2)
-
-            self.setWindowTitle(f"ComfyUI Outputs  ({bytes:g} {suffix})")
+        self.setWindowTitle(self._widget.get_title())
 
 
     def canvasChanged(self, canvas):
