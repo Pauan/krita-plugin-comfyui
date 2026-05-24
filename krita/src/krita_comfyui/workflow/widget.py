@@ -53,20 +53,20 @@ class LiveModeState(QObject):
     # When running live mode we poll for changes every 100 ms.
     POLL_DELAY = 100
 
-    # If a change happens we wait this amount of milliseconds
-    # before we check for changes again.
-    CHANGED_DELAY = 250
+    # When a change happens we wait this many milliseconds before
+    # we run the workflow.
+    DEBOUNCE_DELAY = 250 * 1000000
 
 
     def __init__(self, parent, extension):
         super().__init__(parent)
 
-        self.seed = WorkflowGraph.random_seed()
-        self.is_running = False
-        self.first_run = True
-        self.wait_until = None
-
         self.enable_live_mode = extension.settings.settings.item("enable_live_mode")
+
+        self.seed = WorkflowGraph.random_seed()
+
+        self.is_running = False
+        self.debounce_time = None
 
         self.timer = QTimer(self)
         self.timer.setSingleShot(False)
@@ -76,8 +76,7 @@ class LiveModeState(QObject):
     def stop(self):
         if self.is_running:
             self.is_running = False
-            self.first_run = True
-            self.wait_until = None
+            self.debounce_time = None
             self.timer.stop()
             return True
 
@@ -87,48 +86,46 @@ class LiveModeState(QObject):
     def start(self):
         if not self.is_running:
             assert not self.timer.isActive()
-            assert self.first_run
+            assert self.debounce_time is None
             self.is_running = True
             return True
 
         return False
 
 
-    def can_run(self):
-        if self.is_running:
-            now = time.monotonic_ns()
+    def set_debounce_time(self, document, now):
+        document.modified = False
 
-            if self.wait_until is None or now >= self.wait_until:
-                self.wait_until = now + (self.CHANGED_DELAY * 1000000)
-                return True
+        self.debounce_time = now + self.DEBOUNCE_DELAY
 
-            # We keep polling until CHANGED_DELAY has passed.
-            if not self.timer.isActive():
-                self.timer.start()
-            return False
-
-        else:
-            assert not self.timer.isActive()
-            return False
+        # We're running the workflow, so we don't need the timer.
+        self.timer.stop()
 
 
     def check_changed(self, document):
-        is_modified = document.modified
+        if not self.is_running:
+            return False
 
-        if is_modified or self.first_run:
-            self.first_run = False
+        if document is None:
+            return False
 
-            document.modified = False
+        now = time.monotonic_ns()
 
-            # We're executing the graph, so we don't need the timer.
-            self.timer.stop()
+        # Run the workflow immediately.
+        if self.debounce_time is None:
+            self.set_debounce_time(document, now)
             return True
 
-        else:
-            # The graph didn't change, so we need to poll for changes.
-            if not self.timer.isActive():
-                self.timer.start()
-            return False
+        # Only run the workflow if the document changed and enough time has passed.
+        if document.modified and now >= self.debounce_time:
+            self.set_debounce_time(document, now)
+            return True
+
+        # We couldn't run, so poll until something changes.
+        if not self.timer.isActive():
+            self.timer.start()
+
+        return False
 
 
 class WorkflowWidget(QWidget):
@@ -530,9 +527,7 @@ class WorkflowWidget(QWidget):
 
     def run_live_workflow(self):
         with self.catch_errors():
-            is_changed = self.live_mode_state.check_changed(self.workflow.document)
-
-            if is_changed:
+            with Perf("run_live_workflow"):
                 ui_values = self.get_ui_values()
 
                 graph, document_id = self.workflow.to_graph(ui_values, seed=WorkflowGraph.random_seed())
@@ -574,7 +569,9 @@ class WorkflowWidget(QWidget):
 
 
     def maybe_run_live_mode(self):
-        if self.live_mode_state.can_run():
+        is_changed = self.live_mode_state.check_changed(self.workflow.document)
+
+        if is_changed:
             self.run_live_workflow()
 
 
