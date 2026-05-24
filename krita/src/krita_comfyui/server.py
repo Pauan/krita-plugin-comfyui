@@ -3,6 +3,7 @@ import uuid
 from enum import Enum, auto
 from . import util
 from .settings import LogLevel
+from .util.krita import Image
 from .util.graph import Graph
 
 from PyQt6.QtCore import QObject, QTimer, QUrl, QUrlQuery, QByteArray, pyqtSignal, pyqtSlot
@@ -502,6 +503,8 @@ class ExecuteGraphCommand(Command):
             self.document_id,
             client.client_id,
             graph_id,
+            # We call finalize in here so it does the base64 image conversion inside
+            # of this thread, so that way it doesn't freeze the main UI thread.
             self.graph.finalize(),
             self.is_live_mode,
             self.should_notify,
@@ -726,6 +729,13 @@ class ComfyUIClient(QObject):
 
         # If the prompt hasn't been reset...
         if prompt is not None and prompt.state.is_running():
+            output_images = output.get("krita_comfyui_output_images", None)
+
+            if output_images is not None:
+                for image in output_images:
+                    # We do base64 conversion in here so it doesn't freeze the main UI thread.
+                    image["image"] = Image.from_base64(image.pop("bytes"), image["width"], image["height"])
+
             prompt.outputs.append(output)
             self.graph_changed.emit(prompt.graph_info())
 

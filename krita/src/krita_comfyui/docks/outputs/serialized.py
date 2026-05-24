@@ -86,8 +86,6 @@ class SerializedImage:
 
     @staticmethod
     def save_new_image(document, uuid, info):
-        image = Image.from_base64(info["bytes"], info["width"], info["height"])
-
         metadata = {
             "format": "rgba",
             "width": info["width"],
@@ -100,7 +98,7 @@ class SerializedImage:
             "resize_algorithm": info["resize_algorithm"],
         }
 
-        serialized = SerializedImage(uuid, image, metadata)
+        serialized = SerializedImage(uuid, info["image"], metadata)
 
         try:
             serialized.save_bytes(document)
