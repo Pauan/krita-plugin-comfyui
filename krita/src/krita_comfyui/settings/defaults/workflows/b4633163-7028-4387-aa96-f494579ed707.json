@@ -121,7 +121,7 @@
           0
         ],
         "alpha": [
-          "39",
+          "42",
           1
         ]
       },
@@ -167,7 +167,7 @@
     "15": {
       "inputs": {
         "image": [
-          "39",
+          "42",
           0
         ]
       },
@@ -268,17 +268,10 @@
         "title": "Krita Output"
       }
     },
-    "39": {
-      "inputs": {},
-      "class_type": "krita_comfyui: KritaCanvas",
-      "_meta": {
-        "title": "Krita Canvas"
-      }
-    },
     "40": {
       "inputs": {
         "image": [
-          "39",
+          "42",
           0
         ]
       },
@@ -306,6 +299,13 @@
       "class_type": "ComfyMathExpression",
       "_meta": {
         "title": "Math Expression"
+      }
+    },
+    "42": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvasImage",
+      "_meta": {
+        "title": "Krita Canvas: Image"
       }
     }
   }

@@ -272,27 +272,45 @@ class KritaLayers(io.ComfyNode):
         raise RuntimeError("Workflow must be run from Krita.")
 
 
-class KritaCanvas(io.ComfyNode):
+class KritaCanvasImage(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
         return io.Schema(
-            node_id="krita_comfyui: KritaCanvas",
-            display_name="Krita Canvas",
+            node_id="krita_comfyui: KritaCanvasImage",
+            display_name="Krita Canvas: Image",
             category="krita/input",
-            description="Retrieves the entire canvas from Krita.",
+            description="Retrieves the canvas image from Krita.",
             inputs=[
                 io.BoundingBox.Input("crop", optional=True, force_input=True, tooltip="Optional bounding box which will be used to crop the canvas image and mask."),
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
                 io.Mask.Output(display_name="mask"),
-                io.Int.Output(display_name="width", tooltip="Width of the canvas before cropping."),
-                io.Int.Output(display_name="height", tooltip="Height of the canvas before cropping."),
             ],
         )
 
     @classmethod
     def execute(cls, crop=None) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
+class KritaCanvasSize(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaCanvasSize",
+            display_name="Krita Canvas: Size",
+            category="krita/input",
+            description="Retrieves the canvas size from Krita.",
+            inputs=[],
+            outputs=[
+                io.Int.Output(display_name="width", tooltip="Width of the canvas."),
+                io.Int.Output(display_name="height", tooltip="Height of the canvas."),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
         raise RuntimeError("Workflow must be run from Krita.")
 
 

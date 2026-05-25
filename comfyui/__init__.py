@@ -34,7 +34,8 @@ class KritaComfyui(ComfyExtension):
             nodes.ReplaceTransparency,
 
             # krita/input
-            nodes.KritaCanvas,
+            nodes.KritaCanvasImage,
+            nodes.KritaCanvasSize,
             nodes.KritaLayers,
             nodes.KritaSeed,
 

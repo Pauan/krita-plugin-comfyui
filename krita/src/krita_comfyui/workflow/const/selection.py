@@ -214,11 +214,10 @@ class KritaSelectionInvert:
 
 class KritaSelectionMask:
     def get_outputs(self, workflow, node_id, node):
-        bounds = workflow.bounds()
         inputs = node["inputs"]
 
         selection = workflow.evaluate_link(inputs["selection"])
-        crop = evaluate_crop_link(workflow, node_id, "Krita Selection: Mask", inputs, bounds)
+        crop = evaluate_crop_link(workflow, node_id, "Krita Selection: Mask", inputs)
 
         outputs = []
 

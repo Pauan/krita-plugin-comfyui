@@ -60,8 +60,8 @@
       "inputs": {
         "expression": "-(a // 4)",
         "values.a": [
-          "31",
-          2
+          "36",
+          0
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -73,8 +73,8 @@
       "inputs": {
         "expression": "-(a // 4)",
         "values.a": [
-          "31",
-          3
+          "36",
+          1
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -153,8 +153,8 @@
       "inputs": {
         "expression": "a - (a // 4)",
         "values.a": [
-          "31",
-          2
+          "36",
+          0
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -166,8 +166,8 @@
       "inputs": {
         "expression": "a - (a // 4)",
         "values.a": [
-          "31",
-          3
+          "36",
+          1
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -263,19 +263,12 @@
         "title": "Join Image with Alpha"
       }
     },
-    "31": {
-      "inputs": {},
-      "class_type": "krita_comfyui: KritaCanvas",
-      "_meta": {
-        "title": "Krita Canvas"
-      }
-    },
     "32": {
       "inputs": {
         "expression": "a * 2",
         "values.a": [
-          "31",
-          2
+          "36",
+          0
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -287,8 +280,8 @@
       "inputs": {
         "expression": "a * 2",
         "values.a": [
-          "31",
-          3
+          "36",
+          1
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -300,8 +293,8 @@
       "inputs": {
         "expression": "a // 2",
         "values.a": [
-          "31",
-          2
+          "36",
+          0
         ]
       },
       "class_type": "ComfyMathExpression",
@@ -313,13 +306,20 @@
       "inputs": {
         "expression": "a // 2",
         "values.a": [
-          "31",
-          3
+          "36",
+          1
         ]
       },
       "class_type": "ComfyMathExpression",
       "_meta": {
         "title": "Math Expression"
+      }
+    },
+    "36": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvasSize",
+      "_meta": {
+        "title": "Krita Canvas: Size"
       }
     }
   }

@@ -55,7 +55,7 @@ class LiveModeState(QObject):
 
     # When a change happens we wait this many milliseconds before
     # we run the workflow.
-    DEBOUNCE_DELAY = 250 * 1000000
+    DEBOUNCE_DELAY = 150 * 1000000
 
 
     def __init__(self, parent, extension):

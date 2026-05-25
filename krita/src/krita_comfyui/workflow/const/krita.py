@@ -12,11 +12,11 @@ def crop_to_bounds(node_id, name, values):
         yield Bounds.from_json(crop)
 
 
-def evaluate_crop_link(workflow, node_id, name, inputs, default):
+def evaluate_crop_link(workflow, node_id, name, inputs):
     crop = inputs.get("crop", None)
 
     if crop is None:
-        return Link([default])
+        return Link([workflow.bounds()])
     else:
         return Link(list(crop_to_bounds(node_id, name, workflow.evaluate_link(crop).values)))
 
@@ -65,24 +65,19 @@ class KritaUiPrompt(KritaUi):
         return links
 
 
-class KritaCanvas:
+class KritaCanvasImage:
     def get_outputs(self, workflow, node_id, node):
         outputs = (
             Link([]),
             Link([]),
-            Link([]),
-            Link([]),
         )
 
-        bounds = workflow.bounds()
-
-        for crop in evaluate_crop_link(workflow, node_id, "Krita Canvas", node["inputs"], bounds).values:
+        for crop in evaluate_crop_link(workflow, node_id, "Krita Canvas", node["inputs"]).values:
             cached_canvas = workflow.cached_canvas.get(crop, None)
 
             if cached_canvas is None:
                 image = workflow.document.canvas(crop)
-                (image, mask) = workflow.graph.image(image)
-                cached_canvas = (image, mask, bounds.width, bounds.height)
+                cached_canvas = workflow.graph.image(image)
                 workflow.cached_canvas[crop] = cached_canvas
 
             assert len(outputs) == len(cached_canvas)
@@ -91,6 +86,15 @@ class KritaCanvas:
                 output.values.append(value)
 
         return outputs
+
+
+class KritaCanvasSize:
+    def get_outputs(self, workflow, node_id, node):
+        bounds = workflow.bounds()
+        return (
+            Link([bounds.width]),
+            Link([bounds.height]),
+        )
 
 
 class KritaDebug:
@@ -190,7 +194,6 @@ class KritaLayers:
 
 
     def get_outputs(self, workflow, node_id, node):
-        bounds = workflow.bounds()
         inputs = node["inputs"]
 
         images = []
@@ -198,7 +201,7 @@ class KritaLayers:
         names = []
 
         layer_id_link = workflow.evaluate_link(inputs["layer_id"])
-        crop = evaluate_crop_link(workflow, node_id, "Krita Layers", inputs, bounds)
+        crop = evaluate_crop_link(workflow, node_id, "Krita Layers", inputs)
         mode_link = workflow.evaluate_link(inputs["mode"])
 
         error = None
@@ -304,7 +307,8 @@ CONST_NODES = {
     "krita_comfyui: KritaUiString": KritaUi("string", ["value", "is_default"]),
     "krita_comfyui: KritaUiPrompt": KritaUiPrompt(),
 
-    "krita_comfyui: KritaCanvas": KritaCanvas(),
+    "krita_comfyui: KritaCanvasImage": KritaCanvasImage(),
+    "krita_comfyui: KritaCanvasSize": KritaCanvasSize(),
     "krita_comfyui: KritaLayers": KritaLayers(),
     "krita_comfyui: KritaDebug": KritaDebug(),
     "krita_comfyui: KritaSeed": KritaSeed(),

@@ -130,7 +130,7 @@
           0
         ],
         "alpha": [
-          "22",
+          "28",
           1
         ]
       },
@@ -176,7 +176,7 @@
     "15": {
       "inputs": {
         "image": [
-          "22",
+          "28",
           0
         ]
       },
@@ -231,17 +231,10 @@
         "title": "Text Replace (Regex)"
       }
     },
-    "22": {
-      "inputs": {},
-      "class_type": "krita_comfyui: KritaCanvas",
-      "_meta": {
-        "title": "Krita Canvas"
-      }
-    },
     "23": {
       "inputs": {
         "image": [
-          "22",
+          "28",
           0
         ]
       },
@@ -300,6 +293,13 @@
       "class_type": "krita_comfyui: KritaUiCombo",
       "_meta": {
         "title": "Krita UI Combo"
+      }
+    },
+    "28": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvasImage",
+      "_meta": {
+        "title": "Krita Canvas: Image"
       }
     }
   }

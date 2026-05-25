@@ -434,7 +434,7 @@
         "y": 0,
         "operation": "multiply",
         "destination": [
-          "338",
+          "364",
           1
         ],
         "source": [
@@ -486,7 +486,7 @@
     "126": {
       "inputs": {
         "image": [
-          "338",
+          "364",
           0
         ]
       },
@@ -1506,11 +1506,11 @@
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "images": [
-          "338",
+          "364",
           0
         ],
         "masks": [
-          "338",
+          "364",
           1
         ]
       },
@@ -1839,18 +1839,6 @@
         "title": "Krita Layers"
       }
     },
-    "338": {
-      "inputs": {
-        "crop": [
-          "216",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaCanvas",
-      "_meta": {
-        "title": "Krita Canvas"
-      }
-    },
     "339": {
       "inputs": {
         "selection": [
@@ -2029,6 +2017,18 @@
       "class_type": "krita_comfyui: ApplyLoras",
       "_meta": {
         "title": "Apply Loras"
+      }
+    },
+    "364": {
+      "inputs": {
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaCanvasImage",
+      "_meta": {
+        "title": "Krita Canvas: Image"
       }
     }
   }
