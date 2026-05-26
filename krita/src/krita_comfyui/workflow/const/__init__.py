@@ -348,6 +348,9 @@ def function(*,
     # Forces all inputs to be constant.
     inputs_constant=False,
 
+    # Allows for the function to run even if there are links in the inputs.
+    inputs_links_allowed=False,
+
     # If true, the input variables are a list of values.
     is_input_list=False,
 
@@ -375,6 +378,18 @@ def function(*,
 
 
         if is_input_list:
+            def zip_inputs(values):
+                return [values]
+        else:
+            def zip_inputs(values):
+                return zip_lists(values)
+
+
+        if len(inputs_list) == 0:
+            def iter_inputs(cls, out):
+                return [[]]
+
+        elif inputs_links_allowed or all([input.constant for name, input in inputs_list]):
             def iter_inputs(cls, out):
                 values = []
 
@@ -386,57 +401,44 @@ def function(*,
                     else:
                         values.append(link.values)
 
-                return [values]
+                return zip_inputs(values)
 
         else:
-            if len(inputs_list) == 0:
-                def iter_inputs(cls, out):
-                    return [[]]
+            def iter_inputs(cls, out):
+                links = []
+                values = []
 
-            elif all([input.constant for name, input in inputs_list]):
-                def iter_inputs(cls, out):
-                    values = []
+                contains_link = False
 
-                    for name, input in inputs_list:
-                        assert not input.raw_link
+                for name, input in inputs_list:
+                    link = input.get_link(name, cls)
 
-                        link = input.get_link(name, cls)
+                    if not input.constant and link.contains_link():
+                        contains_link = True
 
-                        values.append(link.values)
+                    links.append(link)
 
-                    return zip_lists(values)
+                    if not contains_link:
+                        if input.raw_link:
+                            values.append(link)
+                        else:
+                            values.append(link.values)
 
-            else:
-                def iter_inputs(cls, out):
-                    links = []
+                # Because a link can potentially be multiple values, and we have no way
+                # of knowing at compile-time how many values that link has, if there is
+                # even a single link then we cannot constant evaluate the node.
+                if contains_link:
+                    node_inputs = {}
 
-                    contains_link = False
+                    # We can still constant evaluate the links as much as possible, but
+                    # the node itself will be evaluated at runtime.
+                    for (name, input), link in zip(inputs_list, links):
+                        input.add_to_dict(name, cls, link, node_inputs)
 
-                    for name, input in inputs_list:
-                        assert not input.raw_link
+                    out.add_node(cls.graph.node(cls.node_name, **node_inputs))
+                    return []
 
-                        link = input.get_link(name, cls)
-
-                        if not input.constant and link.contains_link():
-                            contains_link = True
-
-                        links.append(link)
-
-                    # Because a link can potentially be multiple values, and we have no way
-                    # of knowing at compile-time how many values that link has, if there is
-                    # even a single link then we cannot constant evaluate the node.
-                    if contains_link:
-                        node_inputs = {}
-
-                        # We can still constant evaluate the links as much as possible, but
-                        # the node itself will be evaluated at runtime.
-                        for (name, input), link in zip(inputs_list, links):
-                            input.add_to_dict(name, cls, link, node_inputs)
-
-                        out.add_node(cls.graph.node(cls.node_name, **node_inputs))
-                        return []
-
-                    return zip_lists([link.values for link in links])
+                return zip_inputs(values)
 
 
         if outputs == 1:

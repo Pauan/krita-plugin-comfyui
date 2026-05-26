@@ -226,6 +226,7 @@ class KritaSeed(ConstantNode):
 # accessible in Krita, so we have to constant evaluate it.
 @function(
     name="Apply Loras",
+    inputs_links_allowed=True,
     inputs={
         "loras": InputValue(constant=True, optional=True),
     },
