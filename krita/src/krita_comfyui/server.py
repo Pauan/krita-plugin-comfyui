@@ -1,10 +1,14 @@
 import json
 import uuid
+import traceback
+from dataclasses import dataclass
 from enum import Enum, auto
 from . import util
 from .settings import LogLevel
-from .util.krita import Image
+from .util.krita import Document, Image
 from .util.graph import Graph
+from .shared import Perf
+from .workflow.graph import WorkflowGraph
 
 from PyQt6.QtCore import QObject, QTimer, QUrl, QUrlQuery, QByteArray, pyqtSignal, pyqtSlot
 from PyQt6.QtWebSockets import QWebSocket
@@ -109,6 +113,14 @@ class GraphError:
     def from_comfyui_error(comfy_error):
         error = GraphError()
         error.message = comfy_error.to_string()
+        return error
+
+
+    @staticmethod
+    def from_exception(exception):
+        error = GraphError()
+        error.message = str(exception)
+        error.backtrace = "".join(traceback.format_exception(exception))
         return error
 
 
@@ -268,28 +280,62 @@ class PromptProgress:
             return percent / total_percent
 
 
+@dataclass
 class Prompt:
-    def __init__(self, document_id, client_id, graph_id, graph, is_live_mode, should_notify):
-        self.document_id = document_id
-        self.client_id = client_id
-        self.graph_id = graph_id
-        self.graph = graph
-        self.is_live_mode = is_live_mode
-        self.should_notify = should_notify
-        self.error = None
-        self.outputs = []
+    document_id: str
+    client_id: str
+    graph_id: str
+    graph: dict | None
+    is_live_mode: bool
+    should_notify: bool
+    error: GraphError | None
+    outputs: list
+    progress: PromptProgress | None
+    prompt_id: str
+    state: GraphState
+    body: str | None
 
-        self.progress = PromptProgress(self.graph)
 
-        self.prompt_id = str(uuid.uuid4())
+    @staticmethod
+    def from_graph(document_id, client_id, graph_id, graph, is_live_mode, should_notify):
+        prompt_id = str(uuid.uuid4())
 
-        self.state = GraphState.Idle
+        return Prompt(
+            document_id=document_id,
+            client_id=client_id,
+            graph_id=graph_id,
+            prompt_id=prompt_id,
+            graph=graph,
+            is_live_mode=is_live_mode,
+            should_notify=should_notify,
+            state=GraphState.Idle,
+            error=None,
+            outputs=[],
+            progress=PromptProgress(graph),
+            body=json.dumps({
+                "client_id": client_id,
+                "prompt_id": prompt_id,
+                "prompt": graph,
+            }).encode("utf-8"),
+        )
 
-        self.body = json.dumps({
-            "client_id": self.client_id,
-            "prompt_id": self.prompt_id,
-            "prompt": self.graph,
-        }).encode("utf-8")
+
+    @staticmethod
+    def from_error(document_id, client_id, graph_id, is_live_mode, should_notify, error):
+        return Prompt(
+            document_id=document_id,
+            client_id=client_id,
+            graph_id=graph_id,
+            prompt_id=None,
+            graph=None,
+            is_live_mode=is_live_mode,
+            should_notify=should_notify,
+            state=GraphState.Error,
+            error=error,
+            outputs=[],
+            progress=None,
+            body=None,
+        )
 
 
     def cancel(self):
@@ -324,7 +370,14 @@ class Prompt:
     # Returns a fresh Prompt with the same graph.
     # This is needed for retrying the Prompt in the case of a disconnection.
     def copy(self):
-        return Prompt(self.document_id, self.client_id, self.graph_id, self.graph, self.is_live_mode, self.should_notify)
+        return Prompt.from_graph(
+            self.document_id,
+            self.client_id,
+            self.graph_id,
+            self.graph,
+            self.is_live_mode,
+            self.should_notify,
+        )
 
 
 class ConnectState(Enum):
@@ -408,122 +461,15 @@ class WebsocketClient(QObject):
             self.messages.emit(json.loads(message))
 
 
-# Because the server is running in another thread, when you
-# call a server method it doesn't execute the code directly,
-# instead it queues up a Command which will be executed later.
-class Command:
-    pass
-
-
-class StopExecuteGraphCommand(Command):
-    def __init__(self, graph_id):
-        super().__init__()
-        self.graph_id = graph_id
-
-    def run(self, client):
-        remove = [prompt for prompt in client.queue if prompt.graph_id == self.graph_id]
-
-        for prompt in remove:
-            is_running = prompt.state.is_running()
-
-            prompt.cancel()
-            client.queue.remove(prompt)
-            client.graph_changed.emit(prompt.graph_info())
-
-            if is_running:
-                client.interrupt_prompt(prompt)
-
-        client.execute_queue()
-
-
-class ClearQueuePendingCommand(Command):
-    def run(self, client):
-        remove = [prompt for prompt in client.queue if prompt.state.is_idle()]
-
-        for prompt in remove:
-            prompt.cancel()
-            client.queue.remove(prompt)
-            client.graph_changed.emit(prompt.graph_info())
-
-        client.execute_queue()
-
-
-class ClearQueueLiveModeCommand(Command):
-    def run(self, client):
-        remove = [prompt for prompt in client.queue if prompt.is_live_mode]
-
-        for prompt in remove:
-            is_running = prompt.state.is_running()
-
-            prompt.cancel()
-            client.queue.remove(prompt)
-
-            if is_running:
-                client.interrupt_prompt(prompt)
-
-            client.graph_changed.emit(prompt.graph_info())
-
-        client.execute_queue()
-
-
-class ClearQueueCommand(Command):
-    def run(self, client):
-        if len(client.queue) > 0:
-            old = client.queue
-
-            client.queue = []
-
-            for prompt in old:
-                is_running = prompt.state.is_running()
-
-                prompt.cancel()
-                client.graph_changed.emit(prompt.graph_info())
-
-                if is_running:
-                    client.interrupt_prompt(prompt)
-
-
-class ExecuteGraphCommand(Command):
-    def __init__(self, graph, document_id, is_live_mode, should_notify):
-        super().__init__()
-        self.graph = graph
-        self.document_id = document_id
-        self.is_live_mode = is_live_mode
-        self.should_notify = should_notify
-
-
-    def run(self, client):
-        client.settings.log_json(self.graph.debug(), label="Execute Graph", level=LogLevel.DEBUG)
-
-        graph_id = str(client.graph_id)
-
-        client.graph_id += 1
-
-        prompt = Prompt(
-            self.document_id,
-            client.client_id,
-            graph_id,
-            # We call finalize in here so it does the base64 image conversion inside
-            # of this thread, so that way it doesn't freeze the main UI thread.
-            self.graph.finalize(),
-            self.is_live_mode,
-            self.should_notify,
-        )
-
-        client.queue.append(prompt)
-
-        graph_info = prompt.graph_info()
-
-        client.graph_changed.emit(graph_info)
-
-        client.execute_queue()
-
-
 class ComfyUIClient(QObject):
     graph_changed = pyqtSignal(GraphInfo)
     connection_changed = pyqtSignal(bool)
 
-    run_command = pyqtSignal(Command)
+    # When calling a method, the method is run in the same thread as the caller.
+    #
+    # If we emit the method into this signal, then it will instead run in the same
+    # thread as ComfyUIClient.
+    run_command = pyqtSignal(object)
 
     def __init__(self, settings, url, reconnect_delay):
         super().__init__()
@@ -551,9 +497,9 @@ class ComfyUIClient(QObject):
         self.run_command.connect(self.on_run_command)
 
 
-    @pyqtSlot(Command)
+    @pyqtSlot(object)
     def on_run_command(self, command):
-        command.run(self)
+        command()
 
 
     def request(self, *, url, metadata, username=None, password=None, headers=[], query={}):
@@ -973,28 +919,129 @@ class ComfyUIClient(QObject):
 
     # Stop executing a specific graph
     def stop_execute_graph(self, graph_id):
-        self.run_command.emit(StopExecuteGraphCommand(graph_id))
+        def run():
+            remove = [prompt for prompt in self.queue if prompt.graph_id == graph_id]
+
+            for prompt in remove:
+                is_running = prompt.state.is_running()
+
+                prompt.cancel()
+                self.queue.remove(prompt)
+                self.graph_changed.emit(prompt.graph_info())
+
+                if is_running:
+                    self.interrupt_prompt(prompt)
+
+            self.execute_queue()
+
+        self.run_command.emit(run)
 
 
     # Removes pending prompts which haven't been sent yet
     def clear_queue_pending(self):
-        self.run_command.emit(ClearQueuePendingCommand())
+        def run():
+            remove = [prompt for prompt in self.queue if prompt.state.is_idle()]
+
+            for prompt in remove:
+                prompt.cancel()
+                self.queue.remove(prompt)
+                self.graph_changed.emit(prompt.graph_info())
+
+            self.execute_queue()
+
+        self.run_command.emit(run)
 
 
     # Removes all live mode prompts
     def clear_queue_live_mode(self):
-        self.run_command.emit(ClearQueueLiveModeCommand())
+        def run():
+            remove = [prompt for prompt in self.queue if prompt.is_live_mode]
+
+            for prompt in remove:
+                is_running = prompt.state.is_running()
+
+                prompt.cancel()
+                self.queue.remove(prompt)
+
+                if is_running:
+                    self.interrupt_prompt(prompt)
+
+                self.graph_changed.emit(prompt.graph_info())
+
+            self.execute_queue()
+
+        self.run_command.emit(run)
 
 
     # Removes all prompts, including prompts that are in progress
     def clear_queue(self):
-        self.run_command.emit(ClearQueueCommand())
+        def run():
+            if len(self.queue) > 0:
+                old = self.queue
+
+                self.queue = []
+
+                for prompt in old:
+                    is_running = prompt.state.is_running()
+
+                    prompt.cancel()
+                    self.graph_changed.emit(prompt.graph_info())
+
+                    if is_running:
+                        self.interrupt_prompt(prompt)
+
+        self.run_command.emit(run)
 
 
-    def execute_graph(self, *, graph, document_id, is_live_mode, should_notify):
-        self.run_command.emit(ExecuteGraphCommand(
-            graph=graph,
-            document_id=document_id,
-            is_live_mode=is_live_mode,
-            should_notify=should_notify,
-        ))
+    def execute_graph(self, *, graph, ui_values, document, seed, is_live_mode, should_notify):
+        document_id = document.root_layer().id
+
+        # Constant evaluating a graph can take 20+ milliseconds,
+        # which can cause Krita's UI to freeze.
+        #
+        # So we do evaluation and execution in a separate thread.
+        def run():
+            self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)
+
+            graph_id = str(self.graph_id)
+
+            self.graph_id += 1
+
+            try:
+                evaluated_graph = WorkflowGraph(
+                    document=document,
+                    json=graph,
+                    seed=seed,
+                    ui_values=ui_values,
+                ).evaluate()
+
+            except Exception as error:
+                prompt = Prompt.from_error(
+                    document_id,
+                    self.client_id,
+                    graph_id,
+                    is_live_mode,
+                    should_notify,
+                    GraphError.from_exception(error),
+                )
+                self.graph_changed.emit(prompt.graph_info())
+                self.execute_queue()
+                return
+
+            self.settings.log_json(evaluated_graph.debug(), label="Execute Graph", level=LogLevel.DEBUG)
+
+            prompt = Prompt.from_graph(
+                document_id,
+                self.client_id,
+                graph_id,
+                evaluated_graph.finalize(),
+                is_live_mode,
+                should_notify,
+            )
+
+            self.queue.append(prompt)
+
+            self.graph_changed.emit(prompt.graph_info())
+            self.execute_queue()
+
+        self.run_command.emit(run)

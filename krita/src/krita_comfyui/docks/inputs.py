@@ -100,14 +100,15 @@ class QueueList(QListWidget):
 
     def remove_job(self, info):
         index = self.find_job(info.graph_id)
-        assert index is not None
 
-        job = self.jobs.pop(index)
-        item = self.takeItem(index)
+        # If index is None then the graph had immediately errored.
+        if index is not None:
+            job = self.jobs.pop(index)
+            item = self.takeItem(index)
 
-        self.removeItemWidget(item)
+            self.removeItemWidget(item)
 
-        job.deleteLater()
+            job.deleteLater()
 
 
     def process_graph_info(self, client, info):

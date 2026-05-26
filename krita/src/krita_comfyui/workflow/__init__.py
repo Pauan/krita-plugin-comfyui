@@ -15,10 +15,11 @@ def all_children(children):
 
 
 class Workflow(Storage):
-    def __init__(self, settings):
+    def __init__(self, extension):
         super().__init__({})
 
-        self.settings = settings
+        self.extension = extension
+        self.settings = extension.settings
 
         self.id = ""
         self.document = None
@@ -249,7 +250,7 @@ class Workflow(Storage):
         return self.document is not None and self.id != "" and self.graph is not None
 
 
-    def to_graph(self, ui_values, *, seed):
+    def run_graph(self, *, ui_values, seed, is_live_mode, should_notify):
         if self.document is None:
             raise WorkflowError("Krita does not have an opened image")
 
@@ -258,15 +259,18 @@ class Workflow(Storage):
 
         assert self.graph is not None
 
-        self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)
-
-        graph = WorkflowGraph(
-            document=self.document,
-            json=self.graph,
-            seed=seed,
+        self.extension.client.execute_graph(
+            # It's safe to send ui_values to another thread because it's created fresh every time.
             ui_values=ui_values,
-        ).evaluate()
 
-        document_id = self.document.root_layer().id
+            # It's safe to send graph to another thread because we never modify it.
+            graph=self.graph,
 
-        return (graph, document_id)
+            # This is safe because document isn't actually sent to another thread.
+            document=self.document,
+
+            # This is safe because these are primitive values.
+            seed=seed,
+            is_live_mode=is_live_mode,
+            should_notify=should_notify,
+        )

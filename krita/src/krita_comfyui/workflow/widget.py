@@ -154,7 +154,7 @@ class WorkflowWidget(QWidget):
 
         self.layout = LayoutManager(self)
 
-        self.workflow = Workflow(self.extension.settings)
+        self.workflow = Workflow(self.extension)
 
         self.error = MessageBox(QMessageBox.Icon.Critical, "Workflow error", "", parent=self)
         self.error.setSizeGripEnabled(True)
@@ -515,32 +515,24 @@ class WorkflowWidget(QWidget):
 
     def run_workflow(self):
         with Perf("run_workflow"):
-            with self.catch_errors():
-                graph, document_id = self.workflow.to_graph(self.get_ui_values(), seed=WorkflowGraph.random_seed())
-
-                self.extension.client.execute_graph(
-                    graph=graph,
-                    document_id=document_id,
-                    is_live_mode=False,
-                    should_notify=True,
-                )
+            self.workflow.run_graph(
+                ui_values=self.get_ui_values(),
+                seed=WorkflowGraph.random_seed(),
+                is_live_mode=False,
+                should_notify=True,
+            )
 
 
     def run_live_workflow(self):
-        with self.catch_errors():
-            with Perf("run_live_workflow"):
-                ui_values = self.get_ui_values()
+        with Perf("run_live_workflow"):
+            self.workflow.run_graph(
+                ui_values=self.get_ui_values(),
+                seed=WorkflowGraph.random_seed(),
+                is_live_mode=True,
+                should_notify=False,
+            )
 
-                graph, document_id = self.workflow.to_graph(ui_values, seed=WorkflowGraph.random_seed())
-
-                self.extension.client.execute_graph(
-                    graph=graph,
-                    document_id=document_id,
-                    is_live_mode=True,
-                    should_notify=False,
-                )
-
-                assert not self.workflow.document.modified
+            assert not self.workflow.document.modified
 
 
     def is_live_mode_enabled(self):
