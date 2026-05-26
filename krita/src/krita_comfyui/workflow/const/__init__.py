@@ -254,8 +254,6 @@ class InputDynamicCombo(Input):
 
         link = LinkDynamicCombo(links, input_name, prefix)
 
-        print(link.values)
-
         if len(link.values) == 0:
             if self.optional:
                 link.values.append(None)

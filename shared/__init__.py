@@ -3,6 +3,7 @@ This module contains code which is shared by both comfyui and krita.
 """
 import json
 import time
+import math
 
 
 # https://stackoverflow.com/a/2189827/449477

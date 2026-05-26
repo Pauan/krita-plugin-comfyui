@@ -1,5 +1,5 @@
 # This module contains constant-evaluation versions of the Krita nodes.
-from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, function
+from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, is_link, function
 from ...util.krita import Bounds
 from ... import shared
 
@@ -83,6 +83,13 @@ class KritaCanvasSize(ConstantNode):
 
 
 class KritaDebug(ConstantNode):
+    def serialize_any(self, x):
+        if is_link(x):
+            return x
+        else:
+            return shared.serialize_any(x)
+
+
     def run(self):
         enabled = self.evaluate_input("enabled")
 
@@ -101,7 +108,7 @@ class KritaDebug(ConstantNode):
                 text = Link([])
 
             # We need to do this so that way it's possible to debug loras from a Krita Ui Prompt.
-            text.transform(shared.serialize_any)
+            text.transform(self.serialize_any)
 
             for key, value in self.inputs.items():
                 if key == "enabled":

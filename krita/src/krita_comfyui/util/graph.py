@@ -44,7 +44,12 @@ class Graph:
     # Sends a Mask to ComfyUI
     def mask(self, mask):
         mask.check_format()
-        return self.node("krita_comfyui: LoadMaskBase64", base64=mask, width=mask.width, height=mask.height).out(0)
+
+        # TODO figure out a faster way of determining if the selection is fully white
+        if mask.is_solid(0xff):
+            return self.node("SolidMask", value=1.0, width=mask.width, height=mask.height).out(0)
+        else:
+            return self.node("krita_comfyui: LoadMaskBase64", base64=mask, width=mask.width, height=mask.height).out(0)
 
 
     # Causes an error to be thrown when evaluating the graph

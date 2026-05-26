@@ -1,6 +1,5 @@
 import numpy as np
 import base64
-import math
 import torch
 import datetime
 import json

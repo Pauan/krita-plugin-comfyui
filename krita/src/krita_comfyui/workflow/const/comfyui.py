@@ -340,6 +340,30 @@ class JsonExtractString(ConstantNode):
             return ""
 
 
+@function()
+class NotNode(ConstantNode):
+    def run(self, value):
+        return not value
+
+@function(
+    inputs={
+        "values": InputAutogrow(),
+    },
+)
+class AndNode(ConstantNode):
+    def run(self, values):
+        return all(values.values())
+
+@function(
+    inputs={
+        "values": InputAutogrow(),
+    },
+)
+class OrNode(ConstantNode):
+    def run(self, values):
+        return any(values.values())
+
+
 CONST_NODES = {
     # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_primitive.py#L104-L108
     "PrimitiveString": Primitive,
@@ -356,6 +380,11 @@ CONST_NODES = {
 
     # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_logic.py#L11
     "ComfySwitchNode": Switch,
+
+    # https://github.com/Comfy-Org/ComfyUI/blob/57414dadfe732b8c37754a9680c39c7fb6691437/comfy_extras/nodes_logic.py#L339-L341
+    "ComfyNotNode": NotNode,
+    "ComfyAndNode": AndNode,
+    "ComfyOrNode": OrNode,
 
     # https://github.com/Comfy-Org/ComfyUI/blob/72e3f6081ccf8853baede1308f16e0e9ebcc09dc/comfy_extras/nodes_string.py#L447-L459
     "StringFormat": StringFormat,

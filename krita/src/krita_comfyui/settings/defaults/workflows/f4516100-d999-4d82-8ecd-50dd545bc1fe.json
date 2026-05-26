@@ -1069,7 +1069,7 @@
           0
         ],
         "alpha": [
-          "89",
+          "380",
           0
         ]
       },
@@ -1313,27 +1313,15 @@
         "title": "and"
       }
     },
-    "296": {
-      "inputs": {
-        "image": [
-          "376",
-          0
-        ]
-      },
-      "class_type": "GetImageSize",
-      "_meta": {
-        "title": "Get Image Size"
-      }
-    },
     "298": {
       "inputs": {
         "fstring": "width: {a}\nheight: {b}",
         "a": [
-          "296",
+          "374",
           0
         ],
         "b": [
-          "296",
+          "374",
           1
         ]
       },
@@ -1987,12 +1975,12 @@
     "367": {
       "inputs": {
         "width": [
-          "138",
-          2
+          "374",
+          0
         ],
         "height": [
-          "138",
-          3
+          "374",
+          1
         ],
         "batch_size": [
           "128",
@@ -2186,6 +2174,26 @@
       "class_type": "ResizeImageMaskNode",
       "_meta": {
         "title": "Resize Image/Mask"
+      }
+    },
+    "380": {
+      "inputs": {
+        "switch": [
+          "366",
+          2
+        ],
+        "on_false": [
+          "89",
+          0
+        ],
+        "on_true": [
+          "339",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
       }
     }
   }
