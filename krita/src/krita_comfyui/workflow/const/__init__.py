@@ -171,9 +171,17 @@ class LinkDynamicCombo(Link):
 
 
 class Input:
-    def __init__(self, *, constant=False, optional=False, raw_link=False):
+    def __init__(self, *, constant=False, optional=False, allow_links=False, raw_link=False):
+        # If true then it will error if the input has links.
         self.constant = constant
+
+        # If true then the input is optional. It will be None if it doesn't exist.
         self.optional = optional
+
+        # If true then the function will run even if the input has links.
+        self.allow_links = allow_links
+
+        # If true then the function is given the Link object instead of the values of the link.
         self.raw_link = raw_link
 
 
@@ -318,17 +326,20 @@ def constant(value):
     return Constant
 
 
-def get_input(inputs, name, constant):
+def get_input(inputs, name, constant, allow_links):
     try:
         input = inputs[name]
 
         if constant:
             input.constant = True
 
+        if allow_links:
+            input.allow_links = True
+
         return input
 
     except KeyError:
-        return InputValue(constant=constant)
+        return InputValue(constant=constant, allow_links=allow_links)
 
 
 # Creates an optimized ConstantNode.
@@ -349,7 +360,7 @@ def function(*,
     inputs_constant=False,
 
     # Allows for the function to run even if there are links in the inputs.
-    inputs_links_allowed=False,
+    inputs_allow_links=False,
 
     # If true, the input variables are a list of values.
     is_input_list=False,
@@ -372,9 +383,9 @@ def function(*,
         arg_names = arg_names[1:code.co_argcount]
 
         if inputs is None:
-            inputs_list = [(name, InputValue(constant=inputs_constant)) for name in arg_names]
+            inputs_list = [(name, InputValue(constant=inputs_constant, allow_links=inputs_allow_links)) for name in arg_names]
         else:
-            inputs_list = [(name, get_input(inputs, name, inputs_constant)) for name in arg_names]
+            inputs_list = [(name, get_input(inputs, name, inputs_constant, inputs_allow_links)) for name in arg_names]
 
 
         if is_input_list:
@@ -389,7 +400,7 @@ def function(*,
             def iter_inputs(cls, out):
                 return [[]]
 
-        elif inputs_links_allowed or all([input.constant for name, input in inputs_list]):
+        elif all([(input.constant or input.allow_links) for name, input in inputs_list]):
             def iter_inputs(cls, out):
                 values = []
 
@@ -413,7 +424,7 @@ def function(*,
                 for name, input in inputs_list:
                     link = input.get_link(name, cls)
 
-                    if not input.constant and link.contains_link():
+                    if (not input.constant) and (not input.allow_links) and link.contains_link():
                         contains_link = True
 
                     links.append(link)

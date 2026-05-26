@@ -1382,7 +1382,7 @@
     },
     "310": {
       "inputs": {
-        "name": "ComfyUI [%index%]",
+        "name": "[%timestamp%]",
         "order": 0,
         "x": [
           "138",

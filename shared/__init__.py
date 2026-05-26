@@ -4,6 +4,14 @@ This module contains code which is shared by both comfyui and krita.
 import json
 import time
 import math
+import datetime
+
+
+def timestamp_utc():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+def timestamp_local():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 # https://stackoverflow.com/a/2189827/449477

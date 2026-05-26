@@ -5,8 +5,7 @@ from json import dump, dumps, load, loads
 from pathlib import Path
 from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
-from ..shared import Perf
-from ..util import timestamp
+from ..shared import timestamp_local, Perf
 from ..util.qt import BlockSignals
 from ..util.storage import Storage, Metadata
 
@@ -446,14 +445,14 @@ class Settings(QObject):
     def log_str(self, str, *, level):
         if level.matches(self.logging_level.get()):
             with open(self.dir / "debug.log", "a") as file:
-                time = timestamp()
+                time = timestamp_local()
                 file.write(f"[{time} {level.name}] {str}")
                 file.write("\n\n")
 
     def log_json(self, json, *, level, label=None):
         if level.matches(self.logging_level.get()):
             with open(self.dir / "debug.log", "a") as file:
-                time = timestamp()
+                time = timestamp_local()
                 if label is None:
                     file.write(f"[{time} {level.name}] ")
                 else:

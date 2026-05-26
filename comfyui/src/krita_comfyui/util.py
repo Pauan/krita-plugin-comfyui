@@ -1,7 +1,6 @@
 import numpy as np
 import base64
 import torch
-import datetime
 import json
 from PIL import Image
 from io import BytesIO
@@ -106,7 +105,3 @@ def encode_image(tensor):
         image = image.convert("RGBA")
 
     return base64.b64encode(image.tobytes()).decode(encoding="utf-8")
-
-
-def timestamp():
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H%M%S")

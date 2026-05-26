@@ -146,7 +146,11 @@ class ApplyControlNets(io.ComfyNode):
 
         for model, positive, negative, vae in zip_lists([model, positive, negative, vae]):
             for control_net in control_nets:
-                if control_net is not None:
+                if (
+                    control_net is not None and
+                    control_net["strength"] > 0.0 and
+                    control_net["start_percent"] < control_net["end_percent"]
+                ):
                     image = control_net["image"]
                     images.append(image)
 

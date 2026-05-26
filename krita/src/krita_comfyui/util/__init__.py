@@ -1,4 +1,3 @@
-import datetime
 import re
 
 
@@ -29,7 +28,3 @@ def lerp(percent, min, max):
 # Inverse lerp, finds the percentage from the value
 def normalize(value, min, max):
     return (value - min) / (max - min)
-
-
-def timestamp():
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")

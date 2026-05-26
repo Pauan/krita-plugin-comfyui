@@ -226,7 +226,7 @@ class KritaSeed(ConstantNode):
 # accessible in Krita, so we have to constant evaluate it.
 @function(
     name="Apply Loras",
-    inputs_links_allowed=True,
+    inputs_allow_links=True,
     inputs={
         "loras": InputValue(constant=True, optional=True),
     },
@@ -292,8 +292,13 @@ class DetailSize(ConstantNode):
 @function(
     name="Make Control Net",
     inputs={
-        "mask": InputValue(optional=True),
+        "image": InputValue(allow_links=True),
+        "mask": InputValue(allow_links=True, optional=True),
+        "model": InputValue(allow_links=True),
         "type": InputDynamicCombo(),
+        "strength": InputValue(),
+        "start_percent": InputValue(),
+        "end_percent": InputValue(),
     },
 )
 class MakeControlNet(ConstantNode):
@@ -312,6 +317,10 @@ class MakeControlNet(ConstantNode):
 @function(
     name="Apply Control Nets",
     inputs={
+        "model": InputValue(allow_links=True),
+        "positive": InputValue(allow_links=True),
+        "negative": InputValue(allow_links=True),
+        "vae": InputValue(allow_links=True),
         "control_nets": InputValue(optional=True),
     },
     outputs=4,
@@ -359,7 +368,11 @@ class ApplyControlNets(ConstantNode):
 
         for model, positive, negative, vae in shared.zip_lists([model, positive, negative, vae]):
             for control_net in control_nets:
-                if control_net is not None:
+                if (
+                    control_net is not None and
+                    control_net["strength"] > 0.0 and
+                    control_net["start_percent"] < control_net["end_percent"]
+                ):
                     image = control_net["image"]
                     images.append(image)
 

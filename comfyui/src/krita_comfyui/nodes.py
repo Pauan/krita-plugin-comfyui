@@ -1,8 +1,8 @@
 import textwrap
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
-from .util import timestamp, decode_image, decode_mask, encode_image, is_image, get_size
-from .shared import graph_list, zip_lists, serialize_any, detail_size
+from .util import decode_image, decode_mask, encode_image, is_image, get_size
+from .shared import timestamp_local, graph_list, zip_lists, serialize_any, detail_size
 
 
 def always_execute():
@@ -618,7 +618,7 @@ class KritaOutput(io.ComfyNode):
         resize_algorithm,
     ) -> io.NodeOutput:
         def replace_name(name, index):
-            time = timestamp()
+            time = timestamp_local()
             return name.replace("%index%", str(index)).replace("%timestamp%", time)
 
         outputs = []
