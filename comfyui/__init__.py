@@ -27,7 +27,7 @@ class KritaComfyui(ComfyExtension):
             controlnet.ApplyControlNets,
 
             # transform
-            nodes.Detail,
+            nodes.DetailSize,
 
             # image
             nodes.AddAlphaToImage,

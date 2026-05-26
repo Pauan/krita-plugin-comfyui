@@ -58,5 +58,11 @@ def build_comfyui():
     shutil.make_archive(Path("dist", "zip", "krita_comfyui"), "zip", root_dir=Path("dist", "comfyui"))
 
 
+def build_shared():
+    shutil.copytree(Path("shared"), Path("dist", "comfyui", "krita_comfyui", "src", "krita_comfyui", "shared"))
+    shutil.copytree(Path("shared"), Path("dist", "krita", "krita_comfyui", "shared"))
+
+
 build_krita()
 build_comfyui()
+build_shared()

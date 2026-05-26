@@ -128,7 +128,7 @@ class KritaUiLayerId(io.ComfyNode):
             outputs=[
                 LayerId.Output(display_name="layer_id", is_output_list=True),
                 io.String.Output(display_name="layer_name", is_output_list=True, tooltip="The name of the layer."),
-                io.Boolean.Output(display_name="is_default", is_output_list=True, tooltip="Whether it is the default value."),
+                io.Boolean.Output(display_name="is_empty", is_output_list=True, tooltip="True if a layer isn't selected."),
             ],
         )
 

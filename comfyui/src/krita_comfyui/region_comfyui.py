@@ -1,8 +1,9 @@
 import torch
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
-from .util import mask_bounds, mask_inverse_sum, graph_list
+from .util import mask_bounds, mask_inverse_sum
 from .region_attention import AttentionMaskPatch
+from .shared import graph_list
 
 
 @io.comfytype(io_type="KRITA_REGION")
@@ -152,7 +153,9 @@ class RegionsEncodeState:
         elif self.combine_method == "Conditioning (Concat)":
             combined = None
 
-            for encoded in (self.encode_prompt(prompt) for prompt in prompts):
+            for prompt in prompts:
+                encoded = self.encode_prompt(prompt)
+
                 if combined is None:
                     combined = encoded
                 else:
@@ -161,7 +164,7 @@ class RegionsEncodeState:
             return combined
 
         elif self.combine_method == "Conditioning (Combine)":
-            return self.combine_conditionings(self.encode_prompt(prompt) for prompt in prompts)
+            return self.combine_conditionings([self.encode_prompt(prompt) for prompt in prompts])
 
 
     def combine_conditionings(self, conditionings):

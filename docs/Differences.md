@@ -111,6 +111,8 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * There are fewer dependencies, and all dependencies are locked down and pre-compiled. No more `pip install` hacks at runtime.
 
+* Is multi-threaded, which prevents the UI from freezing.
+
 * Has a robust ComfyUI client implementation in PyQt. This handles connecting to ComfyUI, automatically reconnecting, sending prompts, cancelling prompts, etc.
 
 * Instead of storing a gigantic JSON blob of data inside of `.kra`, it stores only the minimum data that is needed.

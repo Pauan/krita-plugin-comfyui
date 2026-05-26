@@ -2,7 +2,8 @@ import math
 import textwrap
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
-from .util import timestamp, decode_image, decode_mask, encode_image, serialize_any, zip_lists, graph_list, is_image, get_size, round_to_multiple
+from .util import timestamp, decode_image, decode_mask, encode_image, is_image, get_size
+from .shared import graph_list, zip_lists, serialize_any, detail_size
 
 
 def always_execute():
@@ -634,7 +635,7 @@ class KritaOutput(io.ComfyNode):
             canvas_resize,
             resize_other_layers,
             resize_algorithm,
-        ) in zip_lists(
+        ) in zip_lists([
             images,
             x,
             y,
@@ -643,7 +644,7 @@ class KritaOutput(io.ComfyNode):
             canvas_resize,
             resize_other_layers,
             resize_algorithm,
-        ):
+        ]):
             # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_images.py#L576-L577
             height = image.shape[1]
             width = image.shape[2]
@@ -743,7 +744,7 @@ class KritaDebug(io.ComfyNode):
 
         def check_none(list):
             try:
-                return any(x is None for x in list)
+                return any([x is None for x in list])
             except TypeError:
                 return False
 
@@ -812,7 +813,7 @@ class KritaDebug(io.ComfyNode):
             image,
             mask,
             text,
-        ) in zip_lists(
+        ) in zip_lists([
             enabled,
             x,
             y,
@@ -824,7 +825,7 @@ class KritaDebug(io.ComfyNode):
             images,
             masks,
             text,
-        ):
+        ]):
             if enabled:
                 output = outputs.get((order, name), None)
 
@@ -895,7 +896,7 @@ class KritaDebug(io.ComfyNode):
             texts = output["texts"]
 
             if len(texts) > 0:
-                graph.node("krita_comfyui: KritaText", text="\n\n".join(serialize_any(x) for x in texts), name=name, order=order)
+                graph.node("krita_comfyui: KritaText", text="\n\n".join([serialize_any(x) for x in texts]), name=name, order=order)
 
         return io.NodeOutput(None, expand=graph.finalize())
 
@@ -1005,18 +1006,17 @@ class ClipSkip(io.ComfyNode):
         return io.NodeOutput(clip, expand=graph.finalize())
 
 
-class Detail(io.ComfyNode):
+class DetailSize(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
-        template = io.MatchType.Template("input_type", [io.Image, io.Mask])
-
         return io.Schema(
-            node_id="krita_comfyui: Detail",
-            display_name="Detail",
+            node_id="krita_comfyui: DetailSize",
+            display_name="Detail Size",
             category="transform",
-            description="Upscales the image / mask.",
+            description="Returns the rounded size for detailing an image / mask.",
             inputs=[
-                io.MatchType.Input("input", template=template),
+                io.Int.Input("width", tooltip="The width of the image."),
+                io.Int.Input("height", tooltip="The height of the image."),
 
                 io.DynamicCombo.Input(
                     "resize_type",
@@ -1036,120 +1036,17 @@ class Detail(io.ComfyNode):
                     tooltip="Rounds down to the nearest integer multiple of the original image size.\n\nThis always gives pixel-perfect results, but it also means a smaller detailing resolution.",
                     advanced=True,
                 ),
-
-                io.Combo.Input(
-                    "scale_method",
-                    options=["nearest-exact", "bilinear", "area", "bicubic", "lanczos"],
-                    # In testing, bicubic was the highest quality algorithm.
-                    #
-                    # Bilinear, area, and lanczos always cause blurring.
-                    #
-                    # Nearest-exact is reversible and clear, but has jagged pixelation.
-                    #
-                    # Bicubic is technically not always reversible, but in common situations
-                    # it is reversible, and unlike nearest-exact it isn't jagged.
-                    default="bicubic",
-                    tooltip="Interpolation algorithm.",
-                    advanced=True,
-                ),
             ],
             outputs=[
-                io.MatchType.Output(template=template, display_name="resized"),
+                io.Int.Output(display_name="width"),
+                io.Int.Output(display_name="height"),
             ],
-            enable_expand=True,
         )
-
-
-    @staticmethod
-    def scale(resize_type, width, height, integer_multiple, round_up):
-        type = resize_type["resize_type"]
-
-        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L281-L289
-        if type == "scale by multiplier":
-            multiplier = resize_type["multiplier"]
-
-            if multiplier > 1.0:
-                width = round(width * multiplier)
-                height = round(height * multiplier)
-
-        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L346-L357
-        elif type == "scale total pixels":
-            old = float(width * height)
-            new = resize_type["megapixels"] * 1024.0 * 1024.0
-
-            if new > old:
-                scale_by = math.sqrt(new / old)
-
-                if integer_multiple:
-                    scale_by = math.floor(scale_by)
-
-                width = round(width * scale_by)
-                height = round(height * scale_by)
-
-        # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L306-L324
-        # TODO it should leave the width / height unchanged if they are smaller
-        elif type == "scale longer dimension":
-            largest_size = resize_type["longer_size"]
-
-            if height > width:
-                width = round((width / height) * largest_size)
-                height = largest_size
-            elif width > height:
-                height = round((height / width) * largest_size)
-                width = largest_size
-            else:
-                height = largest_size
-                width = largest_size
-
-        else:
-            raise RuntimeError(f"Unknown resize_type {type}")
-
-        return (
-            round_to_multiple(width, round_up),
-            round_to_multiple(height, round_up),
-        )
-
 
     @classmethod
-    def execute(cls, input, resize_type, scale_method, integer_multiple, round_up) -> io.NodeOutput:
-        graph = GraphBuilder()
-
-        is_input_image = is_image(input)
-
-        (width, height, _) = get_size(input)
-
-        (new_width, new_height) = cls.scale(resize_type, width, height, integer_multiple, round_up)
-
-        if width == new_width and height == new_height:
-            resized = input
-
-        else:
-            assert new_width > width or new_height > height
-
-            # It's a mask, so we have to convert it to an image.
-            # This is necessary because the ResizeImageMaskNode rotates
-            # masks by -90 degrees when using lanczos.
-            if not is_input_image:
-                image = graph.node("MaskToImage", mask=input).out(0)
-            else:
-                image = input
-
-            inputs = {
-                "input": image,
-                "resize_type": "scale dimensions",
-                "resize_type.width": new_width,
-                "resize_type.height": new_height,
-                "resize_type.crop": "disabled",
-                "scale_method": scale_method,
-            }
-
-            resized = graph.node("ResizeImageMaskNode", **inputs).out(0)
-
-            # We have to convert it back into a mask.
-            if not is_input_image:
-                resized = graph.node("ImageToMask", image=resized, channel="red").out(0)
-
-        return io.NodeOutput(resized, expand=graph.finalize())
+    def execute(cls, width, height, resize_type, round_up, integer_multiple) -> io.NodeOutput:
+        width, height = detail_size(width, height, resize_type, round_up, integer_multiple)
+        return io.NodeOutput(width, height)
 
 
 # @TODO Improve this after https://github.com/Comfy-Org/ComfyUI/issues/12580 is fixed

@@ -1,15 +1,19 @@
 # This module contains constant-evaluation versions of the Krita Selection nodes.
-from ...util.krita import Selection
-from . import WorkflowError, Link, zip_inputs
-from .krita import evaluate_crop_link
+from ...util.krita import Selection, Bounds
+from . import ConstantNode, InputValue, function
 
 
-class KritaSelection:
-    def get_outputs(self, workflow, node_id, node):
-        if workflow.cached_selection is None:
-            bounds = workflow.bounds()
+@function(
+    name="Krita Selection",
+    inputs_constant=True,
+    outputs=2,
+)
+class KritaSelection(ConstantNode):
+    def run(self):
+        if self.workflow.cached_selection is None:
+            bounds = self.workflow.bounds()
 
-            selection = workflow.document.selection()
+            selection = self.workflow.document.selection()
 
             if selection is None:
                 selection = Selection.solid(bounds, 0xff)
@@ -22,275 +26,162 @@ class KritaSelection:
                 else:
                     active = True
 
-            workflow.cached_selection = (
-                Link([selection]),
-                Link([active]),
-            )
+            self.workflow.cached_selection = (selection, active)
 
-        return workflow.cached_selection
+        return self.workflow.cached_selection
 
 
-class KritaSelectionBorder:
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
+@function(
+    name="Krita Selection: Border",
+    inputs_constant=True,
+)
+class KritaSelectionBorder(ConstantNode):
+    def run(self, selection, x, y, mode):
+        if x == 0 and y == 0:
+            return selection
 
-        selection = workflow.evaluate_link(inputs["selection"])
-        x = workflow.evaluate_link(inputs["x"])
-        y = workflow.evaluate_link(inputs["y"])
-        mode = workflow.evaluate_link(inputs["mode"])
+        elif mode == "outside":
+            new_selection = selection.copy()
+            new_selection.border_outside(x, y)
+            return new_selection
 
-        outputs = []
+        elif mode == "inside":
+            new_selection = selection.copy()
+            new_selection.border_inside(x, y)
+            return new_selection
 
-        for selection, x, y, mode in zip_inputs(selection, x, y, mode):
-            assert isinstance(selection, Selection)
+        elif mode == "both":
+            new_selection = selection.copy()
+            new_selection.border_both(x, y)
+            return new_selection
 
-            if not isinstance(x, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nx must be a constant int")
+        else:
+            self.error("mode must outside, inside, or both")
 
-            if not isinstance(y, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\ny must be a constant int")
 
-            if not isinstance(mode, str):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nmode must be a constant string")
-
-            if x == 0 and y == 0:
-                outputs.append(selection)
-
-            elif mode == "outside":
-                new_selection = selection.copy()
-                new_selection.border_outside(x, y)
-                outputs.append(new_selection)
-
-            elif mode == "inside":
-                new_selection = selection.copy()
-                new_selection.border_inside(x, y)
-                outputs.append(new_selection)
-
-            elif mode == "both":
-                new_selection = selection.copy()
-                new_selection.border_both(x, y)
-                outputs.append(new_selection)
-
-            else:
-                raise WorkflowError(f"[#{node_id} Krita Selection: Border]\nmode must outside, inside, or both")
-
+@function(
+    name="Krita Selection: Bounds",
+    inputs_constant=True,
+    outputs=4,
+)
+class KritaSelectionBounds(ConstantNode):
+    def run(self, selection, round_up):
+        bounds = selection.bounds().round_up(self.workflow.bounds(), round_up)
         return (
-            Link(outputs),
+            bounds.x,
+            bounds.y,
+            bounds.width,
+            bounds.height,
         )
 
 
-class KritaSelectionBounds:
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
+@function(
+    name="Krita Selection: Feather",
+    inputs_constant=True,
+)
+class KritaSelectionFeather(ConstantNode):
+    def run(self, selection, amount, mode):
+        if amount == 0:
+            return selection
 
-        selection = workflow.evaluate_link(inputs["selection"])
-        round_up = workflow.evaluate_link(inputs["round_up"])
+        elif mode == "outside":
+            new_selection = selection.copy()
+            new_selection.feather_outside(amount)
 
-        x = []
-        y = []
-        width = []
-        height = []
+            # This guarantees that the original selection will always be
+            # white. This prevents the feathering from bleeding into the
+            # original selection.
+            new_selection.add(selection)
+            return new_selection
 
-        for selection, round_up in zip_inputs(selection, round_up):
-            assert isinstance(selection, Selection)
+        elif mode == "inside":
+            new_selection = selection.copy()
+            new_selection.feather_inside(amount)
+            return new_selection
 
-            if not isinstance(round_up, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Bounds]\nround_up must be a constant int")
+        elif mode == "both":
+            new_selection = selection.copy()
+            new_selection.feather_both(amount)
+            return new_selection
 
-            bounds = selection.bounds().round_up(workflow.bounds(), round_up)
-            x.append(bounds.x)
-            y.append(bounds.y)
-            width.append(bounds.width)
-            height.append(bounds.height)
-
-        return (
-            Link(x),
-            Link(y),
-            Link(width),
-            Link(height),
-        )
-
-
-class KritaSelectionFeather:
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
-
-        selection = workflow.evaluate_link(inputs["selection"])
-        amount = workflow.evaluate_link(inputs["amount"])
-        mode = workflow.evaluate_link(inputs["mode"])
-
-        outputs = []
-
-        for selection, amount, mode in zip_inputs(selection, amount, mode):
-            assert isinstance(selection, Selection)
-
-            if not isinstance(amount, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\namount must be a constant int")
-
-            if not isinstance(mode, str):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\nmode must be a constant string")
-
-            if amount == 0:
-                outputs.append(selection)
-
-            elif mode == "outside":
-                new_selection = selection.copy()
-                new_selection.feather_outside(amount)
-
-                # This guarantees that the original selection will always be
-                # white. This prevents the feathering from bleeding into the
-                # original selection.
-                new_selection.add(selection)
-                outputs.append(new_selection)
-
-            elif mode == "inside":
-                new_selection = selection.copy()
-                new_selection.feather_inside(amount)
-                outputs.append(new_selection)
-
-            elif mode == "both":
-                new_selection = selection.copy()
-                new_selection.feather_both(amount)
-                outputs.append(new_selection)
-
-            else:
-                raise WorkflowError(f"[#{node_id} Krita Selection: Feather]\nmode must outside, inside, or both")
-
-        return (
-            Link(outputs),
-        )
+        else:
+            raise self.error("mode must be outside, inside, or both")
 
 
-class KritaSelectionGrow:
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
-
-        selection = workflow.evaluate_link(inputs["selection"])
-        x = workflow.evaluate_link(inputs["x"])
-        y = workflow.evaluate_link(inputs["y"])
-
-        outputs = []
-
-        for selection, x, y in zip_inputs(selection, x, y):
-            assert isinstance(selection, Selection)
-
-            if not isinstance(x, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\nx must be a constant int")
-
-            if not isinstance(y, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Grow]\ny must be a constant int")
-
-            if x == 0 and y == 0:
-                outputs.append(selection)
-
-            else:
-                selection = selection.copy()
-                selection.grow(x, y)
-                outputs.append(selection)
-
-        return (
-            Link(outputs),
-        )
-
-
-class KritaSelectionInvert:
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
-
-        selection = workflow.evaluate_link(inputs["selection"])
-
-        outputs = []
-
-        for selection in selection.values:
-            assert isinstance(selection, Selection)
+@function(
+    name="Krita Selection: Grow",
+    inputs_constant=True,
+)
+class KritaSelectionGrow(ConstantNode):
+    def run(self, selection, x, y):
+        if x != 0 or y != 0:
             selection = selection.copy()
-            selection.invert()
-            outputs.append(selection)
+            selection.grow(x, y)
 
-        return (
-            Link(outputs),
-        )
+        return selection
 
 
-class KritaSelectionMask:
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
-
-        selection = workflow.evaluate_link(inputs["selection"])
-        crop = evaluate_crop_link(workflow, node_id, "Krita Selection: Mask", inputs)
-
-        outputs = []
-
-        for selection, crop in zip_inputs(selection, crop):
-            assert isinstance(selection, Selection)
-            mask = selection.mask(crop)
-            mask = workflow.graph.mask(mask)
-            outputs.append(mask)
-
-        return (
-            Link(outputs),
-        )
+@function(
+    name="Krita Selection: Invert",
+    inputs_constant=True,
+)
+class KritaSelectionInvert(ConstantNode):
+    def run(self, selection):
+        selection = selection.copy()
+        selection.invert()
+        return selection
 
 
-class KritaSelectionShrink:
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
+@function(
+    name="Krita Selection: Mask",
+    inputs_constant=True,
+    inputs={
+        "crop": InputValue(optional=True),
+    },
+)
+class KritaSelectionMask(ConstantNode):
+    def run(self, selection, crop):
+        if crop is None:
+            crop = self.workflow.bounds()
+        else:
+            crop = Bounds.from_json(crop)
 
-        selection = workflow.evaluate_link(inputs["selection"])
-        x = workflow.evaluate_link(inputs["x"])
-        y = workflow.evaluate_link(inputs["y"])
-
-        outputs = []
-
-        for selection, x, y in zip_inputs(selection, x, y):
-            assert isinstance(selection, Selection)
-
-            if not isinstance(x, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\nx must be a constant int")
-
-            if not isinstance(y, int):
-                raise WorkflowError(f"[#{node_id} Krita Selection: Shrink]\ny must be a constant int")
-
-            if x == 0 and y == 0:
-                outputs.append(selection)
-
-            else:
-                selection = selection.copy()
-                selection.shrink(x, y)
-                outputs.append(selection)
-
-        return (
-            Link(outputs),
-        )
+        mask = selection.mask(crop)
+        return self.graph.mask(mask)
 
 
-class KritaSelectionSmooth:
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
-
-        selection = workflow.evaluate_link(inputs["selection"])
-
-        outputs = []
-
-        for selection in selection.values:
-            assert isinstance(selection, Selection)
+@function(
+    name="Krita Selection: Shrink",
+    inputs_constant=True,
+)
+class KritaSelectionShrink(ConstantNode):
+    def run(self, selection, x, y):
+        if x != 0 or y != 0:
             selection = selection.copy()
-            selection.smooth()
-            outputs.append(selection)
+            selection.shrink(x, y)
 
-        return (
-            Link(outputs),
-        )
+        return selection
+
+
+@function(
+    name="Krita Selection: Smooth",
+    inputs_constant=True,
+)
+class KritaSelectionSmooth(ConstantNode):
+    def run(self, selection):
+        selection = selection.copy()
+        selection.smooth()
+        return selection
 
 
 CONST_NODES = {
-    "krita_comfyui: KritaSelection": KritaSelection(),
-    "krita_comfyui: KritaSelectionBorder": KritaSelectionBorder(),
-    "krita_comfyui: KritaSelectionBounds": KritaSelectionBounds(),
-    "krita_comfyui: KritaSelectionFeather": KritaSelectionFeather(),
-    "krita_comfyui: KritaSelectionGrow": KritaSelectionGrow(),
-    "krita_comfyui: KritaSelectionInvert": KritaSelectionInvert(),
-    "krita_comfyui: KritaSelectionMask": KritaSelectionMask(),
-    "krita_comfyui: KritaSelectionShrink": KritaSelectionShrink(),
-    "krita_comfyui: KritaSelectionSmooth": KritaSelectionSmooth(),
+    "krita_comfyui: KritaSelection": KritaSelection,
+    "krita_comfyui: KritaSelectionBorder": KritaSelectionBorder,
+    "krita_comfyui: KritaSelectionBounds": KritaSelectionBounds,
+    "krita_comfyui: KritaSelectionFeather": KritaSelectionFeather,
+    "krita_comfyui: KritaSelectionGrow": KritaSelectionGrow,
+    "krita_comfyui: KritaSelectionInvert": KritaSelectionInvert,
+    "krita_comfyui: KritaSelectionMask": KritaSelectionMask,
+    "krita_comfyui: KritaSelectionShrink": KritaSelectionShrink,
+    "krita_comfyui: KritaSelectionSmooth": KritaSelectionSmooth,
 }

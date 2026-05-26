@@ -2,20 +2,10 @@ import numpy as np
 import base64
 import math
 import torch
-import time
 import datetime
 import json
 from PIL import Image
 from io import BytesIO
-
-
-def round_to_multiple(value, multiple):
-    extra = value % multiple
-
-    if extra == 0:
-        return value
-    else:
-        return value + (multiple - extra)
 
 
 # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_images.py#L580-L589
@@ -65,50 +55,6 @@ def mask_bounds(mask):
             x_max - x_min,
             y_max - y_min,
         )
-
-
-def zip_lists(*inputs):
-    min_length = min(len(x) for x in inputs)
-
-    if min_length > 0:
-        max_length = max(len(x) for x in inputs)
-
-        for index in range(max_length):
-            yield tuple(input[min(index, len(input) - 1)] for input in inputs)
-
-
-# https://stackoverflow.com/a/2189827/449477
-def digits(num):
-    if num == 0:
-        return 1
-    else:
-        return int(math.log10(num)) + 1
-
-
-# TODO move this into ComfyUI
-def graph_list(graph, items):
-    if len(items) == 1:
-        return items[0]
-
-    inputs = {}
-
-    # We pad the numbers so that they are sorted correctly
-    padding = digits(max(0, len(items) - 1))
-
-    for i, value in enumerate(items):
-        inputs["inputs.input" + str(i).zfill(padding)] = value
-
-    return graph.node("krita_comfyui: MakeList", **inputs).out(0)
-
-
-def serialize_any(text):
-    if isinstance(text, str):
-        return text
-    else:
-        try:
-            return json.dumps(text, indent=2)
-        except Exception:
-            return str(text)
 
 
 # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1741-L1750
@@ -165,27 +111,3 @@ def encode_image(tensor):
 
 def timestamp():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H%M%S")
-
-
-class Perf:
-    def __init__(self, name):
-        self.name = name
-
-    def done(self):
-        end = time.perf_counter_ns()
-        diff = float(end - self.start) / 1000000.0
-        print(f"{self.name} took {diff} ms")
-
-    def __enter__(self):
-        self.start = time.perf_counter_ns()
-
-    async def __aenter__(self):
-        self.start = time.perf_counter_ns()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.done()
-        return False
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self.done()
-        return False

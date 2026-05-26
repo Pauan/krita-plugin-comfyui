@@ -6,7 +6,8 @@ from PyQt6 import sip
 from typing import NamedTuple
 from json import (dumps, loads)
 import numpy as np
-from . import clamp, round_to_multiple
+from . import clamp
+from ..shared import round_to_multiple
 
 from PyQt6.QtCore import QObject, QByteArray, QSize, QRect, QBuffer, QUuid, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter
@@ -384,7 +385,7 @@ class Document:
 
     @staticmethod
     def all():
-        return tuple(Document(document) for document in Krita.documents())
+        return [Document(document) for document in Krita.documents()]
 
 
     @staticmethod

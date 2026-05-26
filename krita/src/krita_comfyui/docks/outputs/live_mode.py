@@ -160,7 +160,7 @@ class LiveModeImage(QLabel):
 
     @staticmethod
     def flattened_images(group):
-        return tuple(info for batch in group for info in batch)
+        return [info for batch in group for info in batch]
 
 
     def new_image(self, document, group, is_visible):

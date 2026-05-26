@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QCompleter,
 )
 from ..util.qt import BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
-from ..util import number_of_lines, lerp, normalize, clamp, Perf
+from ..util import number_of_lines, lerp, normalize, clamp
 
 
 class InputEqual:

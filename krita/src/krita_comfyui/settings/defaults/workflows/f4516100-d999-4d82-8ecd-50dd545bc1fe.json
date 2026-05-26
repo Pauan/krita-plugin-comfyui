@@ -271,7 +271,7 @@
                   "id": "detail_megapixels",
                   "stretch": 1,
                   "link_to": {
-                    "node_id": "krita_comfyui: Detail",
+                    "node_id": "krita_comfyui: DetailSize",
                     "input": [
                       "resize_type",
                       "scale total pixels",
@@ -619,7 +619,7 @@
         "isolated": false,
         "add_to_global": true,
         "mask": [
-          "336",
+          "377",
           0
         ]
       },
@@ -638,7 +638,7 @@
         "isolated": false,
         "add_to_global": true,
         "mask": [
-          "336",
+          "377",
           0
         ]
       },
@@ -781,11 +781,11 @@
           0
         ],
         "image": [
-          "341",
+          "376",
           0
         ],
         "mask": [
-          "340",
+          "375",
           0
         ]
       },
@@ -817,7 +817,7 @@
           0
         ],
         "denoise": [
-          "252",
+          "370",
           0
         ],
         "model": [
@@ -833,7 +833,7 @@
           2
         ],
         "latent_image": [
-          "253",
+          "365",
           0
         ]
       },
@@ -865,7 +865,7 @@
           0
         ],
         "image": [
-          "341",
+          "376",
           0
         ]
       },
@@ -1148,7 +1148,7 @@
           0
         ],
         "image": [
-          "334",
+          "378",
           0
         ]
       },
@@ -1218,11 +1218,11 @@
           0
         ],
         "positive": [
-          "250",
+          "368",
           0
         ],
         "negative": [
-          "251",
+          "369",
           0
         ],
         "vae": [
@@ -1316,7 +1316,7 @@
     "296": {
       "inputs": {
         "image": [
-          "341",
+          "376",
           0
         ]
       },
@@ -1782,46 +1782,6 @@
         "title": "Krita Layers"
       }
     },
-    "334": {
-      "inputs": {
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "282",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
-    "336": {
-      "inputs": {
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "337",
-          1
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
     "337": {
       "inputs": {
         "mode": "flatten",
@@ -1853,46 +1813,6 @@
       "class_type": "krita_comfyui: KritaSelectionMask",
       "_meta": {
         "title": "Krita Selection: Mask"
-      }
-    },
-    "340": {
-      "inputs": {
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "89",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
-      }
-    },
-    "341": {
-      "inputs": {
-        "resize_type": "scale total pixels",
-        "resize_type.megapixels": [
-          "259",
-          0
-        ],
-        "round_up": 8,
-        "integer_multiple": false,
-        "scale_method": "bicubic",
-        "input": [
-          "126",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Detail",
-      "_meta": {
-        "title": "Detail"
       }
     },
     "346": {
@@ -2029,6 +1949,243 @@
       "class_type": "krita_comfyui: KritaCanvasImage",
       "_meta": {
         "title": "Krita Canvas: Image"
+      }
+    },
+    "365": {
+      "inputs": {
+        "switch": [
+          "366",
+          2
+        ],
+        "on_false": [
+          "253",
+          0
+        ],
+        "on_true": [
+          "367",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "366": {
+      "inputs": {
+        "expression": "a == 0.0",
+        "values.a": [
+          "78",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "367": {
+      "inputs": {
+        "width": [
+          "138",
+          2
+        ],
+        "height": [
+          "138",
+          3
+        ],
+        "batch_size": [
+          "128",
+          0
+        ]
+      },
+      "class_type": "EmptyLatentImage",
+      "_meta": {
+        "title": "Empty Latent Image"
+      }
+    },
+    "368": {
+      "inputs": {
+        "switch": [
+          "366",
+          2
+        ],
+        "on_false": [
+          "250",
+          0
+        ],
+        "on_true": [
+          "187",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "369": {
+      "inputs": {
+        "switch": [
+          "366",
+          2
+        ],
+        "on_false": [
+          "251",
+          0
+        ],
+        "on_true": [
+          "190",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "370": {
+      "inputs": {
+        "switch": [
+          "366",
+          2
+        ],
+        "on_false": [
+          "252",
+          0
+        ],
+        "on_true": [
+          "371",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "371": {
+      "inputs": {
+        "value": 1
+      },
+      "class_type": "PrimitiveFloat",
+      "_meta": {
+        "title": "Float"
+      }
+    },
+    "374": {
+      "inputs": {
+        "width": [
+          "138",
+          2
+        ],
+        "height": [
+          "138",
+          3
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false
+      },
+      "class_type": "krita_comfyui: DetailSize",
+      "_meta": {
+        "title": "Detail Size"
+      }
+    },
+    "375": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "89",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "376": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "126",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "377": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "337",
+          1
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "378": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "282",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
       }
     }
   }

@@ -151,10 +151,10 @@ class Parsed:
 
 
     def serialize_positive(self):
-        return ", ".join(prompt.serialize() for prompt in self.positive)
+        return ", ".join([prompt.serialize() for prompt in self.positive])
 
     def serialize_negative(self):
-        return ", ".join(prompt.serialize() for prompt in self.negative)
+        return ", ".join([prompt.serialize() for prompt in self.negative])
 
 
 class PromptParser:

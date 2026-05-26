@@ -1,12 +1,5 @@
 import math
-
-
-# https://stackoverflow.com/a/2189827/449477
-def digits(num):
-    if num == 0:
-        return 1
-    else:
-        return int(math.log10(num)) + 1
+from .. import shared
 
 
 class Node:
@@ -37,18 +30,7 @@ class Graph:
 
     # Sends a list of stuff to ComfyUI
     def list(self, items):
-        if len(items) == 1:
-            return items[0]
-
-        inputs = {}
-
-        # We pad the numbers so that they are sorted correctly
-        padding = digits(max(0, len(items) - 1))
-
-        for i, value in enumerate(items):
-            inputs["inputs.input" + str(i).zfill(padding)] = value
-
-        return self.node("krita_comfyui: MakeList", **inputs).out(0)
+        return shared.graph_list(self, items)
 
 
     # Sends an Image to ComfyUI

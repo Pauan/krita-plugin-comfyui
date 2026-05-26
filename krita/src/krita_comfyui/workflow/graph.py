@@ -2,23 +2,8 @@ import random
 import sys
 import math
 from ..util.graph import Graph
-from .const import WorkflowError, Link, LinkAutogrow, is_link, zip_dict, comfyui, krita, selection, basic_data_handling
-
-
-class ConstOutputs:
-    def __init__(self, outputs):
-        self.outputs = outputs
-
-    def out(self, index):
-        return self.outputs[index]
-
-
-class NormalOutputs:
-    def __init__(self, node):
-        self.node = node
-
-    def out(self, index):
-        return Link([self.node.out(index)])
+from .const import WorkflowError, NodeOutputs, Link, is_link
+from .const import comfyui, krita, selection, basic_data_handling
 
 
 # The node IDs which can be constant evaluated.
@@ -88,11 +73,11 @@ class WorkflowGraph:
                 for key, value in node["inputs"].items():
                     inputs[key] = self.evaluate_link(value).to_node(self.graph)
 
-                outputs = NormalOutputs(self.graph.node(name, **inputs))
+                outputs = NodeOutputs(self.graph.node(name, **inputs))
 
             # The node is const.
             else:
-                outputs = ConstOutputs(const_node.get_outputs(self, node_id, node))
+                outputs = const_node(self, node_id, node).run()
 
             self.cached_outputs[node_id] = outputs
 
@@ -102,23 +87,9 @@ class WorkflowGraph:
     def evaluate_link(self, value):
         # If it's a node link, then follow the link.
         if is_link(value):
-            return self.evaluate_node(value[0]).out(value[1])
+            return self.evaluate_node(value[0]).lookup_index(value[1])
         else:
             return Link([value])
-
-
-    def evaluate_link_autogrow(self, inputs, prefix):
-        prefix = f"{prefix}."
-
-        links = {}
-
-        for key, value in inputs.items():
-            name = key.removeprefix(prefix)
-
-            if name != key:
-                links[name] = self.evaluate_link(value)
-
-        return LinkAutogrow(links, prefix)
 
 
     # Returns a graph which contains a copy of all the old nodes, except

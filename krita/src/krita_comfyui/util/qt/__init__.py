@@ -37,7 +37,7 @@ RE_SPACE = re.compile(r" +")
 """
 class Completer(QCompleter):
     def splitPath(self, path):
-        self.model().setFilterRegularExpression(r".*\b.*".join(QRegularExpression.escape(x) for x in re.split(RE_SPACE, path.strip())))
+        self.model().setFilterRegularExpression(r".*\b.*".join([QRegularExpression.escape(x) for x in re.split(RE_SPACE, path.strip())]))
         return []
 
 

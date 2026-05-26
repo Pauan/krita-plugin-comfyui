@@ -1,24 +1,7 @@
 # This module contains constant-evaluation versions of the Krita nodes.
-import json
-from . import WorkflowError, Link, is_link, zip_inputs, check_booleans
+from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, function
 from ...util.krita import Bounds
-
-
-def crop_to_bounds(node_id, name, values):
-    for crop in values:
-        if not isinstance(crop, dict):
-            raise WorkflowError(f"[#{node_id} {name}]\ncrop must be a constant bounding box")
-
-        yield Bounds.from_json(crop)
-
-
-def evaluate_crop_link(workflow, node_id, name, inputs):
-    crop = inputs.get("crop", None)
-
-    if crop is None:
-        return Link([workflow.bounds()])
-    else:
-        return Link(list(crop_to_bounds(node_id, name, workflow.evaluate_link(crop).values)))
+from ... import shared
 
 
 class UiLink(Link):
@@ -27,147 +10,149 @@ class UiLink(Link):
         self.ids = ids
 
 
-# Evaluates a UI widget to a constant value
-class KritaUi:
-    def __init__(self, type, outputs):
-        self.type = type
-        self.outputs = outputs
+def krita_ui(type, outputs):
+    def get_id(id):
+        return f"{type}/{id}"
 
-    def get_id(self, id):
-        return f"{self.type}/{id}"
+    class KritaUi(ConstantNode):
+        def run(self):
+            ids = []
+            links = [UiLink([], ids) for _ in outputs]
 
-    def get_outputs(self, workflow, node_id, node):
-        ids = []
-        links = tuple(UiLink([], ids) for _ in self.outputs)
+            for id in self.evaluate_input("id").values:
+                id = get_id(id)
+                values = self.workflow.get_ui_values(id)
 
-        for id in workflow.evaluate_link(node["inputs"]["id"]).values:
-            id = self.get_id(id)
-            values = workflow.get_ui_values(id)
+                ids.append(id)
 
-            ids.append(id)
+                for link, key in zip(links, outputs):
+                    link.values.extend([value[key] for value in values])
 
-            for link, key in zip(links, self.outputs):
-                link.values.extend(value[key] for value in values)
+            return ConstantOutputs(links)
 
-        return links
+    return KritaUi
 
 
-class KritaUiPrompt(KritaUi):
-    def __init__(self):
-        super().__init__("prompt", ["positive", "negative", "loras", "is_default"])
-
-    def get_outputs(self, workflow, node_id, node):
-        links = super().get_outputs(workflow, node_id, node)
+class KritaUiPrompt(krita_ui("prompt", ["positive", "negative", "loras", "is_default"])):
+    def run(self):
+        outputs = super().run()
 
         # Flattens the loras into a single flat list
-        links[2].values = [lora for value in links[2].values for lora in value]
-
-        return links
-
-
-class KritaCanvasImage:
-    def get_outputs(self, workflow, node_id, node):
-        outputs = (
-            Link([]),
-            Link([]),
-        )
-
-        for crop in evaluate_crop_link(workflow, node_id, "Krita Canvas", node["inputs"]).values:
-            cached_canvas = workflow.cached_canvas.get(crop, None)
-
-            if cached_canvas is None:
-                image = workflow.document.canvas(crop)
-                cached_canvas = workflow.graph.image(image)
-                workflow.cached_canvas[crop] = cached_canvas
-
-            assert len(outputs) == len(cached_canvas)
-
-            for output, value in zip(outputs, cached_canvas):
-                output.values.append(value)
+        outputs.links[2].values = [lora for value in outputs.links[2].values for lora in value]
 
         return outputs
 
 
-class KritaCanvasSize:
-    def get_outputs(self, workflow, node_id, node):
-        bounds = workflow.bounds()
+@function(
+    name="Krita Canvas: Image",
+    inputs_constant=True,
+    inputs={
+        "crop": InputValue(optional=True),
+    },
+    outputs=2,
+)
+class KritaCanvasImage(ConstantNode):
+    def run(self, crop):
+        if crop is None:
+            crop = self.workflow.bounds()
+        else:
+            crop = Bounds.from_json(crop)
+
+        cached_canvas = self.workflow.cached_canvas.get(crop, None)
+
+        if cached_canvas is None:
+            image = self.workflow.document.canvas(crop)
+            cached_canvas = self.workflow.graph.image(image)
+            self.workflow.cached_canvas[crop] = cached_canvas
+
+        return cached_canvas
+
+
+@function(
+    name="Krita Canvas: Size",
+    inputs_constant=True,
+    outputs=2,
+)
+class KritaCanvasSize(ConstantNode):
+    def run(self):
+        bounds = self.workflow.bounds()
         return (
-            Link([bounds.width]),
-            Link([bounds.height]),
+            bounds.width,
+            bounds.height,
         )
 
 
-class KritaDebug:
-    def serialize_any(self, text):
-        if isinstance(text, str) or is_link(text):
-            return text
-        else:
-            try:
-                return json.dumps(text, indent=2)
-            except Exception:
-                return str(text)
+class KritaDebug(ConstantNode):
+    def run(self):
+        enabled = self.evaluate_input("enabled")
 
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
-
-        enabled = workflow.evaluate_link(inputs["enabled"])
-
-        (all_true, all_false) = check_booleans(enabled.values)
+        (all_true, all_false) = enabled.check_booleans()
 
         # If it's disabled, don't evaluate anything.
         if all_false and not all_true:
-            return ()
+            return ConstantOutputs([])
 
         else:
             outputs = {}
 
-            text = inputs.get("text", None)
+            text = self.evaluate_input("text", optional=True)
 
-            if text is not None:
-                text = workflow.evaluate_link(text)
+            if text is None:
+                text = Link([])
 
-                # We need to do this so that way it's possible to debug loras from a Krita Ui Prompt.
-                text.values = [self.serialize_any(x) for x in text.values]
+            # We need to do this so that way it's possible to debug loras from a Krita Ui Prompt.
+            text.transform(shared.serialize_any)
 
-            for key, value in inputs.items():
+            for key, value in self.inputs.items():
                 if key == "enabled":
-                    outputs[key] = enabled.to_node(workflow.graph)
+                    outputs[key] = enabled.to_node(self.graph)
                 elif key == "text":
-                    outputs[key] = text.to_node(workflow.graph)
+                    outputs[key] = text.to_node(self.graph)
                 else:
-                    outputs[key] = workflow.evaluate_link(value).to_node(workflow.graph)
+                    outputs[key] = self.workflow.evaluate_link(value).to_node(self.graph)
 
-            workflow.graph.node("krita_comfyui: KritaDebug", **outputs)
+            self.graph.node(self.node_name, **outputs)
 
-            return ()
+            return ConstantOutputs([])
 
 
-class KritaLayers:
-    def get_layer_image(self, workflow, layer, crop):
-        image = workflow.cached_layer_images.get((layer.id, crop), None)
+@function(
+    name="Krita Layers",
+    inputs_constant=True,
+    inputs={
+        "layer_id": InputValue(raw_link=True),
+        "crop": InputValue(optional=True),
+    },
+    is_input_list=True,
+    is_output_list=True,
+    outputs=3,
+)
+class KritaLayers(ConstantNode):
+    def get_layer_image(self, layer, crop):
+        image = self.workflow.cached_layer_images.get((layer.id, crop), None)
 
         if image is None:
-            image = workflow.graph.image(layer.image(crop))
-            workflow.cached_layer_images[(layer.id, crop)] = image
+            image = self.workflow.graph.image(layer.image(crop))
+            self.workflow.cached_layer_images[(layer.id, crop)] = image
 
         return image
 
 
-    def get_layers(self, workflow, layer_id, crop, mode):
-        layers = workflow.cached_layers.get((layer_id, crop, mode), None)
+    def get_layers(self, layer_id, crop, mode):
+        layers = self.workflow.cached_layers.get((layer_id, crop, mode), None)
 
         if layers is None:
             images = []
             masks = []
             names = []
 
-            layer = workflow.document.find_layer_by_id(layer_id)
+            layer = self.workflow.document.find_layer_by_id(layer_id)
 
             if layer is None:
-                raise WorkflowError(f"Could not find layer {layer_id}")
+                self.error(f"Could not find layer {layer_id}")
 
             def add_image(layer):
-                (image, mask) = self.get_layer_image(workflow, layer, crop)
+                (image, mask) = self.get_layer_image(layer, crop)
                 images.append(image)
                 masks.append(mask)
                 names.append(layer.name)
@@ -185,132 +170,132 @@ class KritaLayers:
                     add_image(layer)
 
             else:
-                raise WorkflowError("mode must be individual or flatten")
+                self.error("mode must be individual or flatten")
 
             layers = (images, masks, names)
-            workflow.cached_layers[(layer_id, crop, mode)] = layers
+            self.workflow.cached_layers[(layer_id, crop, mode)] = layers
 
         return layers
 
 
-    def get_outputs(self, workflow, node_id, node):
-        inputs = node["inputs"]
+    def run(self, layer_id, crop, mode):
+        layer_id_link = layer_id
 
         images = []
         masks = []
         names = []
 
-        layer_id_link = workflow.evaluate_link(inputs["layer_id"])
-        crop = evaluate_crop_link(workflow, node_id, "Krita Layers", inputs)
-        mode_link = workflow.evaluate_link(inputs["mode"])
-
-        error = None
-
-        for layer_id, crop, mode in zip_inputs(layer_id_link, crop, mode_link):
-            if not isinstance(layer_id, str):
-                raise WorkflowError(f"[#{node_id} Krita Layers]\nlayer_id must be a constant string")
-
-            if not isinstance(mode, str):
-                raise WorkflowError(f"[#{node_id} Krita Layers]\nmode must be a constant string")
+        for layer_id, crop, mode in shared.zip_lists([layer_id.values, crop, mode]):
+            if crop is None:
+                crop = self.workflow.bounds()
+            else:
+                crop = Bounds.from_json(crop)
 
             # If the layer name is empty, throw an error
             if layer_id == "":
-                if error is None:
-                    # TODO maybe raise the error immediately?
-                    if isinstance(layer_id_link, UiLink):
-                        error = workflow.graph.error(f"Layer selector [{", ".join(layer_id_link.ids)}] is empty")
-                    else:
-                        error = workflow.graph.error(f"[#{node_id} Krita Layers]\nlayer_id is empty")
-
-                images.append(error)
-                masks.append(error)
-                names.append(error)
-
+                if isinstance(layer_id_link, UiLink):
+                    raise WorkflowError(f"Layer selector [{", ".join(layer_id_link.ids)}] is empty")
+                else:
+                    self.error("layer_id is empty")
             else:
-                layers = self.get_layers(workflow, layer_id, crop, mode)
-                images.extend(layers[0])
-                masks.extend(layers[1])
-                names.extend(layers[2])
+                image, mask, name = self.get_layers(layer_id, crop, mode)
+                images.extend(image)
+                masks.extend(mask)
+                names.extend(name)
 
-        return (
-            Link(images),
-            Link(masks),
-            Link(names),
-        )
+        return (images, masks, names)
 
 
-class KritaSeed:
-    def get_outputs(self, workflow, node_id, node):
-        return (
-            Link([workflow.seed]),
-        )
+@function(
+    name="Krita Seed",
+    inputs_constant=True,
+)
+class KritaSeed(ConstantNode):
+    def run(self):
+        return self.workflow.seed
 
 
 # This could be implemented in ComfyUI, except prompt loras are only
 # accessible in Krita, so we have to constant evaluate it.
-class ApplyLoras:
-    def get_outputs(self, workflow, node_id, node):
-        models = []
-        clips = []
+@function(
+    name="Apply Loras",
+    inputs={
+        "loras": InputValue(constant=True, optional=True),
+    },
+    outputs=2,
+    is_input_list=True,
+    is_output_list=True,
+)
+class ApplyLoras(ConstantNode):
+    def run(self, model, clip, loras):
+        seen_loras = set()
 
-        inputs = node["inputs"]
-
-        model = workflow.evaluate_link(inputs["model"])
-        clip = workflow.evaluate_link(inputs["clip"])
-        loras = workflow.evaluate_link(inputs["loras"])
-
-        for model, clip in zip_inputs(model, clip):
-            seen_loras = set()
-
-            for lora in loras.values:
-                if not isinstance(lora, dict):
-                    raise WorkflowError(f"[#{node_id} Apply Loras]\nloras must be constant")
-
+        for lora in loras:
+            if lora is not None:
                 path = lora["path"]
-                model_weight = lora["model_weight"]
-                clip_weight = lora["clip_weight"]
 
                 if path in seen_loras:
-                    raise WorkflowError(f"Duplicate lora: {path}")
+                    self.error(f"Duplicate lora: {path}")
 
                 seen_loras.add(path)
 
-                assert model_weight != 0.0 or clip_weight != 0.0
+        models = []
+        clips = []
 
-                load_lora = workflow.graph.node(
-                    "LoraLoader",
-                    model=model,
-                    clip=clip,
-                    lora_name=path,
-                    strength_model=model_weight,
-                    strength_clip=clip_weight,
-                )
+        for model, clip in shared.zip_lists([model, clip]):
+            for lora in loras:
+                if lora is not None:
+                    model_weight = lora["model_weight"]
+                    clip_weight = lora["clip_weight"]
 
-                model = load_lora.out(0)
-                clip = load_lora.out(1)
+                    assert model_weight != 0.0 or clip_weight != 0.0
+
+                    load_lora = self.graph.node(
+                        "LoraLoader",
+                        model=model,
+                        clip=clip,
+                        lora_name=lora["path"],
+                        strength_model=model_weight,
+                        strength_clip=clip_weight,
+                    )
+
+                    model = load_lora.out(0)
+                    clip = load_lora.out(1)
 
             models.append(model)
             clips.append(clip)
 
-        return (
-            Link(models),
-            Link(clips),
-        )
+        return (models, clips)
+
+
+@function(
+    name="Detail Size",
+    inputs_constant=True,
+    inputs={
+        "resize_type": InputDynamicCombo(),
+    },
+    outputs=2,
+)
+class DetailSize(ConstantNode):
+    def run(self, width, height, resize_type, round_up, integer_multiple):
+        return shared.detail_size(width, height, resize_type, round_up, integer_multiple)
 
 
 CONST_NODES = {
-    "krita_comfyui: KritaUiBoolean": KritaUi("boolean", ["value", "is_default"]),
-    "krita_comfyui: KritaUiCombo": KritaUi("combo", ["value", "label", "is_default"]),
-    "krita_comfyui: KritaUiFloat": KritaUi("float", ["value", "is_default"]),
-    "krita_comfyui: KritaUiInt": KritaUi("int", ["value", "is_default"]),
-    "krita_comfyui: KritaUiLayerId": KritaUi("layer_id", ["value", "layer_name", "is_default"]),
-    "krita_comfyui: KritaUiString": KritaUi("string", ["value", "is_default"]),
-    "krita_comfyui: KritaUiPrompt": KritaUiPrompt(),
+    "krita_comfyui: KritaUiBoolean": krita_ui("boolean", ["value", "is_default"]),
+    "krita_comfyui: KritaUiCombo": krita_ui("combo", ["value", "label", "is_default"]),
+    "krita_comfyui: KritaUiFloat": krita_ui("float", ["value", "is_default"]),
+    "krita_comfyui: KritaUiInt": krita_ui("int", ["value", "is_default"]),
+    "krita_comfyui: KritaUiLayerId": krita_ui("layer_id", ["value", "layer_name", "is_default"]),
+    "krita_comfyui: KritaUiString": krita_ui("string", ["value", "is_default"]),
+    "krita_comfyui: KritaUiPrompt": KritaUiPrompt,
 
-    "krita_comfyui: KritaCanvasImage": KritaCanvasImage(),
-    "krita_comfyui: KritaCanvasSize": KritaCanvasSize(),
-    "krita_comfyui: KritaLayers": KritaLayers(),
-    "krita_comfyui: KritaDebug": KritaDebug(),
-    "krita_comfyui: KritaSeed": KritaSeed(),
-    "krita_comfyui: ApplyLoras": ApplyLoras(),
+    "krita_comfyui: KritaCanvasImage": KritaCanvasImage,
+    "krita_comfyui: KritaCanvasSize": KritaCanvasSize,
+    "krita_comfyui: KritaLayers": KritaLayers,
+    "krita_comfyui: KritaDebug": KritaDebug,
+    "krita_comfyui: KritaSeed": KritaSeed,
+    "krita_comfyui: ApplyLoras": ApplyLoras,
+
+    "krita_comfyui: DetailSize": DetailSize,
 }
