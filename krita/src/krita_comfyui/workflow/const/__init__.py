@@ -311,9 +311,9 @@ class ConstantNode:
 def constant(value):
     class Constant(ConstantNode):
         def run(self):
-            return ConstantOutputs(1, (
+            return ConstantOutputs([
                 Link([value]),
-            ))
+            ])
 
     return Constant
 
@@ -454,9 +454,9 @@ def function(*,
                         self.results.append(results)
 
                 def finalize(self):
-                    return ConstantOutputs((
+                    return ConstantOutputs([
                         Link(self.results),
-                    ))
+                    ])
 
         else:
             class Outputs:

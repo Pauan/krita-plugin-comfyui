@@ -2,6 +2,7 @@ import folder_paths
 from comfy.cldm.control_types import UNION_CONTROLNET_TYPES
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
+from .shared import zip_lists
 
 
 @io.comfytype(io_type="KRITA_CONTROL_NET")
@@ -90,9 +91,9 @@ class ApplyControlNets(io.ComfyNode):
                 ControlNet.Input("control_nets", optional=True),
             ],
             outputs=[
-                io.Model.Output(display_name="model"),
-                io.Conditioning.Output(display_name="positive"),
-                io.Conditioning.Output(display_name="negative"),
+                io.Model.Output(display_name="model", is_output_list=True),
+                io.Conditioning.Output(display_name="positive", is_output_list=True),
+                io.Conditioning.Output(display_name="negative", is_output_list=True),
                 io.Image.Output(display_name="images", is_output_list=True, tooltip="The final control net images, useful for debugging."),
             ],
             is_input_list=True,
@@ -136,33 +137,31 @@ class ApplyControlNets(io.ComfyNode):
 
     @classmethod
     def execute(cls, model, positive, negative, vae, control_nets=[]) -> io.NodeOutput:
-        assert len(model) == 1
-        assert len(positive) == 1
-        assert len(negative) == 1
-        assert len(vae) == 1
-
-        model = model[0]
-        positive = positive[0]
-        negative = negative[0]
-        vae = vae[0]
-
         graph = GraphBuilder()
 
+        models = []
+        positives = []
+        negatives = []
         images = []
 
-        for control_net in control_nets:
-            if control_net is not None:
-                image = control_net["image"]
-                images.append(image)
+        for model, positive, negative, vae in zip_lists([model, positive, negative, vae]):
+            for control_net in control_nets:
+                if control_net is not None:
+                    image = control_net["image"]
+                    images.append(image)
 
-                match control_net["type"]["type"]:
-                    case "Anima LLLite":
-                        model = cls.anima(graph, model, control_net, image)
+                    match control_net["type"]["type"]:
+                        case "Anima LLLite":
+                            model = cls.anima(graph, model, control_net, image)
 
-                    case "Union":
-                        (positive, negative) = cls.union(graph, positive, negative, vae, control_net, image)
+                        case "Union":
+                            (positive, negative) = cls.union(graph, positive, negative, vae, control_net, image)
 
-                    case x:
-                        raise RuntimeError(f"Unknown type {x}")
+                        case x:
+                            raise RuntimeError(f"Unknown type {x}")
 
-        return io.NodeOutput(model, positive, negative, images, expand=graph.finalize())
+            models.append(model)
+            positives.append(positive)
+            negatives.append(negative)
+
+        return io.NodeOutput(models, positives, negatives, images, expand=graph.finalize())

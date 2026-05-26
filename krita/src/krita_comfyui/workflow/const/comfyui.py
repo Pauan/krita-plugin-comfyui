@@ -8,9 +8,9 @@ from . import ConstantNode, ConstantOutputs, InputAutogrow, Link, function
 
 class Primitive(ConstantNode):
     def run(self):
-        return ConstantOutputs((
+        return ConstantOutputs([
             self.evaluate_input("value"),
-        ))
+        ])
 
 
 class Switch(ConstantNode):
@@ -20,14 +20,14 @@ class Switch(ConstantNode):
         all_true, all_false = switch.check_booleans()
 
         if all_true and not all_false:
-            return ConstantOutputs((
+            return ConstantOutputs([
                 self.evaluate_input("on_true"),
-            ))
+            ])
 
         elif all_false and not all_true:
-            return ConstantOutputs((
+            return ConstantOutputs([
                 self.evaluate_input("on_false"),
-            ))
+            ])
 
         # We don't know if switch is true or false, so we create
         # a node and determine the branch at runtime.
@@ -40,9 +40,9 @@ class Switch(ConstantNode):
                 on_true=self.evaluate_input("on_true").to_node(self.graph),
             ).out(0)
 
-            return ConstantOutputs((
+            return ConstantOutputs([
                 Link([output]),
-            ))
+            ])
 
 
 class Default(ConstantNode):
@@ -50,9 +50,9 @@ class Default(ConstantNode):
         input = self.evaluate_input("input")
 
         if len(input.values) == 0:
-            return ConstantOutputs((self.evaluate_input("default"),))
+            return ConstantOutputs([self.evaluate_input("default")])
         else:
-            return ConstantOutputs((input,))
+            return ConstantOutputs([input])
 
 
 class CreateList(ConstantNode):
@@ -62,9 +62,9 @@ class CreateList(ConstantNode):
         for value in self.inputs.values():
             outputs.extend(self.workflow.evaluate_link(value).values)
 
-        return ConstantOutputs((
+        return ConstantOutputs([
             Link(outputs),
-        ))
+        ])
 
 
 MAX_EXPONENT = 4000

@@ -1,5 +1,5 @@
 # This module contains constant-evaluation versions of the Krita nodes.
-from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, is_link, function
+from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, is_link, function, constant
 from ...util.krita import Bounds
 from ... import shared
 
@@ -288,6 +288,97 @@ class DetailSize(ConstantNode):
         return shared.detail_size(width, height, resize_type, round_up, integer_multiple)
 
 
+@function(
+    name="Make Control Net",
+    inputs={
+        "mask": InputValue(optional=True),
+        "type": InputDynamicCombo(),
+    },
+)
+class MakeControlNet(ConstantNode):
+    def run(self, image, mask, model, type, strength, start_percent, end_percent):
+        return {
+            "image": image,
+            "mask": mask,
+            "model": model,
+            "type": type,
+            "strength": strength,
+            "start_percent": start_percent,
+            "end_percent": end_percent,
+        }
+
+
+@function(
+    name="Apply Control Nets",
+    inputs={
+        "control_nets": InputValue(optional=True),
+    },
+    outputs=4,
+    is_input_list=True,
+    is_output_list=True,
+)
+class ApplyControlNets(ConstantNode):
+    def anima(self, model, control_net, image):
+        return self.graph.node("AnimaLLLiteApply",
+            model=model,
+            lllite_name=control_net["model"],
+            image=image,
+            mask=control_net["mask"],
+            strength=control_net["strength"],
+            start_percent=control_net["start_percent"],
+            end_percent=control_net["end_percent"],
+        ).out(0)
+
+
+    def union(self, positive, negative, vae, control_net, image):
+        model = self.graph.node("ControlNetLoader", control_net_name=control_net["model"]).out(0)
+        model = self.graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]["union_type"]).out(0)
+
+        apply = self.graph.node("ControlNetApplyAdvanced",
+            positive=positive,
+            negative=negative,
+            control_net=model,
+            image=image,
+            vae=vae,
+            strength=control_net["strength"],
+            start_percent=control_net["start_percent"],
+            end_percent=control_net["end_percent"],
+        )
+
+        positive = apply.out(0)
+        negative = apply.out(1)
+        return (positive, negative)
+
+
+    def run(self, model, positive, negative, vae, control_nets):
+        models = []
+        positives = []
+        negatives = []
+        images = []
+
+        for model, positive, negative, vae in shared.zip_lists([model, positive, negative, vae]):
+            for control_net in control_nets:
+                if control_net is not None:
+                    image = control_net["image"]
+                    images.append(image)
+
+                    match control_net["type"]["type"]:
+                        case "Anima LLLite":
+                            model = self.anima(model, control_net, image)
+
+                        case "Union":
+                            (positive, negative) = self.union(positive, negative, vae, control_net, image)
+
+                        case x:
+                            self.error(f"Unknown type {x}")
+
+            models.append(model)
+            positives.append(positive)
+            negatives.append(negative)
+
+        return (models, positives, negatives, images)
+
+
 CONST_NODES = {
     "krita_comfyui: KritaUiBoolean": krita_ui("boolean", ["value", "is_default"]),
     "krita_comfyui: KritaUiCombo": krita_ui("combo", ["value", "label", "is_default"]),
@@ -303,6 +394,10 @@ CONST_NODES = {
     "krita_comfyui: KritaDebug": KritaDebug,
     "krita_comfyui: KritaSeed": KritaSeed,
     "krita_comfyui: ApplyLoras": ApplyLoras,
+
+    "krita_comfyui: EmptyControlNet": constant(None),
+    "krita_comfyui: MakeControlNet": MakeControlNet,
+    "krita_comfyui: ApplyControlNets": ApplyControlNets,
 
     "krita_comfyui: DetailSize": DetailSize,
 }
