@@ -1039,13 +1039,17 @@ class DetailSize(io.ComfyNode):
             outputs=[
                 io.Int.Output(display_name="width"),
                 io.Int.Output(display_name="height"),
+                io.Boolean.Output(display_name="is_changed", tooltip="True if the output width / height are different from the input width / height."),
             ],
         )
 
     @classmethod
     def execute(cls, width, height, resize_type, round_up, integer_multiple) -> io.NodeOutput:
-        width, height = detail_size(width, height, resize_type, round_up, integer_multiple)
-        return io.NodeOutput(width, height)
+        new_width, new_height = detail_size(width, height, resize_type, round_up, integer_multiple)
+
+        is_changed = (new_width != width) or (new_height != height)
+
+        return io.NodeOutput(new_width, new_height, is_changed)
 
 
 # @TODO Improve this after https://github.com/Comfy-Org/ComfyUI/issues/12580 is fixed

@@ -1,10 +1,16 @@
+# /// script
+# dependencies = [
+#   "shared",
+# ]
+# ///
+
 import subprocess
 import zipfile
 import os
 import shutil
 from pathlib import Path
 
-root = Path(__file__).parent
+root = Path(__file__).parent.parent
 
 
 def bundle_package(wheel, out_dir, name, zip_name, include):
@@ -61,8 +67,3 @@ def build_comfyui():
 def build_shared():
     shutil.copytree(Path("shared"), Path("dist", "comfyui", "krita_comfyui", "src", "krita_comfyui", "shared"))
     shutil.copytree(Path("shared"), Path("dist", "krita", "krita_comfyui", "shared"))
-
-
-build_krita()
-build_comfyui()
-build_shared()

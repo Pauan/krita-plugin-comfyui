@@ -17,7 +17,7 @@ Krita plugin that seamlessly integrates with ComfyUI for AI image generation.
 
    ```sh
    cd krita-plugin-comfyui
-   uv run build.py
+   uv run -m build
    ```
 
 4. Go into your Krita plugin folder, this is usually `~/.local/share/krita/pykrita` on Linux.
@@ -47,4 +47,4 @@ Krita plugin that seamlessly integrates with ComfyUI for AI image generation.
 
 8. You can now open up ComfyUI and Krita, everything should be working fine.
 
-9. When you make modifications to the code, you must run `uv run build.py` again, and you must restart ComfyUI / Krita to see the changes.
+9. When you make modifications to the code, you must run `uv run -m build` again, and you must restart ComfyUI / Krita to see the changes.

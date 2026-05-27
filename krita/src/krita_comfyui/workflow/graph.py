@@ -1,8 +1,8 @@
 import random
 import sys
 import math
-from ..util.graph import Graph
 from ..shared import MIN_SEED, MAX_SEED
+from ..shared.graph import Graph
 from .const import WorkflowError, NodeOutputs, Link, is_link
 from .const import comfyui, krita, selection, basic_data_handling
 

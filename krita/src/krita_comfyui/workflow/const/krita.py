@@ -287,11 +287,15 @@ class ApplyLoras(ConstantNode):
     inputs={
         "resize_type": InputDynamicCombo(),
     },
-    outputs=2,
+    outputs=3,
 )
 class DetailSize(ConstantNode):
     def run(self, width, height, resize_type, round_up, integer_multiple):
-        return detail_size(width, height, resize_type, round_up, integer_multiple)
+        new_width, new_height = detail_size(width, height, resize_type, round_up, integer_multiple)
+
+        is_changed = (new_width != width) or (new_height != height)
+
+        return (new_width, new_height, is_changed)
 
 
 @function(

@@ -364,6 +364,19 @@ class OrNode(ConstantNode):
         return any(values.values())
 
 
+@function(
+    inputs={
+        "samples": InputValue(allow_links=True),
+    },
+)
+class RepeatLatentBatch(ConstantNode):
+    def run(self, samples, amount):
+        if amount == 1:
+            return samples
+        else:
+            return self.graph.node(self.node_name, samples=samples, amount=amount).out(0)
+
+
 CONST_NODES = {
     # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_primitive.py#L104-L108
     "PrimitiveString": Primitive,
@@ -406,4 +419,6 @@ CONST_NODES = {
 
     # These should be moved into ComfyUI
     "krita_comfyui: Default": Default,
+
+    "RepeatLatentBatch": RepeatLatentBatch,
 }

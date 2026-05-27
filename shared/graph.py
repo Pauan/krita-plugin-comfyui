@@ -1,5 +1,5 @@
 import math
-from .. import shared
+from . import graph_list
 
 
 class Node:
@@ -30,7 +30,7 @@ class Graph:
 
     # Sends a list of stuff to ComfyUI
     def list(self, items):
-        return shared.graph_list(self, items)
+        return graph_list(self, items)
 
 
     # Sends an Image to ComfyUI

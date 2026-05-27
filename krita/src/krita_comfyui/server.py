@@ -7,7 +7,6 @@ from enum import Enum, auto
 from . import util
 from .settings import LogLevel
 from .util.krita import Document, Image
-from .util.graph import Graph
 from .shared import Perf
 from .workflow.graph import WorkflowGraph
 
