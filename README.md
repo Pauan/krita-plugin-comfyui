@@ -48,3 +48,5 @@ Krita plugin that seamlessly integrates with ComfyUI for AI image generation.
 8. You can now open up ComfyUI and Krita, everything should be working fine.
 
 9. When you make modifications to the code, you must run `uv run -m build` again, and you must restart ComfyUI / Krita to see the changes.
+
+10. You can run the type checker with `uv run pyright`

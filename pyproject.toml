@@ -7,3 +7,8 @@ members = [
     "krita",
     "comfyui",
 ]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.409",
+]

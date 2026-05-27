@@ -4,53 +4,32 @@ This module contains code which is shared by both comfyui and krita.
 import json
 import time
 import math
-import datetime
+from contextlib import AbstractContextManager
+from types import TracebackType
+from typing import Generator, TypedDict, Literal, Type
+from datetime import datetime, timezone
 
 
 # 53-bit signed integers
 # These can be safely represented as a 64-bit floating point
-MIN_INTEGER = -9007199254740991
-MAX_INTEGER = 9007199254740991
+MIN_INTEGER: int = -9007199254740991
+MAX_INTEGER: int = 9007199254740991
 
-MIN_SEED = MIN_INTEGER
-MAX_SEED = MAX_INTEGER
-
-
-def timestamp_utc():
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-
-def timestamp_local():
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+MIN_SEED: int = MIN_INTEGER
+MAX_SEED: int = MAX_INTEGER
 
 
-# https://stackoverflow.com/a/2189827/449477
-def digits(num):
-    if num == 0:
-        return 1
-    else:
-        return int(math.log10(num)) + 1
+def timestamp_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+def timestamp_local() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-# TODO move this into ComfyUI
-def graph_list(graph, items):
-    if len(items) == 1:
-        return items[0]
-
-    inputs = {}
-
-    # We pad the numbers so that they are sorted correctly
-    padding = digits(max(0, len(items) - 1))
-
-    for i, value in enumerate(items):
-        inputs["inputs.input" + str(i).zfill(padding)] = value
-
-    return graph.node("krita_comfyui: MakeList", **inputs).out(0)
-
-
-def zip_lists(inputs):
+def zip_lists[A](inputs: list[list[A]]) -> Generator[list[A]]:
     if len(inputs) == 1:
         for value in inputs[0]:
-            yield (value,)
+            yield [value]
 
     else:
         min_length = min([len(x) for x in inputs])
@@ -62,7 +41,7 @@ def zip_lists(inputs):
                 yield [input[min(index, len(input) - 1)] for input in inputs]
 
 
-def serialize_any(text):
+def serialize_any(text: object) -> str:
     if isinstance(text, str):
         return text
     else:
@@ -72,7 +51,7 @@ def serialize_any(text):
             return str(text)
 
 
-def round_to_multiple(value, multiple):
+def round_to_multiple(value: int, multiple: int) -> int:
     extra = value % multiple
 
     if extra == 0:
@@ -81,7 +60,7 @@ def round_to_multiple(value, multiple):
         return value + (multiple - extra)
 
 
-def divide_duration(duration, amount):
+def divide_duration(duration: int, amount: int) -> tuple[int, int]:
     if duration > amount:
         bigger = int(duration / amount)
         return (
@@ -93,7 +72,7 @@ def divide_duration(duration, amount):
 
 
 class Duration:
-    def __init__(self, nanoseconds):
+    def __init__(self, nanoseconds: int):
         nanoseconds, milliseconds = divide_duration(nanoseconds, 1000000)
         milliseconds, seconds = divide_duration(milliseconds, 1000)
         seconds, minutes = divide_duration(seconds, 60)
@@ -107,11 +86,11 @@ class Duration:
         self.hours = hours
         self.days = days
 
-    def format(self):
-        output = []
+    def format(self) -> str:
+        output: list[str] = []
 
         if self.days > 0:
-            if self.day == 1:
+            if self.days == 1:
                 output.append(f"{self.days} day")
             else:
                 output.append(f"{self.days} days")
@@ -128,8 +107,15 @@ class Duration:
         return " and ".join(output)
 
 
-def format_duration(duration):
+def format_duration(duration: int) -> str:
     return Duration(duration).format()
+
+
+class ResizeType(TypedDict):
+    resize_type: Literal["scale by multiplier", "scale total pixels", "scale longer dimension"]
+    multiplier: float
+    megapixels: float
+    longer_size: int
 
 
 # In testing, bicubic was the highest quality algorithm for detailing.
@@ -140,7 +126,7 @@ def format_duration(duration):
 #
 # Bicubic is technically not always reversible, but in common situations
 # it is reversible, and unlike nearest-exact it isn't jagged.
-def detail_size(width, height, resize_type, round_up, integer_multiple):
+def detail_size(width: int, height: int, resize_type: ResizeType, round_up: int, integer_multiple: bool) -> tuple[int, int]:
     type = resize_type["resize_type"]
 
     # https://github.com/Comfy-Org/ComfyUI/blob/7d437687c260df7772c603658111148e0e863e59/comfy_extras/nodes_post_processing.py#L281-L289
@@ -189,8 +175,8 @@ def detail_size(width, height, resize_type, round_up, integer_multiple):
     )
 
 
-class Perf:
-    def __init__(self, name):
+class Perf(AbstractContextManager[None]):
+    def __init__(self, name: str):
         self.name = name
 
     def done(self):
@@ -204,10 +190,20 @@ class Perf:
     async def __aenter__(self):
         self.start = time.perf_counter_ns()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
         self.done()
         return False
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
         self.done()
         return False
