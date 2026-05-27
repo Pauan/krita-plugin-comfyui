@@ -1,6 +1,7 @@
-from . import root, build_krita, build_comfyui, build_shared, generate_workflows
+from . import root, build_krita, build_comfyui, build_shared
+from .workflows.upscale import Upscale
 
-generate_workflows.Upscale(root).write()
+Upscale(root).write()
 
 build_krita()
 build_comfyui()

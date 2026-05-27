@@ -3,7 +3,7 @@ import math
 import re
 import json
 from simpleeval import simple_eval
-from . import ConstantNode, ConstantOutputs, InputAutogrow, Link, function
+from . import ConstantNode, ConstantOutputs, InputValue, InputAutogrow, Link, function
 
 
 class Primitive(ConstantNode):
@@ -365,9 +365,7 @@ class OrNode(ConstantNode):
 
 
 @function(
-    inputs={
-        "samples": InputValue(allow_links=True),
-    },
+    inputs_allow_links=True,
 )
 class RepeatLatentBatch(ConstantNode):
     def run(self, samples, amount):
