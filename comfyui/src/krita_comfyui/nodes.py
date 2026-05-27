@@ -542,11 +542,11 @@ class KritaOutput(io.ComfyNode):
             io.Combo.Input(
                 "canvas_resize",
                 default="do nothing",
-                options=["do nothing", "increase", "crop"],
+                options=["do nothing", "enlarge", "crop"],
                 tooltip=textwrap.dedent("""\
                     do nothing = Does nothing, the canvas stays the same size.
 
-                    increase = Increases the canvas to fit the image. Never makes the canvas smaller.
+                    enlarge = Increases the canvas to fit the image. Never makes the canvas smaller.
 
                     crop = Crops the canvas to be the same size as the image.
                 """),

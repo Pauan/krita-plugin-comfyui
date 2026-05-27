@@ -126,6 +126,9 @@ class ComfyUIOutputWidget(DockWidget):
                 if "krita_comfyui_output_images" in output:
                     # Organizes the images into batches based on the order
                     for image in output["krita_comfyui_output_images"]:
+                        image["duration"] = info.duration
+                        image["timestamp"] = info.timestamp
+
                         order = image["order"]
                         batch = images.get(order, None)
                         if batch is None:

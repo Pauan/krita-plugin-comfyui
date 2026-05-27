@@ -81,6 +81,57 @@ def round_to_multiple(value, multiple):
         return value + (multiple - extra)
 
 
+def divide_duration(duration, amount):
+    if duration > amount:
+        bigger = int(duration / amount)
+        return (
+            duration - (bigger * amount),
+            bigger,
+        )
+    else:
+        return (duration, 0)
+
+
+class Duration:
+    def __init__(self, nanoseconds):
+        nanoseconds, milliseconds = divide_duration(nanoseconds, 1000000)
+        milliseconds, seconds = divide_duration(milliseconds, 1000)
+        seconds, minutes = divide_duration(seconds, 60)
+        minutes, hours = divide_duration(minutes, 60)
+        hours, days = divide_duration(hours, 24)
+
+        self.nanoseconds = nanoseconds
+        self.milliseconds = milliseconds
+        self.seconds = seconds
+        self.minutes = minutes
+        self.hours = hours
+        self.days = days
+
+    def format(self):
+        output = []
+
+        if self.days > 0:
+            if self.day == 1:
+                output.append(f"{self.days} day")
+            else:
+                output.append(f"{self.days} days")
+
+        if self.hours > 0:
+            output.append(f"{self.hours:02d}:{self.minutes:02d}:{self.seconds:02d}.{self.milliseconds:03d} hours")
+
+        elif self.minutes > 0:
+            output.append(f"{self.minutes:02d}:{self.seconds:02d}.{self.milliseconds:03d} minutes")
+
+        else:
+            output.append(f"{self.seconds}.{self.milliseconds:03d} seconds")
+
+        return " and ".join(output)
+
+
+def format_duration(duration):
+    return Duration(duration).format()
+
+
 # In testing, bicubic was the highest quality algorithm for detailing.
 #
 # Bilinear, area, and lanczos always cause blurring.

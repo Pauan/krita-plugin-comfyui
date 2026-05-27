@@ -129,6 +129,8 @@ class LiveModeImage(QLabel):
     def clear_image(self):
         self.current_image = None
 
+        self.setToolTip("")
+
         self.update_total_bytes(0)
 
         self.image_width = 0
@@ -146,6 +148,8 @@ class LiveModeImage(QLabel):
 
     def set_image(self, serialized):
         self.current_image = serialized
+
+        self.setToolTip(serialized.tooltip())
 
         self.update_total_bytes(serialized.image.byte_size())
 

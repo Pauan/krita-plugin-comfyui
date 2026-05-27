@@ -386,8 +386,6 @@ class ImageWidget(QListWidget):
 
 
     def add_image(self, serialized, *, size, is_single, allow_selection):
-        tooltip = serialized.metadata["name"]
-
         item = QListWidgetItem(self.thumbnail(serialized.image, applied=serialized.is_applied()), None)
 
         item.setSizeHint(QSize(size, size))
@@ -397,7 +395,7 @@ class ImageWidget(QListWidget):
             "is_single": is_single,
         })
 
-        item.setData(Qt.ItemDataRole.ToolTipRole, tooltip)
+        item.setData(Qt.ItemDataRole.ToolTipRole, serialized.tooltip())
 
         self.addItem(item)
 

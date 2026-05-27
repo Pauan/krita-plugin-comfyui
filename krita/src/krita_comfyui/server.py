@@ -1,5 +1,6 @@
 import json
 import uuid
+import time
 import traceback
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -190,10 +191,12 @@ class GraphState(Enum):
 
 
 class GraphInfo:
-    def __init__(self, document_id, graph_id, progress, state, error, outputs, is_live_mode, should_notify):
+    def __init__(self, document_id, graph_id, progress, duration, timestamp, state, error, outputs, is_live_mode, should_notify):
         self.document_id = document_id
         self.graph_id = graph_id
         self.progress = progress
+        self.duration = duration
+        self.timestamp = timestamp
         self.state = state
         self.error = error
         self.outputs = outputs
@@ -293,11 +296,13 @@ class Prompt:
     progress: PromptProgress | None
     prompt_id: str
     state: GraphState
+    timestamp: float
+    start_time: int
     body: str | None
 
 
     @staticmethod
-    def from_graph(document_id, client_id, graph_id, graph, is_live_mode, should_notify):
+    def from_graph(document_id, client_id, graph_id, graph, is_live_mode, should_notify, timestamp, start_time):
         prompt_id = str(uuid.uuid4())
 
         return Prompt(
@@ -308,6 +313,8 @@ class Prompt:
             graph=graph,
             is_live_mode=is_live_mode,
             should_notify=should_notify,
+            timestamp=timestamp,
+            start_time=start_time,
             state=GraphState.Idle,
             error=None,
             outputs=[],
@@ -321,7 +328,7 @@ class Prompt:
 
 
     @staticmethod
-    def from_error(document_id, client_id, graph_id, is_live_mode, should_notify, error):
+    def from_error(document_id, client_id, graph_id, is_live_mode, should_notify, error, timestamp, start_time):
         return Prompt(
             document_id=document_id,
             client_id=client_id,
@@ -330,6 +337,8 @@ class Prompt:
             graph=None,
             is_live_mode=is_live_mode,
             should_notify=should_notify,
+            timestamp=timestamp,
+            start_time=start_time,
             state=GraphState.Error,
             error=error,
             outputs=[],
@@ -359,6 +368,8 @@ class Prompt:
             self.document_id,
             self.graph_id,
             progress,
+            (time.monotonic_ns() - self.start_time),
+            self.timestamp,
             self.state,
             self.error,
             self.outputs.copy(),
@@ -377,6 +388,8 @@ class Prompt:
             self.graph,
             self.is_live_mode,
             self.should_notify,
+            timestamp=self.timestamp,
+            start_time=self.start_time,
         )
 
 
@@ -994,6 +1007,9 @@ class ComfyUIClient(QObject):
 
 
     def execute_graph(self, *, graph, ui_values, document, seed, is_live_mode, should_notify):
+        # Number of milliseconds since the Unix epoch
+        timestamp = time.time_ns() / 1000000.0
+
         document_id = document.root_layer().id
 
         # Constant evaluating a graph can take 20+ milliseconds,
@@ -1001,6 +1017,8 @@ class ComfyUIClient(QObject):
         #
         # So we do evaluation and execution in a separate thread.
         def run():
+            start_time = time.monotonic_ns()
+
             self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)
 
             graph_id = str(self.graph_id)
@@ -1023,6 +1041,8 @@ class ComfyUIClient(QObject):
                     is_live_mode,
                     should_notify,
                     GraphError.from_exception(error),
+                    timestamp=timestamp,
+                    start_time=start_time,
                 )
                 self.graph_changed.emit(prompt.graph_info())
                 self.execute_queue()
@@ -1037,6 +1057,8 @@ class ComfyUIClient(QObject):
                 evaluated_graph.finalize(),
                 is_live_mode,
                 should_notify,
+                timestamp=timestamp,
+                start_time=start_time,
             )
 
             self.queue.append(prompt)

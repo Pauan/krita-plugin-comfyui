@@ -1,5 +1,7 @@
+from datetime import datetime
 from uuid import uuid4
 from ...util.krita import Document, Image, Layer, Bounds
+from ...shared import format_duration
 
 
 DEFAULT_CANVAS_RESIZE = "do nothing"
@@ -54,6 +56,8 @@ class SerializedImage:
         metadata["canvas_resize"] = metadata.get("canvas_resize", DEFAULT_CANVAS_RESIZE)
         metadata["resize_other_layers"] = metadata.get("resize_other_layers", DEFAULT_RESIZE_OTHER_LAYERS)
         metadata["resize_algorithm"] = metadata.get("resize_algorithm", DEFAULT_RESIZE_ALGORITHM)
+        metadata["duration"] = metadata.get("duration", 0)
+        metadata["timestamp"] = metadata.get("timestamp", 0)
         return metadata
 
 
@@ -93,6 +97,8 @@ class SerializedImage:
             "x": info["x"],
             "y": info["y"],
             "name": info["name"],
+            "duration": info["duration"],
+            "timestamp": info["timestamp"],
             "canvas_resize": info["canvas_resize"],
             "resize_other_layers": info["resize_other_layers"],
             "resize_algorithm": info["resize_algorithm"],
@@ -185,6 +191,49 @@ class SerializedImage:
             y=self.metadata["y"],
             canvas_resize=self.metadata["canvas_resize"],
         )
+
+
+    def tooltip(self):
+        output = [self.metadata["name"]]
+
+        duration = format_duration(self.metadata["duration"])
+        output.append("")
+        output.append(f"Duration: {duration}")
+
+        timestamp = datetime.fromtimestamp(self.metadata["timestamp"] / 1000.0)
+        date = timestamp.strftime("%Y-%m-%d")
+        time = timestamp.strftime("%H:%M:%S")
+        output.append("")
+        output.append("Created on:")
+        output.append(f"    {date}")
+        output.append(f"    {time}")
+
+        x = self.metadata["x"]
+        y = self.metadata["y"]
+        width = self.metadata["width"]
+        height = self.metadata["height"]
+        output.append("")
+        output.append("Bounds:")
+        output.append(f"    x: {x}")
+        output.append(f"    y: {y}")
+        output.append(f"    width: {width}")
+        output.append(f"    height: {height}")
+
+        match self.metadata["canvas_resize"]:
+            case "do nothing":
+                pass
+            case "enlarge":
+                output.append("")
+                output.append("Will enlarge canvas")
+            case "crop":
+                output.append("")
+                output.append("Will crop canvas")
+
+        if self.metadata["resize_other_layers"]:
+            output.append("")
+            output.append("Will resize other layers")
+
+        return "\n".join(output)
 
 
 # Class for a list of image UUIDs which are stored in the document.
@@ -347,7 +396,7 @@ class SerializedImages:
                 case "do nothing":
                     pass
 
-                case "increase":
+                case "enlarge":
                     image_bounds = Bounds(info["x"], info["y"], image.width, image.height).union(document.bounds())
 
                 case "crop":

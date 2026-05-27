@@ -636,7 +636,7 @@ class Document:
             else:
                 new_bounds = original_bounds
 
-        elif canvas_resize == "increase":
+        elif canvas_resize == "enlarge":
             if original_bounds is None:
                 new_bounds = new_bounds.union(current_bounds)
             else:
