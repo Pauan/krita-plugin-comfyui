@@ -2,7 +2,9 @@
   "danbooru_minimum_posts": 50,
   "autocomplete_minimum_characters": 3,
   "autocomplete_danbooru": true,
-  "enable_live_mode": false,
+  "live_mode_enabled": false,
+  "fixed_seed_enabled": false,
+  "fixed_seed": 0,
   "logging_level": "debug",
   "workflow_order": [
     "f4516100-d999-4d82-8ecd-50dd545bc1fe",

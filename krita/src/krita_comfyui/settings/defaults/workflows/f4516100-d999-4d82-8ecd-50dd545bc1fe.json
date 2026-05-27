@@ -1442,8 +1442,8 @@
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "text": [
-          "88",
-          0
+          "383",
+          1
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -2194,6 +2194,19 @@
       "class_type": "ComfySwitchNode",
       "_meta": {
         "title": "Switch"
+      }
+    },
+    "383": {
+      "inputs": {
+        "expression": "a - 9007199254740991",
+        "values.a": [
+          "88",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Convert into [MIN_SEED, MAX_SEED] range"
       }
     }
   }

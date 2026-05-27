@@ -14,7 +14,9 @@ from ..server import GraphState
 from ..util.krita import get_extension
 from ..util.qt import LayoutManager
 from ..workflow.widget import WorkflowWidget
-from ..workflow.ui import UiBoolean
+from ..workflow.ui import UiBoolean, UiInt
+from ..workflow.graph import WorkflowGraph
+from ..shared import MIN_SEED, MAX_SEED
 
 
 class JobWidget(QWidget):
@@ -130,12 +132,44 @@ class QueueWidget(QWidget):
         with self.layout.column() as column:
             # TODO cleanup listeners when dock is removed
             widget = UiBoolean.from_json(self.settings, {
-                "id": "enable_live_mode",
+                "id": "live_mode_enabled",
                 "tooltip": "Enable live mode, which automatically generates new images.",
-                "label": "Live mode",
+                "label": "Enable live mode.",
             })
 
             column.widget(widget)
+
+            with column.row() as row:
+                # TODO cleanup listeners when dock is removed
+                widget = UiBoolean.from_json(self.settings, {
+                    "id": "fixed_seed_enabled",
+                    "tooltip": "If true it will use a fixed seed.\nIf false it will generate a random seed every time.",
+                })
+
+                row.widget(widget)
+
+                # TODO cleanup listeners when dock is removed
+                widget = UiInt.from_json(self.settings, {
+                    "id": "fixed_seed",
+                    "tooltip": f"Fixed seed between {MIN_SEED} and {MAX_SEED}",
+                    "min": MIN_SEED,
+                    "max": MAX_SEED,
+                    "prefix": "Seed: ",
+                    "enabled_if": {
+                        "id": "fixed_seed_enabled",
+                        "value": True,
+                    },
+                })
+
+                row.widget(widget, stretch=1)
+
+                with row.tool_button(icon=Krita.icon("reload-preset"), tooltip="Generate random seed.") as button:
+                    self.seed_button = button
+                    self.seed_button.clicked.connect(self.generate_random_seed)
+
+                    # TODO cleanup listeners when dock is removed
+                    self.settings.item("fixed_seed_enabled").with_value(self.seed_button.setEnabled)
+
 
             with column.row(align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop) as row:
                 row.label(text="Job Queue")
@@ -156,6 +190,10 @@ class QueueWidget(QWidget):
 
             self.queue_list = QueueList()
             column.widget(self.queue_list)
+
+
+    def generate_random_seed(self):
+        self.settings.item("fixed_seed").set(WorkflowGraph.random_seed())
 
 
     #def pause_jobs(self):

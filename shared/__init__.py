@@ -7,6 +7,15 @@ import math
 import datetime
 
 
+# 53-bit signed integers
+# These can be safely represented as a 64-bit floating point
+MIN_INTEGER = -9007199254740991
+MAX_INTEGER = 9007199254740991
+
+MIN_SEED = MIN_INTEGER
+MAX_SEED = MAX_INTEGER
+
+
 def timestamp_utc():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 

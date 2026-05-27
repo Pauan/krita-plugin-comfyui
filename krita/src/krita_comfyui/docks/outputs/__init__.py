@@ -16,7 +16,7 @@ class OutputsWidget(QWidget):
         super().__init__()
 
         self.settings = settings
-        self.enable_live_mode = self.settings.item("enable_live_mode")
+        self.live_mode_enabled = self.settings.item("live_mode_enabled")
 
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred))
 
@@ -37,7 +37,7 @@ class OutputsWidget(QWidget):
                 stack.widget(self.live_mode)
 
         # TODO remove the event listener when the QWidget is destroyed
-        self.enable_live_mode.with_value(self.on_live_mode_changed)
+        self.live_mode_enabled.with_value(self.on_live_mode_changed)
 
 
     def on_live_mode_changed(self, live_mode):
@@ -83,7 +83,7 @@ class OutputsWidget(QWidget):
     def new_images(self, document, images, is_live_mode):
         if len(images) > 0:
             if is_live_mode:
-                self.live_mode.new_images(document, images, self.enable_live_mode.get())
+                self.live_mode.new_images(document, images, self.live_mode_enabled.get())
             else:
                 self.image.new_images(document, images)
 

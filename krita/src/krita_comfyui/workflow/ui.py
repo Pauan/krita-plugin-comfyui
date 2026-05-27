@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from ..util.qt import BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
 from ..util import number_of_lines, lerp, normalize, clamp
+from ..shared import MIN_INTEGER, MAX_INTEGER
 
 
 class InputEqual:
@@ -708,11 +709,10 @@ class UiFloat(QWidget):
     def __init__(self, value, visible_if, enabled_if, slider, tooltip, min, max, step, decimals, multiplier, prefix, suffix):
         super().__init__()
 
-        # 53-bit signed integer, the maximum safe integer with a 64-bit float
         if min is None:
-            min = -9007199254740991.0
+            min = float(MIN_INTEGER)
         if max is None:
-            max = 9007199254740991.0
+            max = float(MAX_INTEGER)
 
         if step is None:
             step = 0.01
@@ -871,11 +871,15 @@ class UiInt(QWidget):
     def __init__(self, value, visible_if, enabled_if, slider, tooltip, min, max, step, prefix, suffix):
         super().__init__()
 
-        # 32-bit signed integer
         if min is None:
-            min = -2147483648
+            min = MIN_INTEGER
         if max is None:
-            max = 2147483647
+            max = MAX_INTEGER
+
+        if min < MIN_INTEGER or min > MAX_INTEGER:
+            raise ValueError(f"min must be between {MIN_INTEGER} and {MAX_INTEGER}")
+        if max < MIN_INTEGER or max > MAX_INTEGER:
+            raise ValueError(f"max must be between {MIN_INTEGER} and {MAX_INTEGER}")
 
         if step is None:
             step = 1
@@ -898,11 +902,11 @@ class UiInt(QWidget):
                 # This blocks the slider from receiving the mouse wheel event
                 self.block_wheel = BlockMouseWheel(self)
 
-                self.slider = SliderSpinBox()
+                self.slider = DoubleSliderSpinBox()
                 self.slider.setParent(self)
 
-                self.slider.setFastSliderStep(step)
-                self.slider.setRange(min, max)
+                self.slider.setFastSliderStep(float(step))
+                self.slider.setRange(float(min), float(max), 0)
 
                 with column.widget(self.slider.widget()) as widget:
                     if prefix is not None:
@@ -913,7 +917,7 @@ class UiInt(QWidget):
 
                     widget.installEventFilter(self.block_wheel)
 
-                    widget.setSingleStep(step)
+                    widget.setSingleStep(float(step))
                     widget.draggingFinished.connect(self.on_drag_end)
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
@@ -922,15 +926,16 @@ class UiInt(QWidget):
                 self.block_wheel = None
                 self.slider = None
 
-                with column.int() as widget:
+                with column.float() as widget:
                     if prefix is not None:
                         widget.setPrefix(prefix)
 
                     if suffix is not None:
                         widget.setSuffix(suffix)
 
-                    widget.setRange(min, max)
-                    widget.setSingleStep(step)
+                    widget.setRange(float(min), float(max))
+                    widget.setSingleStep(float(step))
+                    widget.setDecimals(0)
                     widget.valueChanged.connect(self.on_value_changed)
                     self.value_widget = widget
 
@@ -955,11 +960,11 @@ class UiInt(QWidget):
 
     def sync(self):
         with BlockSignals(self.value_widget):
-            self.value_widget.setValue(clamp(self.inputs.value.get(), self.min, self.max))
+            self.value_widget.setValue(float(clamp(self.inputs.value.get(), self.min, self.max)))
 
 
     def get_real_value(self):
-        return clamp(self.value_widget.value(), self.min, self.max)
+        return clamp(int(self.value_widget.value()), self.min, self.max)
 
 
     def clamp_to_step(self):
@@ -971,7 +976,7 @@ class UiInt(QWidget):
 
         if value != new_value:
             value = new_value
-            self.value_widget.setValue(value)
+            self.value_widget.setValue(float(value))
 
         return value
 
@@ -992,6 +997,7 @@ class UiInt(QWidget):
         else:
             value = self.get_real_value()
 
+        assert isinstance(value, int)
         self.inputs.value.set(value)
 
 

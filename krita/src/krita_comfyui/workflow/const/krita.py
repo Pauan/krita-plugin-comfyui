@@ -1,7 +1,7 @@
 # This module contains constant-evaluation versions of the Krita nodes.
 from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, is_link, function, constant
 from ...util.krita import Bounds
-from ... import shared
+from ...shared import MIN_SEED, MAX_SEED, serialize_any, zip_lists, detail_size
 
 
 class UiLink(Link):
@@ -87,7 +87,7 @@ class KritaDebug(ConstantNode):
         if is_link(x):
             return x
         else:
-            return shared.serialize_any(x)
+            return serialize_any(x)
 
 
     def run(self):
@@ -192,7 +192,7 @@ class KritaLayers(ConstantNode):
         masks = []
         names = []
 
-        for layer_id, crop, mode in shared.zip_lists([layer_id.values, crop, mode]):
+        for layer_id, crop, mode in zip_lists([layer_id.values, crop, mode]):
             if crop is None:
                 crop = self.workflow.bounds()
             else:
@@ -219,7 +219,12 @@ class KritaLayers(ConstantNode):
 )
 class KritaSeed(ConstantNode):
     def run(self):
-        return self.workflow.seed
+        assert self.workflow.seed >= MIN_SEED and self.workflow.seed <= MAX_SEED
+
+        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1570
+        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_primitive.py#L52
+        # We have to normalize the integer into the range of [0, sys.maxsize]
+        return self.workflow.seed - MIN_SEED
 
 
 # This could be implemented in ComfyUI, except prompt loras are only
@@ -250,7 +255,7 @@ class ApplyLoras(ConstantNode):
         models = []
         clips = []
 
-        for model, clip in shared.zip_lists([model, clip]):
+        for model, clip in zip_lists([model, clip]):
             for lora in loras:
                 if lora is not None:
                     model_weight = lora["model_weight"]
@@ -286,7 +291,7 @@ class ApplyLoras(ConstantNode):
 )
 class DetailSize(ConstantNode):
     def run(self, width, height, resize_type, round_up, integer_multiple):
-        return shared.detail_size(width, height, resize_type, round_up, integer_multiple)
+        return detail_size(width, height, resize_type, round_up, integer_multiple)
 
 
 @function(
@@ -366,7 +371,7 @@ class ApplyControlNets(ConstantNode):
         negatives = []
         images = []
 
-        for model, positive, negative, vae in shared.zip_lists([model, positive, negative, vae]):
+        for model, positive, negative, vae in zip_lists([model, positive, negative, vae]):
             for control_net in control_nets:
                 if (
                     control_net is not None and

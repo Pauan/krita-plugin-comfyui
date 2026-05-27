@@ -2,6 +2,7 @@ import random
 import sys
 import math
 from ..util.graph import Graph
+from ..shared import MIN_SEED, MAX_SEED
 from .const import WorkflowError, NodeOutputs, Link, is_link
 from .const import comfyui, krita, selection, basic_data_handling
 
@@ -49,9 +50,7 @@ class WorkflowGraph:
 
     @staticmethod
     def random_seed():
-        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1570
-        # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_primitive.py#L52
-        return random.randint(0, sys.maxsize)
+        return random.randint(MIN_SEED, MAX_SEED)
 
 
     # Evaluates the node and returns its output.

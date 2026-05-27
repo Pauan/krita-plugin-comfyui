@@ -62,9 +62,7 @@ class LiveModeState(QObject):
     def __init__(self, parent, extension):
         super().__init__(parent)
 
-        self.enable_live_mode = extension.settings.settings.item("enable_live_mode")
-
-        self.seed = WorkflowGraph.random_seed()
+        self.live_mode_enabled = extension.settings.settings.item("live_mode_enabled")
 
         self.is_running = False
         self.debounce_time = None
@@ -147,7 +145,7 @@ class WorkflowWidget(QWidget):
 
         self.live_mode_state = LiveModeState(self, self.extension)
         # TODO cleanup listeners when dock is removed
-        self.live_mode_state.enable_live_mode.add_listener(self.on_live_mode_changed)
+        self.live_mode_state.live_mode_enabled.add_listener(self.on_live_mode_changed)
         self.live_mode_state.timer.timeout.connect(self.maybe_run_live_mode)
 
         self.prompt_parser = PromptParser(self.extension.settings.bundles)
@@ -513,11 +511,18 @@ class WorkflowWidget(QWidget):
         return ui_values
 
 
+    def get_seed(self):
+        if self.extension.settings.settings.get("fixed_seed_enabled"):
+            return self.extension.settings.settings.get("fixed_seed")
+        else:
+            return WorkflowGraph.random_seed()
+
+
     def run_workflow(self):
         with Perf("run_workflow"):
             self.workflow.run_graph(
                 ui_values=self.get_ui_values(),
-                seed=WorkflowGraph.random_seed(),
+                seed=self.get_seed(),
                 is_live_mode=False,
                 should_notify=True,
             )
@@ -527,7 +532,7 @@ class WorkflowWidget(QWidget):
         with Perf("run_live_workflow"):
             self.workflow.run_graph(
                 ui_values=self.get_ui_values(),
-                seed=WorkflowGraph.random_seed(),
+                seed=self.get_seed(),
                 is_live_mode=True,
                 should_notify=False,
             )
@@ -536,7 +541,7 @@ class WorkflowWidget(QWidget):
 
 
     def is_live_mode_enabled(self):
-        return self.live_mode_state.enable_live_mode.get()
+        return self.live_mode_state.live_mode_enabled.get()
 
     def is_live_mode_running(self):
         return self.live_mode_state.is_running
