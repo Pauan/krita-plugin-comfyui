@@ -1,5 +1,5 @@
 from uuid import uuid4
-from ...util.krita import Document, Image, Layer
+from ...util.krita import Document, Image, Layer, Bounds
 
 
 DEFAULT_CANVAS_RESIZE = "do nothing"

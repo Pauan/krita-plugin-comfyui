@@ -63,6 +63,8 @@ class LiveModeState(QObject):
         super().__init__(parent)
 
         self.live_mode_enabled = extension.settings.settings.item("live_mode_enabled")
+        self.fixed_seed_enabled = extension.settings.settings.item("fixed_seed_enabled")
+        self.fixed_seed = extension.settings.settings.item("fixed_seed")
 
         self.is_running = False
         self.debounce_time = None
@@ -101,7 +103,7 @@ class LiveModeState(QObject):
         self.timer.stop()
 
 
-    def check_changed(self, document):
+    def check_changed(self, document, *, force_modified=False):
         if not self.is_running:
             return False
 
@@ -116,7 +118,7 @@ class LiveModeState(QObject):
             return True
 
         # Only run the workflow if the document changed and enough time has passed.
-        if document.modified and now >= self.debounce_time:
+        if (force_modified or document.modified) and now >= self.debounce_time:
             self.set_debounce_time(document, now)
             return True
 
@@ -146,6 +148,8 @@ class WorkflowWidget(QWidget):
         self.live_mode_state = LiveModeState(self, self.extension)
         # TODO cleanup listeners when dock is removed
         self.live_mode_state.live_mode_enabled.add_listener(self.on_live_mode_changed)
+        self.live_mode_state.fixed_seed_enabled.add_listener(self.on_seed_changed)
+        self.live_mode_state.fixed_seed.add_listener(self.on_seed_changed)
         self.live_mode_state.timer.timeout.connect(self.maybe_run_live_mode)
 
         self.prompt_parser = PromptParser(self.extension.settings.bundles)
@@ -554,6 +558,10 @@ class WorkflowWidget(QWidget):
         self.live_mode_changed.emit()
 
 
+    def on_seed_changed(self, old, new):
+        self.maybe_run_live_mode(force_modified=True)
+
+
     def stop_live_mode(self, *, emit=True):
         if self.live_mode_state.stop():
             self.extension.client.clear_queue_live_mode()
@@ -566,8 +574,8 @@ class WorkflowWidget(QWidget):
                 self.live_mode_changed.emit()
 
 
-    def maybe_run_live_mode(self):
-        is_changed = self.live_mode_state.check_changed(self.workflow.document)
+    def maybe_run_live_mode(self, *, force_modified=False):
+        is_changed = self.live_mode_state.check_changed(self.workflow.document, force_modified=force_modified)
 
         if is_changed:
             self.run_live_workflow()
