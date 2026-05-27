@@ -76,8 +76,12 @@ class OutputsWidget(QWidget):
             return f"ComfyUI Outputs  ({bytes:g} {suffix})"
 
 
-    def set_text(self, document, text):
-        self.text.set_text(document, text)
+    def set_text(self, document, text, is_live_mode):
+        if is_live_mode:
+            with document.disable_modification():
+                self.text.set_text(document, text)
+        else:
+            self.text.set_text(document, text)
 
 
     def new_images(self, document, images, is_live_mode):
@@ -141,4 +145,4 @@ class ComfyUIOutputWidget(DockWidget):
             for document in Document.all():
                 if document.root_layer().id == info.document_id:
                     self._widget.new_images(document, images, info.is_live_mode)
-                    self._widget.set_text(document, texts)
+                    self._widget.set_text(document, texts, info.is_live_mode)
