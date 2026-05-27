@@ -58,9 +58,7 @@ class Graph:
 
 
     def finalize(self):
-        output = self.nodes
-        self.nodes = None
-        return output
+        return self.nodes
 
 
     def debug(self):
