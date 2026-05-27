@@ -3,12 +3,22 @@ from . import Workflow
 class Upscale(Workflow):
     FILENAME = "6b904c3a-0d4b-43d1-86d7-0474dcb8bf2d.json"
 
-    def make_graph(self):
-        model = self.krita_ui_combo("model")
-        scale_method = self.krita_ui_combo("scale_method")
+
+    def name(self, model):
+        return self.graph.node("RegexReplace",
+            string=model.out(1),
+            regex_pattern=r"\.[^\.]+$",
+            replace="",
+            case_insensitive=False,
+            multiline=False,
+            dotall=False,
+            count=0,
+        ).out(0)
+
+
+    def upscale_image(self, model):
         multiplier = self.krita_ui_int("multiplier")
-        resize_layers = self.krita_ui_boolean("resize_layers")
-        resize_layers_algorithm = self.krita_ui_combo("resize_layers_algorithm")
+        scale_method = self.krita_ui_combo("scale_method")
         canvas = self.krita_canvas()
 
         split_image = self.graph.node("SplitImageWithAlpha", image=canvas.out(0))
@@ -48,19 +58,21 @@ class Upscale(Workflow):
 
         add_alpha = self.graph.node("JoinImageWithAlpha", image=resize_image.out(0), alpha=resize_mask.out(0))
 
-        name = self.graph.node("RegexReplace",
-            string=model.out(1),
-            regex_pattern=r"\.[^\.]+$",
-            replace="",
-            case_insensitive=False,
-            multiline=False,
-            dotall=False,
-            count=0,
-        )
+        return add_alpha.out(0)
+
+
+    def make_graph(self):
+        model = self.krita_ui_combo("model")
+        resize_layers = self.krita_ui_boolean("resize_layers")
+        resize_layers_algorithm = self.krita_ui_combo("resize_layers_algorithm")
+
+        image = self.upscale_image(model)
+
+        name = self.name(model)
 
         self.krita_output(
-            images=add_alpha.out(0),
-            name=name.out(0),
+            images=image,
+            name=name,
             order=0,
             x=0,
             y=0,

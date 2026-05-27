@@ -81,27 +81,27 @@
       }
     },
     "1": {
-      "class_type": "krita_comfyui: KritaUiCombo",
-      "inputs": {
-        "id": "scale_method"
-      }
-    },
-    "2": {
-      "class_type": "krita_comfyui: KritaUiInt",
-      "inputs": {
-        "id": "multiplier"
-      }
-    },
-    "3": {
       "class_type": "krita_comfyui: KritaUiBoolean",
       "inputs": {
         "id": "resize_layers"
       }
     },
-    "4": {
+    "2": {
       "class_type": "krita_comfyui: KritaUiCombo",
       "inputs": {
         "id": "resize_layers_algorithm"
+      }
+    },
+    "3": {
+      "class_type": "krita_comfyui: KritaUiInt",
+      "inputs": {
+        "id": "multiplier"
+      }
+    },
+    "4": {
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "inputs": {
+        "id": "scale_method"
       }
     },
     "5": {
@@ -157,7 +157,7 @@
           0
         ],
         "values.b": [
-          "2",
+          "3",
           0
         ]
       }
@@ -171,7 +171,7 @@
           1
         ],
         "values.b": [
-          "2",
+          "3",
           0
         ]
       }
@@ -194,7 +194,7 @@
         ],
         "resize_type.crop": "disabled",
         "scale_method": [
-          "1",
+          "4",
           0
         ]
       }
@@ -217,7 +217,7 @@
         ],
         "resize_type.crop": "disabled",
         "scale_method": [
-          "1",
+          "4",
           0
         ]
       }
@@ -266,11 +266,11 @@
         "y": 0,
         "canvas_resize": "enlarge",
         "resize_other_layers": [
-          "3",
+          "1",
           0
         ],
         "resize_algorithm": [
-          "4",
+          "2",
           0
         ]
       }
