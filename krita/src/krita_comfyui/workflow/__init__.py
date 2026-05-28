@@ -49,19 +49,6 @@ class Workflow(Storage):
         if self.id != "" and self.document is not None:
             self.document.set_key_json(f"krita_comfyui/ui_inputs/{self.id}", "krita_comfyui: Stored UI Inputs", self.serialized)
 
-        # This is for the case where you open a new document which doesn't have
-        # a workflow_id, so it reuses the old workflow_id.
-        #
-        # In that case we want to save the workflow_id to the new document.
-        self._save_workflow_id()
-
-
-    def _save_workflow_id(self):
-        assert self.id is not None
-
-        if self.document is not None:
-            self.document.set_key_str("krita_comfyui/workflow_id", "krita_comfyui: Workflow ID", self.id)
-
 
     def _get_default_for_widget(self, widget):
         default = widget.get("default", None)
@@ -211,39 +198,23 @@ class Workflow(Storage):
     def change_workflow(self, id):
         if self._update_workflow(id):
             self._update_serialized()
-            self._save_workflow_id()
             return True
         else:
-            self._save_workflow_id()
             return False
 
 
     def change_document(self, document):
         if self.document != document:
             self.document = document
-
-            if True:
-                if self.document is None:
-                    id = ""
-                else:
-                    id = self.document.get_key_str("krita_comfyui/workflow_id", "")
-
-                self._update_workflow(id)
-
-            else:
-                if self.document is not None:
-                    id = self.document.get_key_str("krita_comfyui/workflow_id", None)
-
-                    # If the document doesn't have a stored workflow_id,
-                    # then we just keep using the existing workflow_id.
-                    if id is not None:
-                        self._update_workflow(id)
-
-            # We always have to update serialized even if the ID is the same.
             self._update_serialized()
             return True
 
         return False
+
+
+    def initialize(self, document, id):
+        self.document = document
+        self.change_workflow(id)
 
 
     def is_valid(self):

@@ -28,13 +28,13 @@ class Item[A: JSON]:
             value = default
             is_default = True
 
+        self.id = id
         self.default = default
         self.is_default = is_default
 
         self._value = value
 
         self._parent = parent
-        self._id = id
         self._listeners: list[Callable[[A, A], None]] = []
 
 
@@ -86,11 +86,11 @@ class Item[A: JSON]:
         if save:
             try:
                 # We only save if the new value is different from the old value.
-                should_save = self._parent.serialized[self._id] != value
+                should_save = self._parent.serialized[self.id] != value
             except KeyError:
                 should_save = True
 
-            self._parent.serialized[self._id] = value
+            self._parent.serialized[self.id] = value
 
             if should_save:
                 self._parent.root.save()
@@ -110,7 +110,7 @@ class Item[A: JSON]:
         self.is_default = True
 
         if should_save:
-            del self._parent.serialized[self._id]
+            del self._parent.serialized[self.id]
             self._parent.root.save()
 
         if notify_listeners:

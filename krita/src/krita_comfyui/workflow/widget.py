@@ -211,8 +211,12 @@ class WorkflowWidget(QWidget):
         self.update_workflow_selector()
 
         with self.catch_errors():
-            if self.workflow.change_document(self.document.current()):
-                self.update_widgets()
+            self.workflow.initialize(
+                self.document.current(),
+                self.extension.settings.settings.get("selected_workflow"),
+            )
+            self.workflow_selector.set_selected(self.workflow.id)
+            self.update_widgets()
 
 
     def open_settings(self):
@@ -431,6 +435,7 @@ class WorkflowWidget(QWidget):
     def on_workflow_changed(self):
         with self.catch_errors():
             if self.workflow.change_workflow(self.workflow_selector.currentData()):
+                self.extension.settings.settings.item("selected_workflow").set(self.workflow.id)
                 self.update_widgets()
                 self.can_run_changed.emit()
 
@@ -442,7 +447,6 @@ class WorkflowWidget(QWidget):
             if self.workflow.change_document(self.document.current()):
                 self.layer_combo_options = self.get_layer_combo_options()
                 self.update_widgets()
-                self.workflow_selector.set_selected(self.workflow.id)
                 self.can_run_changed.emit()
             else:
                 self.update_layer_inputs()
