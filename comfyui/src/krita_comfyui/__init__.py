@@ -1,3 +1,10 @@
+import sys
+from pathlib import Path
+
+# Enables Python to load dependencies
+sys.path.append(str(Path(__file__).parent / "site-packages"))
+
+
 from comfy_api.latest import ComfyExtension, io
 
 from . import controlnet, nodes, ui, region_comfyui

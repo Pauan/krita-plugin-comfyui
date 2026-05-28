@@ -11,7 +11,11 @@ members = [
 ]
 
 [tool.uv.sources]
-shared = { workspace = true }
+shared = { workspace = true, editable = true }
+
+# This is required so that it will update the shared package when building
+[tool.uv]
+reinstall-package = ["shared"]
 
 [dependency-groups]
 dev = [

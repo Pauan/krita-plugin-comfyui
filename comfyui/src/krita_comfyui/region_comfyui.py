@@ -1,7 +1,7 @@
 import torch
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
-from shared import graph_list
+from shared.graph import graph_list
 from .util import mask_bounds, mask_inverse_sum
 from .region_attention import AttentionMaskPatch
 

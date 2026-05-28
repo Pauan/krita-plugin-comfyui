@@ -3,6 +3,7 @@ import zipfile
 import os
 import shutil
 from pathlib import Path
+from .workflows.upscale import Upscale
 
 root = Path(__file__).parent.parent.parent.parent
 
@@ -157,3 +158,11 @@ def build_comfyui():
         folder="comfyui",
         output="krita_comfyui",
     )
+
+
+def main():
+    Upscale(root).write()
+
+    clean()
+    build_comfyui()
+    build_krita()

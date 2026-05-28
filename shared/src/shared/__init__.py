@@ -6,7 +6,7 @@ import time
 import math
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Generator, TypedDict, Literal, Type
+from typing import Generator, TypedDict, Literal, Type, TypeVar
 from datetime import datetime, timezone
 
 
@@ -26,7 +26,10 @@ def timestamp_local() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def zip_lists[A](inputs: list[list[A]]) -> Generator[list[A]]:
+# TODO use [A] generics after Pinokio updates to Python 3.12+
+A = TypeVar("A")
+
+def zip_lists(inputs: list[list[A]]) -> Generator[list[A], None, None]:
     if len(inputs) == 1:
         for value in inputs[0]:
             yield [value]
