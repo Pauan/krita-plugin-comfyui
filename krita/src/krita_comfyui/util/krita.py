@@ -2,7 +2,9 @@ import krita
 import math
 from pathlib import Path
 from enum import Enum
-from typing import NamedTuple, Self, Literal, Generator
+from contextlib import AbstractContextManager
+from types import TracebackType
+from typing import NamedTuple, Self, Literal, Generator, Type, override
 from json import (dumps, loads)
 import numpy as np
 from shared import JSON, round_to_multiple
@@ -98,7 +100,7 @@ class Axis:
         return self.max - self.min
 
 
-    def round_to_multiple(self, multiple: int) -> Self:
+    def round_to_multiple(self, multiple: int) -> "Axis":
         length = self.length()
         rounded = round_to_multiple(length, multiple)
         half = math.ceil(float(rounded - length) * 0.5)
@@ -108,7 +110,7 @@ class Axis:
 
 
     # Shifts the axis to be within the parent's bounds.
-    def shift_within_parent(self, parent: Self) -> Self:
+    def shift_within_parent(self, parent: Self) -> "Axis":
         extra = parent.min - self.min
 
         # Shifts the axis to the right
@@ -138,10 +140,22 @@ class Bounds(NamedTuple):
 
 
     @staticmethod
-    def from_json(json: dict) -> Self:
-        return Bounds(json["x"], json["y"], json["width"], json["height"])
+    def from_json(json: JSON) -> "Bounds":
+        assert isinstance(json, dict)
 
-    def to_json(self) -> dict:
+        x = json["x"]
+        y = json["y"]
+        width = json["width"]
+        height = json["height"]
+
+        assert isinstance(x, int)
+        assert isinstance(y, int)
+        assert isinstance(width, int)
+        assert isinstance(height, int)
+
+        return Bounds(x, y, width, height)
+
+    def to_json(self) -> JSON:
         return {
             "x": self.x,
             "y": self.y,
@@ -151,7 +165,7 @@ class Bounds(NamedTuple):
 
 
     @staticmethod
-    def from_qrect(qrect: QRect):
+    def from_qrect(qrect: QRect) -> "Bounds":
         return Bounds(qrect.x(), qrect.y(), qrect.width(), qrect.height())
 
     def to_qrect(self) -> QRect:
@@ -165,7 +179,7 @@ class Bounds(NamedTuple):
         return Axis(self.y, self.y + self.height)
 
 
-    def union(self, other: Self) -> Self:
+    def union(self, other: Self) -> "Bounds":
         right = max(self.x + self.width, other.x + other.width)
         bottom = max(self.y + self.height, other.y + other.height)
 
@@ -188,7 +202,7 @@ class Bounds(NamedTuple):
         return self
 
 
-    def round_up(self, parent: Self, multiple: int) -> Self:
+    def round_up(self, parent: Self, multiple: int) -> "Bounds":
         assert multiple >= 1
 
         bounds = self.clamp_to_parent(parent)
@@ -201,7 +215,7 @@ class Bounds(NamedTuple):
         return bounds
 
 
-    def clamp_to_parent(self, parent: Self) -> Self:
+    def clamp_to_parent(self, parent: Self) -> "Bounds":
         parent_right = parent.x + parent.width
         parent_bottom = parent.y + parent.height
 
@@ -217,44 +231,58 @@ class Bounds(NamedTuple):
         return self.width * self.height
 
 
-class HideModifications:
+class HideModifications(AbstractContextManager[None]):
     def __init__(self, document: krita.Document):
         self.document = document
 
     def __enter__(self):
         self.modified = self.document.modified()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
         self.document.setModified(self.modified)
         return False
 
 
-class ActiveNode:
+class ActiveNode(AbstractContextManager[None]):
     def __init__(self, document: krita.Document):
         self.document = document
 
+    @override
     def __enter__(self):
         self.active = self.document.activeNode()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    @override
+    def __exit__(
+        self,
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> Literal[False]:
         self.document.setActiveNode(self.active)
         return False
 
 
 class Mask:
+    _qimage: QImage
+
     def __init__(self, qimage: QImage):
         self._qimage = qimage
 
 
     @staticmethod
-    def solid(value: int, width: int, height: int) -> Self:
+    def solid(value: int, width: int, height: int) -> "Mask":
         qimage = QImage(width, height, QImage.Format.Format_Grayscale8)
         qimage.fill(value)
         return Mask(qimage)
 
 
     @staticmethod
-    def from_packed_bytes(data: QByteArray, width: int, height: int) -> Self:
+    def from_packed_bytes(data: QByteArray, width: int, height: int) -> "Mask":
         stride = width
         qimg = QImage(data, width, height, stride, QImage.Format.Format_Grayscale8)
         return Mask(qimg)
@@ -287,6 +315,8 @@ class Mask:
 
 
 class Image:
+    _qimage: QImage
+
     def __init__(self, qimage: QImage):
         self._qimage = qimage
 
@@ -297,7 +327,7 @@ class Image:
 
 
     @staticmethod
-    def load_file(filename: str) -> Self:
+    def load_file(filename: str) -> "Image":
         path = Image.filename(filename)
         image = QImage()
         if not image.load(path):
@@ -306,7 +336,7 @@ class Image:
 
 
     @staticmethod
-    def from_qicon(qicon: QIcon, width: int, height: int, mode: QIcon.Mode=QIcon.Mode.Normal, state: QIcon.State=QIcon.State.Off) -> Self:
+    def from_qicon(qicon: QIcon, width: int, height: int, mode: QIcon.Mode=QIcon.Mode.Normal, state: QIcon.State=QIcon.State.Off) -> "Image":
         qimage = qicon.pixmap(QSize(width, height), mode, state).toImage()
         qimage.convertTo(QImage.Format.Format_ARGB32)
         return Image(qimage)
@@ -314,20 +344,20 @@ class Image:
 
     # TODO replace with base85
     @staticmethod
-    def from_base64(data: str, width: int, height: int) -> Self:
+    def from_base64(data: str, width: int, height: int) -> "Image":
         bytes = QByteArray.fromBase64(data.encode("utf-8"))
         return Image.from_packed_bytes(bytes, width, height, swap_rgb=True)
 
 
     @staticmethod
-    def from_krita_qimage(qimage: QImage) -> Self:
+    def from_krita_qimage(qimage: QImage) -> "Image":
         # Krita uses BGR so we have to swap it to RGB
         qimage.rgbSwap()
         return Image(qimage)
 
 
     @staticmethod
-    def from_packed_bytes(data: QByteArray, width: int, height: int, swap_rgb: bool) -> Self:
+    def from_packed_bytes(data: QByteArray, width: int, height: int, swap_rgb: bool) -> "Image":
         assert data.size() == (width * height) * 4
 
         stride = width * 4
@@ -360,7 +390,7 @@ class Image:
         assert self._qimage.format() == QImage.Format.Format_ARGB32
 
 
-    def scale_to_fit(self, width: int, height: int) -> Self:
+    def scale_to_fit(self, width: int, height: int) -> "Image":
         scale = min(width / self.width, height / self.height)
 
         # Scale the width / height while keeping the same aspect ratio
@@ -405,12 +435,14 @@ class Image:
 
 
 class Layer:
+    _node: krita.Node
+
     def __init__(self, node: krita.Node):
         self._node = node
 
 
     @staticmethod
-    def fromImage(document: "Document", name: str, image: Image, x: int, y: int) -> Self:
+    def fromImage(document: "Document", name: str, image: Image, x: int, y: int) -> "Layer":
         layer = document.new_paint_layer(name)
         layer.write_image(image, x, y)
         return layer
@@ -421,7 +453,7 @@ class Layer:
         return self._node.uniqueId().toString()
 
     @property
-    def parent(self) -> Self:
+    def parent(self) -> "Layer":
         return Layer(self._node.parentNode())
 
     @property
@@ -464,7 +496,7 @@ class Layer:
         self._node = None
 
 
-    def write_image(self, image: Self, x: int, y: int):
+    def write_image(self, image: Image, x: int, y: int):
         if not self._node.setPixelData(image.bytes(), x, y, image.width, image.height):
             raise RuntimeError("Writing image failed")
 
@@ -500,13 +532,13 @@ class Layer:
 
 
     # Iterates over the immediate children
-    def children(self) -> Generator[Self, None, None]:
+    def children(self) -> Generator["Layer", None, None]:
         for child in reversed(self._node.childNodes()):
             yield Layer(child)
 
 
     # Iterates over all children, recursively
-    def all_children(self) -> Generator[Self, None, None]:
+    def all_children(self) -> Generator["Layer", None, None]:
         for child in self.children():
             yield child
 
@@ -528,17 +560,25 @@ class Layer:
 
 
 class Selection:
+    _selection: krita.Selection
+
     def __init__(self, selection: krita.Selection):
         self._selection = selection
 
     def __eq__(self, other: object):
-        return self._selection == other._selection
+        if isinstance(other, Selection):
+            return self._selection == other._selection
+        else:
+            return NotImplemented
 
     def __ne__(self, other: object):
-        return self._selection != other._selection
+        if isinstance(other, Selection):
+            return self._selection != other._selection
+        else:
+            return NotImplemented
 
     @staticmethod
-    def solid(bounds, value: int) -> Self:
+    def solid(bounds: Bounds, value: int) -> "Selection":
         # TODO what about memory management? does this need to be manually deleted?
         selection = krita.Selection()
         # TODO is this the fastest way to create a selection that spans the entire document?
@@ -551,7 +591,7 @@ class Selection:
         )
         return Selection(selection)
 
-    def copy(self) -> Self:
+    def copy(self) -> "Selection":
         return Selection(self._selection.duplicate())
 
     def add(self, other: Self):
@@ -626,24 +666,26 @@ class Selection:
 
 
 class Document:
+    _document: krita.Document
+
     def __init__(self, document: krita.Document):
         self._document = document
 
 
     @staticmethod
-    def current() -> Self | None:
+    def current() -> "Document | None":
         document = Krita.instance().activeDocument()
         if document is not None:
             return Document(document)
 
 
     @staticmethod
-    def all() -> list[Self]:
+    def all() -> list["Document"]:
         return [Document(document) for document in Krita.documents()]
 
 
     @staticmethod
-    def create(width: int, height: int, name: str, color_model: str, color_depth: str, color_profile: str, pixels_per_inch: float) -> Self:
+    def create(width: int, height: int, name: str, color_model: str, color_depth: str, color_profile: str, pixels_per_inch: float) -> "Document":
         instance = Krita.instance()
 
         new_document = Document(instance.createDocument(
@@ -659,6 +701,13 @@ class Document:
         instance.activeWindow().addView(new_document._document)
 
         return new_document
+
+
+    def __eq__(self, other: object):
+        if isinstance(other, Document):
+            return self._document == other._document
+        else:
+            return NotImplemented
 
 
     def disable_modification(self) -> HideModifications:
@@ -724,7 +773,7 @@ class Document:
         return Bounds.from_qrect(self._document.bounds())
 
 
-    def selection(self) -> Selection:
+    def selection(self) -> "Selection | None":
         selection = self._document.selection()
 
         if selection is not None:
@@ -954,7 +1003,10 @@ class Document:
             layer.name = name
             layer.is_visible = True
             layer.is_locked = True
-            layer.move_to_top(self.root_layer())
+
+            root_layer = self.root_layer()
+            assert root_layer is not None
+            layer.move_to_top(root_layer)
 
             if not self._resize(Bounds(x, y, image.width, image.height), canvas_resize):
                 self.refresh()
@@ -999,7 +1051,7 @@ class DocumentManager(QObject):
 
 
     def _get_all_layers(self) -> list[LayerMetadata]:
-        layers = []
+        layers: list[LayerMetadata] = []
 
         document = self._document
 
@@ -1007,11 +1059,11 @@ class DocumentManager(QObject):
             root: Layer | None = document.root_layer()
 
             if root is not None:
-                def loop(node: Layer, path: str):
+                def loop(node: Layer, path: list[str]):
                     for layer in node.children():
                         if layer.type.is_group() or layer.type.is_image():
-                            child_path = path + [layer.name]
-                            full_path = " ┊ ".join(child_path)
+                            child_path: list[str] = path + [layer.name]
+                            full_path: str = " ┊ ".join(child_path)
 
                             layers.append(LayerMetadata(layer.id, layer.name, layer.type, full_path))
 
@@ -1033,11 +1085,11 @@ class DocumentManager(QObject):
                 self.layers_changed.emit()
 
 
-    def is_equal(self, new: Document) -> bool:
+    def is_equal(self, new: Document | None) -> bool:
         if self._document is None and new is None:
             return True
         elif self._document is not None and new is not None:
-            return self._document._document == new._document
+            return self._document == new
         else:
             return False
 

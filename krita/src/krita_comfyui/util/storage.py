@@ -34,7 +34,7 @@ class Item[A: JSON]:
         self.default = default
         self.is_default = is_default
         self.value = value
-        self.listeners = []
+        self.listeners: list[Callable[[A, A], None]] = []
 
 
     @classmethod
@@ -55,8 +55,8 @@ class Item[A: JSON]:
                 listener(old_value, new_value)
 
 
-    def with_value(self, f: Callable[[A], None]):
-        def on_change(old, new):
+    def with_value(self, f: Callable[[A], None]) -> Listener[A]:
+        def on_change(old: A, new: A):
             assert self.value == new
             f(new)
         f(self.value)

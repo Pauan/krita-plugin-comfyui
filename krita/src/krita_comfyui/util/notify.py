@@ -3,7 +3,7 @@ import asyncio
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 
-async def notify(notifier, message):
+async def notify(notifier: desktop_notifier.DesktopNotifier, message: str):
     await notifier.send(
         title="Krita ComfyUI",
         message=message,
@@ -21,7 +21,7 @@ class NotifyWorker(QObject):
         self.message.connect(self.on_message)
 
     @pyqtSlot(str)
-    def on_message(self, message):
+    def on_message(self, message: str):
         if self.notifier is None:
             self.notifier = desktop_notifier.DesktopNotifier(
                 app_name="Krita ComfyUI",

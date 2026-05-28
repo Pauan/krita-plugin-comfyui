@@ -1,14 +1,11 @@
 import re
-import math
 from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
-from PyQt6.QtGui import QFontMetricsF
 from PyQt6.QtWidgets import (
     QWidget,
     QCheckBox,
     QToolButton,
     QPushButton,
     QMessageBox,
-    QTextEdit,
     QHBoxLayout,
     QVBoxLayout,
     QProgressBar,
