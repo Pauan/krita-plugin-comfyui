@@ -15,6 +15,7 @@ class OutputsWidget(QWidget):
     def __init__(self, extension, settings):
         super().__init__()
 
+        self.extension = extension
         self.settings = settings
         self.live_mode_enabled = self.settings.item("live_mode_enabled")
 
@@ -78,7 +79,7 @@ class OutputsWidget(QWidget):
 
     def set_text(self, document, text, is_live_mode):
         if is_live_mode:
-            with document.disable_modification():
+            with self.extension.disable_live_mode(), document.disable_modification():
                 self.text.set_text(document, text)
         else:
             self.text.set_text(document, text)

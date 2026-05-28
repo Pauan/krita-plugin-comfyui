@@ -62,6 +62,8 @@ class LiveModeState(QObject):
     def __init__(self, parent, extension):
         super().__init__(parent)
 
+        self.extension = extension
+
         self.live_mode_enabled = extension.settings.settings.item("live_mode_enabled")
         self.fixed_seed_enabled = extension.settings.settings.item("fixed_seed_enabled")
         self.fixed_seed = extension.settings.settings.item("fixed_seed")
@@ -103,6 +105,22 @@ class LiveModeState(QObject):
         self.timer.stop()
 
 
+    def is_changed(self, document, now, force_modified):
+        # It's the first run, so we run immediately.
+        if self.debounce_time is None:
+            return True
+
+        # Only run the workflow if modifications are enabled...
+        if self.extension.live_mode_enabled:
+            # ...and enough time has passed...
+            if now >= self.debounce_time:
+                # ...and the document changed.
+                if force_modified or document.modified:
+                    return True
+
+        return False
+
+
     def check_changed(self, document, *, force_modified=False):
         if not self.is_running:
             return False
@@ -112,13 +130,7 @@ class LiveModeState(QObject):
 
         now = time.monotonic_ns()
 
-        # Run the workflow immediately.
-        if self.debounce_time is None:
-            self.set_debounce_time(document, now)
-            return True
-
-        # Only run the workflow if the document changed and enough time has passed.
-        if (force_modified or document.modified) and now >= self.debounce_time:
+        if self.is_changed(document, now, force_modified):
             self.set_debounce_time(document, now)
             return True
 
@@ -137,7 +149,6 @@ class WorkflowWidget(QWidget):
         super().__init__()
 
         self.extension = extension
-        self.extension.stop_live_mode.connect(self.stop_live_mode)
         self.extension.settings.node_metadata_changed.connect(self.on_metadata_changed)
         self.extension.settings.workflows.changed.connect(self.on_workflows_changed)
 
@@ -578,6 +589,7 @@ class WorkflowWidget(QWidget):
         is_changed = self.live_mode_state.check_changed(self.workflow.document, force_modified=force_modified)
 
         if is_changed:
+            self.extension.job_started.emit()
             self.run_live_workflow()
 
 
@@ -586,6 +598,5 @@ class WorkflowWidget(QWidget):
             self.stop_live_mode()
         else:
             if self.live_mode_state.start():
-                self.extension.live_mode_started.emit()
                 self.maybe_run_live_mode()
                 self.live_mode_changed.emit()

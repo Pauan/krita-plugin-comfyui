@@ -263,7 +263,8 @@ class ActiveNode(AbstractContextManager[None]):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> Literal[False]:
-        self.document.setActiveNode(self.active)
+        if not self.document.activeNode() == self.active:
+            self.document.setActiveNode(self.active)
         return False
 
 
@@ -509,7 +510,17 @@ class Layer:
     def move_to_top(self, parent: Self):
         old_parent = self._node.parentNode()
 
-        if old_parent != parent._node or self._node.index() != len(parent._node.childNodes()) - 1:
+        if old_parent != parent._node:
+            changed = True
+        else:
+            children = parent._node.childNodes()
+
+            if len(children) == 0:
+                changed = True
+            else:
+                changed = self._node != children[-1]
+
+        if changed:
             if old_parent is not None:
                 old_parent.removeChildNode(self._node)
 
@@ -988,28 +999,29 @@ class Document:
 
 
     def show_preview_layer(self, name: str, image: Image, x: int, y: int, canvas_resize: Literal["do nothing", "enlarge", "crop"]):
-        with self.disable_modification(), ActiveNode(self._document):
-            layer = self.find_preview_layer()
+        with self.disable_modification():
+            with ActiveNode(self._document):
+                layer = self.find_preview_layer()
 
-            if layer is None:
-                layer = self.new_paint_layer(name)
+                if layer is None:
+                    layer = self.new_paint_layer(name)
 
-                self.set_key_str("krita_comfyui/preview_layer", "krita_comfyui: Preview Layer ID", layer.id)
+                    self.set_key_str("krita_comfyui/preview_layer", "krita_comfyui: Preview Layer ID", layer.id)
 
-            current_bounds = self._get_current_bounds()
+                current_bounds = self._get_current_bounds()
 
-            layer.replace_image(image, x - current_bounds.x, y - current_bounds.y)
+                layer.replace_image(image, x - current_bounds.x, y - current_bounds.y)
 
-            layer.name = name
-            layer.is_visible = True
-            layer.is_locked = True
+                layer.name = name
+                layer.is_visible = True
+                layer.is_locked = True
 
-            root_layer = self.root_layer()
-            assert root_layer is not None
-            layer.move_to_top(root_layer)
+                root_layer = self.root_layer()
+                assert root_layer is not None
+                layer.move_to_top(root_layer)
 
-            if not self._resize(Bounds(x, y, image.width, image.height), canvas_resize):
-                self.refresh()
+                if not self._resize(Bounds(x, y, image.width, image.height), canvas_resize):
+                    self.refresh()
 
 
 class LayerMetadata:

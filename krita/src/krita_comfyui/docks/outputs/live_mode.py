@@ -19,7 +19,7 @@ class LiveModeImage(QLabel):
         self.root = root
 
         self.extension = extension
-        self.extension.live_mode_started.connect(self.on_live_mode_started)
+        self.extension.job_started.connect(self.on_job_started)
 
         self.document = document
         self.document.document_changed.connect(self.load_image)
@@ -168,52 +168,54 @@ class LiveModeImage(QLabel):
 
 
     def new_image(self, document, group, is_visible):
-        images = self.flattened_images(group)
+        with self.extension.disable_live_mode(), document.disable_modification():
+            images = self.flattened_images(group)
 
 
-        if len(images) > 1:
-            warning = f"Generated {len(images)} images, only showing the last one."
-        else:
-            warning = None
-
-        self.warning_widget.store(document, warning)
-
-
-        is_same_document = self.document.is_equal(document)
-
-        if is_same_document:
-            if warning is None:
-                self.warning_widget.hide()
+            if len(images) > 1:
+                warning = f"Generated {len(images)} images, only showing the last one."
             else:
-                self.warning_widget.show(warning)
+                warning = None
 
-            current_image = self.current_image
-        else:
-            current_image = SerializedImage.load(document, SerializedImage.live_mode_uuid())
+            self.warning_widget.store(document, warning)
 
 
-        if current_image is None:
-            selected = False
-        else:
-            selected = current_image.is_selected()
+            is_same_document = self.document.is_equal(document)
+
+            if is_same_document:
+                if warning is None:
+                    self.warning_widget.hide()
+                else:
+                    self.warning_widget.show(warning)
+
+                current_image = self.current_image
+            else:
+                current_image = SerializedImage.load(document, SerializedImage.live_mode_uuid())
 
 
-        # If there are multiple images we use the last one.
-        serialized = SerializedImage.save_new_image(document, SerializedImage.live_mode_uuid(), images[-1])
-        assert not serialized.is_selected()
+            if current_image is None:
+                selected = False
+            else:
+                selected = current_image.is_selected()
 
-        if selected:
-            serialized.set_selected(document, selected)
 
-        if is_same_document:
-            self.set_image(serialized)
+            # If there are multiple images we use the last one.
+            serialized = SerializedImage.save_new_image(document, SerializedImage.live_mode_uuid(), images[-1])
+            assert not serialized.is_selected()
 
-            if is_visible:
-                self.update_image_preview(document)
+            if selected:
+                serialized.set_selected(document, selected)
+
+            if is_same_document:
+                self.set_image(serialized)
+
+                if is_visible:
+                    self.update_image_preview(document)
 
 
     def set_selected(self, document, selected, *, update_preview=True):
         self.current_image.set_selected(document, selected)
+
         self.overlay.setVisible(selected)
 
         if update_preview:
@@ -222,7 +224,6 @@ class LiveModeImage(QLabel):
 
     def update_image_preview(self, document):
         if self.current_image is not None and self.current_image.is_selected():
-            self.extension.stop_live_mode.emit()
             self.current_image.show_preview(document)
         else:
             document.hide_preview_layer()
@@ -232,7 +233,8 @@ class LiveModeImage(QLabel):
         document = self.document.current()
 
         if document is not None:
-            self.update_image_preview(document)
+            with self.extension.disable_live_mode(), document.disable_modification():
+                self.update_image_preview(document)
 
 
     def on_image_clicked(self):
@@ -240,15 +242,17 @@ class LiveModeImage(QLabel):
 
         if document is not None:
             if self.current_image is not None:
-                self.set_selected(document, not self.current_image.is_selected())
+                with self.extension.disable_live_mode(), document.disable_modification():
+                    self.set_selected(document, not self.current_image.is_selected())
 
 
-    def on_live_mode_started(self):
+    def on_job_started(self):
         document = self.document.current()
 
         if document is not None:
             if self.current_image is not None:
-                self.set_selected(document, False)
+                with self.extension.disable_live_mode(), document.disable_modification():
+                    self.set_selected(document, False)
 
 
     def apply_selected(self, document):
@@ -262,10 +266,11 @@ class LiveModeImage(QLabel):
 
         if document is not None:
             if self.current_image is not None:
-                self.apply_selected(document)
+                with self.extension.disable_live_mode():
+                    self.apply_selected(document)
 
-                # TODO update the bounds of non-live images
-                SerializedImages.apply_new_layers(document, [self.current_image])
+                    # TODO update the bounds of non-live images
+                    SerializedImages.apply_new_layers(document, [self.current_image])
 
 
     def apply_existing_layer(self):
@@ -273,10 +278,11 @@ class LiveModeImage(QLabel):
 
         if document is not None:
             if self.current_image is not None:
-                self.apply_selected(document)
+                with self.extension.disable_live_mode():
+                    self.apply_selected(document)
 
-                # TODO update the bounds of non-live images
-                SerializedImages.apply_existing_layer(document, [self.current_image])
+                    # TODO update the bounds of non-live images
+                    SerializedImages.apply_existing_layer(document, [self.current_image])
 
 
     def apply_new_document(self):
@@ -284,9 +290,10 @@ class LiveModeImage(QLabel):
 
         if document is not None:
             if self.current_image is not None:
-                self.apply_selected(document)
+                with self.extension.disable_live_mode(), document.disable_modification():
+                    self.apply_selected(document)
 
-                SerializedImages.apply_new_document(document, [self.current_image])
+                    SerializedImages.apply_new_document(document, [self.current_image])
 
 
     def delete_all(self):
@@ -297,17 +304,19 @@ class LiveModeImage(QLabel):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            document = self.document.current()
+            with self.extension.disable_live_mode():
+                document = self.document.current()
 
-            if document is not None:
-                if self.current_image is not None:
-                    self.current_image.remove(document)
+                if document is not None:
+                    with document.disable_modification():
+                        if self.current_image is not None:
+                            self.current_image.remove(document)
 
-                document.remove_preview_layer()
-                self.warning_widget.store(document, None)
+                        document.remove_preview_layer()
+                        self.warning_widget.store(document, None)
 
-            self.warning_widget.hide()
-            self.clear_image()
+                self.warning_widget.hide()
+                self.clear_image()
 
 
     def show_context_menu(self, pos: QPoint):
@@ -317,7 +326,8 @@ class LiveModeImage(QLabel):
 
         if document is not None:
             if has_image:
-                self.set_selected(document, True)
+                with self.extension.disable_live_mode(), document.disable_modification():
+                    self.set_selected(document, True)
 
         for menu in self.image_menus:
             menu.setEnabled(has_image)
@@ -419,8 +429,7 @@ class LiveModeWidget(QFrame):
 
 
     def new_images(self, document, group, is_visible):
-        with document.disable_modification():
-            self.image_widget.new_image(document, group, is_visible)
+        self.image_widget.new_image(document, group, is_visible)
 
 
     def update_preview(self):

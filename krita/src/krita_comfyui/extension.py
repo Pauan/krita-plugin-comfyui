@@ -1,3 +1,4 @@
+import contextlib
 from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -8,12 +9,13 @@ from .util.notify import NotifyWorker
 
 
 class ComfyUIExtension(Extension):
-    stop_live_mode = pyqtSignal()
-    live_mode_started = pyqtSignal()
+    job_started = pyqtSignal()
 
 
     def __init__(self, parent):
         super().__init__(parent)
+
+        self.live_mode_enabled = True
 
         # The notifier needs to run async functions.
         # Instead of connecting Python's async event loop into the QEventLoop,
@@ -39,6 +41,16 @@ class ComfyUIExtension(Extension):
         notifier = parent.notifier()
         notifier.setActive(True)
         notifier.applicationClosing.connect(self.shutdown)
+
+
+    @contextlib.contextmanager
+    def disable_live_mode(self):
+        live_mode_enabled = self.live_mode_enabled
+        try:
+            self.live_mode_enabled = False
+            yield
+        finally:
+            self.live_mode_enabled = live_mode_enabled
 
 
     def show_settings(self):

@@ -357,6 +357,7 @@ class Storage(DictBase):
     def stop(self):
         self.disconnect_items()
         self.root = None
+        self.items = cast(dict[str, Item[JSON]], None)
         self.serialized = None
         self.save_state.enabled = False
 
