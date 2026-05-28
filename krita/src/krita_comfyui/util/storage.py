@@ -7,19 +7,19 @@ from collections.abc import Callable
 
 class Listener[A: JSON]:
     def __init__(self, item: "Item[A]", listener: Callable[[A, A], None]):
-        self.item = item
-        self.listener = listener
+        self._item = item
+        self._listener = listener
 
     def stop(self):
-        self.item.listeners.remove(self.listener)
+        self._item.remove_listener(self._listener)
 
 
 class Item[A: JSON]:
-    def __init__(self, root: "Storage", serialized: dict[str, JSON], id: str, default: A):
+    def __init__(self, parent: "DictBase", id: str, default: A):
         is_default = False
 
         try:
-            value = serialized[id]
+            value = parent.serialized[id]
 
             if not isinstance(value, type(default)):
                 raise TypeError(f"{id} must be of type {type(default)}")
@@ -28,93 +28,97 @@ class Item[A: JSON]:
             value = default
             is_default = True
 
-        self.root = root
-        self.serialized = serialized
-        self.id = id
         self.default = default
         self.is_default = is_default
-        self.value = value
-        self.listeners: list[Callable[[A, A], None]] = []
+
+        self._value = value
+
+        self._parent = parent
+        self._id = id
+        self._listeners: list[Callable[[A, A], None]] = []
 
 
     @classmethod
-    def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: A) -> Self:
-        return cls(root, serialized, id, default)
+    def from_serialized(cls, parent: "DictBase", id: str, default: A) -> Self:
+        return cls(parent, id, default)
 
 
     def add_listener(self, f: Callable[[A, A], None]) -> Listener[A]:
-        self.listeners.append(f)
+        self._listeners.append(f)
         return Listener(self, f)
+
+    def remove_listener(self, f: Callable[[A, A], None]):
+        self._listeners.remove(f)
 
 
     def notify_listeners(self, old_value: A):
-        new_value = self.value
+        new_value = self._value
 
         if old_value != new_value:
-            for listener in self.listeners:
+            for listener in self._listeners:
                 listener(old_value, new_value)
 
 
     def with_value(self, f: Callable[[A], None]) -> Listener[A]:
         def on_change(old: A, new: A):
-            assert self.value == new
+            assert self._value == new
             f(new)
-        f(self.value)
+        f(self._value)
         return self.add_listener(on_change)
 
 
     def disconnect(self):
-        self.root = None
+        self._parent = None
 
 
     def get(self) -> A:
-        return self.value
+        return self._value
 
 
     def set(self, value: A, *, save: bool=True, notify_listeners: bool=True):
-        assert self.root is not None
+        assert self._parent is not None
 
-        old_value = self.value
+        old_value = self._value
 
-        self.value = value
+        self._value = value
         self.is_default = False
 
         if save:
             try:
                 # We only save if the new value is different from the old value.
-                should_save = self.serialized[self.id] != value
+                should_save = self._parent.serialized[self._id] != value
             except KeyError:
                 should_save = True
 
-            self.serialized[self.id] = value
+            self._parent.serialized[self._id] = value
 
             if should_save:
-                self.root.save()
+                self._parent.root.save()
 
         if notify_listeners:
             self.notify_listeners(old_value)
 
 
     def reset_to_default(self, *, save: bool=True, notify_listeners: bool=True):
-        assert self.root is not None
+        assert self._parent is not None
 
         should_save = save and not self.is_default
 
-        old_value = self.value
+        old_value = self._value
 
-        self.value = self.default
+        self._value = self.default
         self.is_default = True
 
         if should_save:
-            del self.serialized[self.id]
-            self.root.save()
+            del self._parent.serialized[self._id]
+            self._parent.root.save()
 
         if notify_listeners:
             self.notify_listeners(old_value)
 
 
     def change_default(self, new_default: A):
-        assert self.root is not None
+        assert self._parent is not None
 
         self.default = new_default
 
@@ -146,7 +150,7 @@ class DictBase:
             return self.items[id]
 
         except KeyError:
-            item = item_class.from_serialized(self.root, self.serialized, id, metadata.get_default())
+            item = item_class.from_serialized(self, id, metadata.get_default())
             self.items[id] = item
             return item
 
@@ -176,11 +180,11 @@ class DictBase:
 
 class ItemDict(DictBase):
     @classmethod
-    def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: dict[str, JSON]) -> Self:
+    def from_serialized(cls, parent: DictBase, id: str, default: dict[str, JSON]) -> Self:
         assert isinstance(default, dict)
 
         try:
-            value = serialized[id]
+            value = parent.serialized[id]
 
             if not isinstance(value, dict):
                 raise TypeError(f"{id} must be a dict")
@@ -188,7 +192,7 @@ class ItemDict(DictBase):
         except KeyError:
             value = default
 
-        return cls(root, value)
+        return cls(parent.root, value)
 
 
     def disconnect(self):
@@ -209,11 +213,11 @@ class ItemList:
 
 
     @classmethod
-    def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: list[dict[str, JSON]]) -> Self:
+    def from_serialized(cls, parent: DictBase, id: str, default: list[dict[str, JSON]]) -> Self:
         assert isinstance(default, list)
 
         try:
-            values = serialized[id]
+            values = parent.serialized[id]
 
             if not isinstance(values, list):
                 raise TypeError(f"{id} must be a list")
@@ -221,7 +225,7 @@ class ItemList:
         except KeyError:
             values = default
 
-        return cls(root, serialized, id, cast(list[dict[str, JSON]], values))
+        return cls(parent.root, parent.serialized, id, cast(list[dict[str, JSON]], values))
 
 
     def disconnect(self):
