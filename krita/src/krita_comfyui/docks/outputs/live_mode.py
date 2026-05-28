@@ -19,8 +19,6 @@ class LiveModeImage(QLabel):
         self.root = root
 
         self.extension = extension
-        self.extension.job_started.connect(self.on_job_started)
-
         self.document = document
         self.document.document_changed.connect(self.load_image)
 
@@ -246,7 +244,7 @@ class LiveModeImage(QLabel):
                     self.set_selected(document, not self.current_image.is_selected())
 
 
-    def on_job_started(self):
+    def job_started(self):
         document = self.document.current()
 
         if document is not None:
@@ -290,7 +288,7 @@ class LiveModeImage(QLabel):
 
         if document is not None:
             if self.current_image is not None:
-                with self.extension.disable_live_mode(), document.disable_modification():
+                with self.extension.disable_live_mode():
                     self.apply_selected(document)
 
                     SerializedImages.apply_new_document(document, [self.current_image])
@@ -430,6 +428,10 @@ class LiveModeWidget(QFrame):
 
     def new_images(self, document, group, is_visible):
         self.image_widget.new_image(document, group, is_visible)
+
+
+    def job_started(self):
+        self.image_widget.job_started()
 
 
     def update_preview(self):

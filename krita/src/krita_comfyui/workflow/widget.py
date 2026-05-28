@@ -534,6 +534,8 @@ class WorkflowWidget(QWidget):
 
 
     def run_workflow(self):
+        self.extension.job_started.emit()
+
         with Perf("run_workflow"):
             self.workflow.run_graph(
                 ui_values=self.get_ui_values(),

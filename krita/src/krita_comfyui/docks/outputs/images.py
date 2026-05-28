@@ -239,6 +239,20 @@ class ImageWidget(QListWidget):
             self.maybe_show_preview(document, selected)
 
 
+    def deselect_all_images(self):
+        with BlockSignals(self):
+            for item in self.selectedItems():
+                item.setSelected(False)
+
+            self.selected = []
+
+            document = self.document.current()
+
+            if document is not None:
+                self.update_selected_state(document)
+                document.hide_preview_layer()
+
+
     def apply_selected_images(self, document):
         with BlockSignals(self):
             self.selected = []
@@ -451,6 +465,10 @@ class ImageWidget(QListWidget):
             # Since it's in another document we don't need to load
             # the existing images, we only need to save new images.
             SerializedImages.load(document, load_images=False).add_new_group(document, group)
+
+
+    def job_started(self):
+        self.deselect_all_images()
 
 
     def show_context_menu(self, pos: QPoint):

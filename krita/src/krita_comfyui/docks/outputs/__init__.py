@@ -16,6 +16,8 @@ class OutputsWidget(QWidget):
         super().__init__()
 
         self.extension = extension
+        self.extension.job_started.connect(self.on_job_started)
+
         self.settings = settings
         self.live_mode_enabled = self.settings.item("live_mode_enabled")
 
@@ -48,6 +50,13 @@ class OutputsWidget(QWidget):
         else:
             self.image.update_preview()
             self.stack.set_current_index(0)
+
+
+    def on_job_started(self):
+        if self.live_mode_enabled.get():
+            self.live_mode.job_started()
+        else:
+            self.image.job_started()
 
 
     def get_title(self):
