@@ -2,7 +2,7 @@ import folder_paths
 from comfy.cldm.control_types import UNION_CONTROLNET_TYPES
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
-from .shared import zip_lists
+from shared import zip_lists
 
 
 @io.comfytype(io_type="KRITA_CONTROL_NET")

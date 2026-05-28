@@ -1,16 +1,12 @@
 [project]
-name = "krita_plugin"
+name = "build"
 version = "1.0.0"
-description = "Add your description here"
+description = "Build system"
 authors = [
     { name = "Pauan", email = "pauanyu+github@pm.me" }
 ]
 requires-python = ">=3.13"
-dependencies = [
-    "desktop-notifier>=6.2.0",
-    "numpy>=2.4.4",
-    "simpleeval>=1.0.7",
-]
+dependencies = []
 
 [dependency-groups]
 local = [
@@ -23,8 +19,3 @@ shared = { workspace = true }
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
-
-[tool.uv.build-backend]
-module-name = "krita_comfyui"
-#module-root = "krita"
-

@@ -1,4 +1,4 @@
-from ...shared import zip_lists
+from shared import zip_lists
 
 
 def zip_dict(input):

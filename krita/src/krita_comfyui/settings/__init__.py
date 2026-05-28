@@ -5,7 +5,7 @@ from json import dump, dumps, load, loads
 from pathlib import Path
 from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
-from ..shared import timestamp_local, Perf
+from shared import timestamp_local, Perf
 from ..util.qt import BlockSignals
 from ..util.storage import Storage, Metadata
 

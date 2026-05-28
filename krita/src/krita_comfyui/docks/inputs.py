@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QWidgetAction,
     QWidget,
 )
+from shared import MIN_SEED, MAX_SEED
 from ..extension import ComfyUIExtension
 from ..server import GraphState
 from ..util.krita import get_extension
@@ -16,7 +17,6 @@ from ..util.qt import LayoutManager
 from ..workflow.widget import WorkflowWidget
 from ..workflow.ui import UiBoolean, UiInt
 from ..workflow.graph import WorkflowGraph
-from ..shared import MIN_SEED, MAX_SEED
 
 
 class JobWidget(QWidget):

@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QWidget,
     QFrame,
 )
-from ..shared import Perf
+from shared import Perf
 from ..util import number_of_decimals
 from ..util.krita import DocumentManager
 from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals

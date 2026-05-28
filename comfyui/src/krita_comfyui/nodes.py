@@ -1,8 +1,8 @@
 import textwrap
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
+from shared import timestamp_local, graph_list, zip_lists, serialize_any, detail_size
 from .util import decode_image, decode_mask, encode_image, is_image, get_size
-from .shared import timestamp_local, graph_list, zip_lists, serialize_any, detail_size
 
 
 def always_execute():

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
+from shared import format_duration
 from ...util.krita import Document, Image, Layer, Bounds
-from ...shared import format_duration
 
 
 DEFAULT_CANVAS_RESIZE = "do nothing"

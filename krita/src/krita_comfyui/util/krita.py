@@ -6,8 +6,8 @@ from PyQt6 import sip
 from typing import NamedTuple
 from json import (dumps, loads)
 import numpy as np
+from shared import round_to_multiple
 from . import clamp
-from ..shared import round_to_multiple
 
 from PyQt6.QtCore import QObject, QByteArray, QSize, QRect, QBuffer, QUuid, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage, QImageWriter

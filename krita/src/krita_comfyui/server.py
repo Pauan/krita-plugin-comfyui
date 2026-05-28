@@ -4,10 +4,10 @@ import time
 import traceback
 from dataclasses import dataclass
 from enum import Enum, auto
+from shared import Perf
 from . import util
 from .settings import LogLevel
 from .util.krita import Document, Image
-from .shared import Perf
 from .workflow.graph import WorkflowGraph
 
 from PyQt6.QtCore import QObject, QTimer, QUrl, QUrlQuery, QByteArray, pyqtSignal, pyqtSlot

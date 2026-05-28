@@ -1,6 +1,7 @@
 {
+    "typeCheckingMode": "strict",
     "include": [
-        "shared/**"
-    ],
-    "strict": ["**"]
+        "shared/**",
+        "krita/src/krita_comfyui/util/**",
+    ]
 }

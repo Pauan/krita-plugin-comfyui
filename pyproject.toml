@@ -4,11 +4,17 @@ build-backend = "uv_build"
 
 [tool.uv.workspace]
 members = [
+    "build",
     "krita",
     "comfyui",
+    "shared",
 ]
+
+[tool.uv.sources]
+shared = { workspace = true }
 
 [dependency-groups]
 dev = [
+    "pyqt6>=6.11.0",
     "pyright>=1.1.409",
 ]

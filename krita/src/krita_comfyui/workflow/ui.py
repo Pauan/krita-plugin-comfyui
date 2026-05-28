@@ -11,9 +11,9 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QCompleter,
 )
+from shared import MIN_INTEGER, MAX_INTEGER
 from ..util.qt import BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
 from ..util import number_of_lines, lerp, normalize, clamp
-from ..shared import MIN_INTEGER, MAX_INTEGER
 
 
 class InputEqual:

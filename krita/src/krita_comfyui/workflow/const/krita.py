@@ -1,7 +1,7 @@
 # This module contains constant-evaluation versions of the Krita nodes.
+from shared import MIN_SEED, MAX_SEED, serialize_any, zip_lists, detail_size
 from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, is_link, function, constant
 from ...util.krita import Bounds
-from ...shared import MIN_SEED, MAX_SEED, serialize_any, zip_lists, detail_size
 
 
 class UiLink(Link):
