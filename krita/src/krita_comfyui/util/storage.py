@@ -1,7 +1,7 @@
 import json
 import contextlib
 from shared import JSON
-from typing import Self, overload, cast
+from typing import Self, Iterable, overload, cast
 from collections.abc import Callable
 
 
@@ -130,16 +130,16 @@ class DictBase:
 
 
     @overload
-    def _make_item[A: JSON](self, id: str, default: A, item_class: type[Item[A]]) -> Item[A]: ...
+    def _make_item[A: JSON](self, id: str, default: A | None, item_class: type[Item[JSON]]) -> Item[A]: ...
 
     @overload
-    def _make_item(self, id: str, default: dict[str, JSON], item_class: type["ItemDict"]) -> "ItemDict": ...
+    def _make_item(self, id: str, default: dict[str, JSON] | None, item_class: type["ItemDict"]) -> "ItemDict": ...
 
     @overload
-    def _make_item(self, id: str, default: dict[str, JSON], item_class: type["ItemList"]) -> "ItemList": ...
+    def _make_item(self, id: str, default: list[dict[str, JSON]] | None, item_class: type["ItemList"]) -> "ItemList": ...
 
     def _make_item(self, id, default, item_class):
-        metadata = self.root._metadata(id, default)
+        metadata = self.root._metadata(id, default) # pyright: ignore [reportPrivateUsage]
         id = metadata.get_id()
 
         try:
@@ -152,16 +152,16 @@ class DictBase:
 
 
     def get[A: JSON](self, id: str, *, default: A | None=None) -> A:
-        metadata = self.root._metadata(id, default)
+        metadata: Metadata[A] = self.root._metadata(id, default) # pyright: ignore [reportPrivateUsage]
         id = metadata.get_id()
 
         try:
-            return self.serialized[id]
+            return cast(A, self.serialized[id])
         except KeyError:
             return metadata.get_default()
 
 
-    def keys(self) -> list[str]:
+    def keys(self) -> Iterable[str]:
         return self.serialized.keys()
 
     def item[A: JSON](self, id: str, *, default: A | None=None) -> Item[A]:
@@ -177,8 +177,7 @@ class DictBase:
 class ItemDict(DictBase):
     @classmethod
     def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: dict[str, JSON]) -> Self:
-        if default is None:
-            default = {}
+        assert isinstance(default, dict)
 
         try:
             value = serialized[id]
@@ -188,9 +187,6 @@ class ItemDict(DictBase):
 
         except KeyError:
             value = default
-
-        assert isinstance(value, dict)
-        assert isinstance(default, dict)
 
         return cls(root, value)
 
@@ -213,9 +209,8 @@ class ItemList:
 
 
     @classmethod
-    def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: list[dict[str, JSON]] | None) -> Self:
-        if default is None:
-            default = []
+    def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: list[dict[str, JSON]]) -> Self:
+        assert isinstance(default, list)
 
         try:
             values = serialized[id]
@@ -226,10 +221,7 @@ class ItemList:
         except KeyError:
             values = default
 
-        assert isinstance(values, list)
-        assert isinstance(default, list)
-
-        return cls(root, serialized, id, values)
+        return cls(root, serialized, id, cast(list[dict[str, JSON]], values))
 
 
     def disconnect(self):
@@ -271,6 +263,8 @@ class ItemList:
 
 
     def append(self, value: dict[str, JSON]) -> ItemDict:
+        assert self.root is not None
+
         item = ItemDict(self.root, value)
 
         self.values.append(value)
@@ -291,6 +285,7 @@ class Metadata[A]:
         return self.id
 
     def get_default(self) -> A:
+        assert self.default is not None
         return self.default
 
 
@@ -332,12 +327,12 @@ class SaveState:
 
 class Storage(DictBase):
     # These attributes are intended to be overwritten by subclasses
-    ITEM_CLASS = Item
-    ITEM_DICT_CLASS = ItemDict
-    ITEM_LIST_CLASS = ItemList
+    ITEM_CLASS: type[Item[JSON]] = Item
+    ITEM_DICT_CLASS: type[ItemDict] = ItemDict
+    ITEM_LIST_CLASS: type[ItemList] = ItemList
 
     # These methods are intended to be overwritten by subclasses
-    def _metadata[A](self, id: str, default: A) -> Metadata[A]:
+    def _metadata[A](self, id: str, default: A | None) -> Metadata[A]:
         return Metadata(id, default)
 
     def _save(self):
@@ -363,7 +358,6 @@ class Storage(DictBase):
         self.disconnect_items()
         self.root = None
         self.serialized = None
-        self.items = None
         self.save_state.enabled = False
 
 
