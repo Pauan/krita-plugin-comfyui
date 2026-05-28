@@ -20,5 +20,6 @@ reinstall-package = ["shared"]
 [dependency-groups]
 dev = [
     "pyqt6>=6.11.0",
+    "pyqt6-stubs>=20250824",
     "pyright>=1.1.409",
 ]

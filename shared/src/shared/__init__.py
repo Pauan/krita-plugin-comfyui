@@ -6,8 +6,11 @@ import time
 import math
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Generator, TypedDict, Literal, Type, TypeVar
+from typing import Generator, TypedDict, TypeAlias, Literal, Type, TypeVar
 from datetime import datetime, timezone
+
+
+JSON: TypeAlias = dict[str, "JSON"] | list["JSON"] | str | int | float | bool | None
 
 
 # 53-bit signed integers

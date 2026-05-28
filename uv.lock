@@ -13,6 +13,7 @@ members = [
 [manifest.dependency-groups]
 dev = [
     { name = "pyqt6", specifier = ">=6.11.0" },
+    { name = "pyqt6-stubs", specifier = ">=20250824" },
     { name = "pyright", specifier = ">=1.1.409" },
 ]
 
@@ -38,7 +39,7 @@ local = [
 [package.metadata]
 
 [package.metadata.requires-dev]
-local = [{ name = "shared" }]
+local = [{ name = "shared", editable = "shared" }]
 
 [[package]]
 name = "dbus-fast"
@@ -96,7 +97,7 @@ local = [
 [package.metadata]
 
 [package.metadata.requires-dev]
-local = [{ name = "shared" }]
+local = [{ name = "shared", editable = "shared" }]
 
 [[package]]
 name = "krita-plugin"
@@ -121,7 +122,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-local = [{ name = "shared" }]
+local = [{ name = "shared", editable = "shared" }]
 
 [[package]]
 name = "nodeenv"
@@ -237,6 +238,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/98/f4/886f901f1e04da717a11e180ba19a9c7fc62da170966d57206006f173bda/pyqt6_sip-13.11.1-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:fcadd68e09ee24cdda8f8bfcba52e59c9b297055d2c450f0eb89afa61a8dc31a", size = 321846, upload-time = "2026-03-09T13:01:29.817Z" },
     { url = "https://files.pythonhosted.org/packages/96/f2/b68fd566f7f86dbb53d933489e70487cabaea0e0161690e4899653bbc7fb/pyqt6_sip-13.11.1-cp314-cp314-win_amd64.whl", hash = "sha256:581e287bf42587593b88b30d9db06ed0fccbf40f345a5bd3ec3f00a5692e2430", size = 55055, upload-time = "2026-03-09T13:01:33.467Z" },
     { url = "https://files.pythonhosted.org/packages/8d/42/efb7ced69f7d1d31eb8f19b2d778aeb182be7e070569d02b9057ac478e3e/pyqt6_sip-13.11.1-cp314-cp314-win_arm64.whl", hash = "sha256:42b62530a9b6a9c6e29c2941b8ab78258652da0aeae4eb1fc9a0631d19a7a7b2", size = 49597, upload-time = "2026-03-09T13:01:34.49Z" },
+]
+
+[[package]]
+name = "pyqt6-stubs"
+version = "20250824"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/eb/08/a5061968fed399314bd83f1b225092ff8102d9bdc9fd13b70010aaf7fb7e/pyqt6_stubs-20250824.tar.gz", hash = "sha256:f56958e34fb69e52c19ce24f5b59f181dde9a1e2fe0738aa8780e6b9a9b809d9", size = 331916, upload-time = "2025-08-24T12:04:49.343Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/54/57/08d3a5c19f2d2fd773d2329d19692e682ab9e2a6620c1a586a744d50b52b/pyqt6_stubs-20250824-py3-none-any.whl", hash = "sha256:4b77dc40f5dab7ca4ba899fff4c1db8de9cc73799ee98f56cae63349f18a6e52", size = 369983, upload-time = "2025-08-24T12:04:47.605Z" },
 ]
 
 [[package]]
