@@ -2,7 +2,7 @@ import krita
 import math
 from pathlib import Path
 from enum import Enum
-from typing import NamedTuple, Self, Literal
+from typing import NamedTuple, Self, Literal, Generator
 from json import (dumps, loads)
 import numpy as np
 from shared import JSON, round_to_multiple
@@ -85,104 +85,6 @@ class LayerType(Enum):
             LayerType.transform,
             LayerType.colorize,
         )
-
-
-class LayerMetadata:
-    def __init__(self, id: str, name: str, type: LayerType, path: str):
-        self.id = id
-        self.name = name
-        self.type = type
-        self.path = path
-
-    def __eq__(self, other: object):
-        if isinstance(other, LayerMetadata):
-            return self.id == other.id and self.name == other.name and self.type == other.type and self.path == other.path
-        else:
-            return NotImplemented
-
-
-"""
-    Manages the current document, notifies when it changes, and also notifies when layers change.
-"""
-class DocumentManager(QObject):
-    document_changed = pyqtSignal()
-    layers_changed = pyqtSignal()
-
-
-    def __init__(self, parent: QObject):
-        super().__init__(parent)
-
-        self._document: Document | None = None
-
-        self.layers: list[LayerMetadata] = []
-
-        # Krita doesn't provide any way to be notified when the layers are changed,
-        # so unfortunately we have to poll in order to detect changes.
-        self._timer: QTimer = QTimer(self)
-        self._timer.start(500)
-        self._timer.timeout.connect(self._update_layers)
-
-        self.check_changes()
-
-
-    def _get_all_layers(self) -> list[LayerMetadata]:
-        layers = []
-
-        document = self._document
-
-        if document is not None:
-            root: Layer | None = document.root_layer()
-
-            if root is not None:
-                def loop(node: Layer, path: str):
-                    for layer in node.children():
-                        if layer.type.is_group() or layer.type.is_image():
-                            child_path = path + [layer.name]
-                            full_path = " ┊ ".join(child_path)
-
-                            layers.append(LayerMetadata(layer.id, layer.name, layer.type, full_path))
-
-                            loop(layer, child_path)
-
-                loop(root, [])
-
-        return layers
-
-
-    @pyqtSlot()
-    def _update_layers(self, emit: bool=True):
-        new_layers = self._get_all_layers()
-
-        if self.layers != new_layers:
-            self.layers = new_layers
-
-            if emit:
-                self.layers_changed.emit()
-
-
-    def is_equal(self, new: Document) -> bool:
-        if self._document is None and new is None:
-            return True
-        elif self._document is not None and new is not None:
-            return self._document._document == new._document
-        else:
-            return False
-
-
-    def current(self):
-        document = Document.current()
-
-        if self.is_equal(document):
-            return self._document
-
-
-    def check_changes(self):
-        document = Document.current()
-
-        if not self.is_equal(document):
-            self._document = document
-            self._update_layers(False)
-            self.document_changed.emit()
 
 
 class Axis:
@@ -299,7 +201,7 @@ class Bounds(NamedTuple):
         return bounds
 
 
-    def clamp_to_parent(self, parent: Self2) -> Self:
+    def clamp_to_parent(self, parent: Self) -> Self:
         parent_right = parent.x + parent.width
         parent_bottom = parent.y + parent.height
 
@@ -337,6 +239,292 @@ class ActiveNode:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.document.setActiveNode(self.active)
         return False
+
+
+class Mask:
+    def __init__(self, qimage: QImage):
+        self._qimage = qimage
+
+
+    @staticmethod
+    def solid(value: int, width: int, height: int) -> Self:
+        qimage = QImage(width, height, QImage.Format.Format_Grayscale8)
+        qimage.fill(value)
+        return Mask(qimage)
+
+
+    @staticmethod
+    def from_packed_bytes(data: QByteArray, width: int, height: int) -> Self:
+        stride = width
+        qimg = QImage(data, width, height, stride, QImage.Format.Format_Grayscale8)
+        return Mask(qimg)
+
+
+    @property
+    def width(self) -> int:
+        return self._qimage.width()
+
+    @property
+    def height(self) -> int:
+        return self._qimage.height()
+
+
+    def check_format(self):
+        assert self._qimage.format() == QImage.Format.Format_Grayscale8
+
+
+    def is_solid(self, value: int) -> bool:
+        raw = Image(self._qimage).bytes()
+
+        array = np.frombuffer(bytes(raw), dtype=np.uint8)
+
+        return np.all(array == value)
+
+
+    # TODO replace with base85
+    def to_base64(self) -> str:
+        return Image(self._qimage).to_base64()
+
+
+class Image:
+    def __init__(self, qimage: QImage):
+        self._qimage = qimage
+
+
+    @staticmethod
+    def filename(name: str) -> str:
+        return str(Path(__file__).parent.parent / "images" / name)
+
+
+    @staticmethod
+    def load_file(filename: str) -> Self:
+        path = Image.filename(filename)
+        image = QImage()
+        if not image.load(path):
+            raise RuntimeError("Failed to load image {}", path)
+        return Image(image)
+
+
+    @staticmethod
+    def from_qicon(qicon: QIcon, width: int, height: int, mode: QIcon.Mode=QIcon.Mode.Normal, state: QIcon.State=QIcon.State.Off) -> Self:
+        qimage = qicon.pixmap(QSize(width, height), mode, state).toImage()
+        qimage.convertTo(QImage.Format.Format_ARGB32)
+        return Image(qimage)
+
+
+    # TODO replace with base85
+    @staticmethod
+    def from_base64(data: str, width: int, height: int) -> Self:
+        bytes = QByteArray.fromBase64(data.encode("utf-8"))
+        return Image.from_packed_bytes(bytes, width, height, swap_rgb=True)
+
+
+    @staticmethod
+    def from_krita_qimage(qimage: QImage) -> Self:
+        # Krita uses BGR so we have to swap it to RGB
+        qimage.rgbSwap()
+        return Image(qimage)
+
+
+    @staticmethod
+    def from_packed_bytes(data: QByteArray, width: int, height: int, swap_rgb: bool) -> Self:
+        assert data.size() == (width * height) * 4
+
+        stride = width * 4
+        qimage = QImage(data, width, height, stride, QImage.Format.Format_ARGB32)
+
+        # Krita uses BGR so we have to swap it to RGB
+        if swap_rgb:
+            qimage.rgbSwap()
+
+        return Image(qimage)
+
+
+    @property
+    def width(self) -> int:
+        return self._qimage.width()
+
+    @property
+    def height(self) -> int:
+        return self._qimage.height()
+
+    def byte_size(self) -> int:
+        return self._qimage.sizeInBytes()
+
+    def bytes(self) -> QByteArray:
+        ptr = self._qimage.constBits()
+        return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
+
+
+    def check_format(self):
+        assert self._qimage.format() == QImage.Format.Format_ARGB32
+
+
+    def scale_to_fit(self, width: int, height: int) -> Self:
+        scale = min(width / self.width, height / self.height)
+
+        # Scale the width / height while keeping the same aspect ratio
+        width = int(round(self.width * scale))
+        height = int(round(self.height * scale))
+
+        if self.width == width and self.height == height:
+            return Image(self._qimage.copy())
+
+        mode = Qt.AspectRatioMode.IgnoreAspectRatio
+        quality = Qt.TransformationMode.SmoothTransformation
+        scaled = self._qimage.scaled(width, height, mode, quality)
+        return Image(scaled)
+
+
+    def draw_image(self, image: Self, bounds: Bounds):
+        mode = QPainter.CompositionMode.CompositionMode_SourceOver
+        painter = QPainter(self._qimage)
+        painter.setCompositionMode(mode)
+        painter.drawImage(bounds.to_qrect(), image._qimage)
+        painter.end()
+
+
+    def draw_icon(self, icon: QIcon, bounds: Bounds, alignment: Qt.AlignmentFlag, state: QIcon.State):
+        mode = QPainter.CompositionMode.CompositionMode_SourceOver
+        painter = QPainter(self._qimage)
+        painter.setCompositionMode(mode)
+        icon.paint(painter, bounds.to_qrect(), alignment, QIcon.Mode.Normal, state)
+        painter.end()
+
+
+    def to_pixmap(self) -> QPixmap:
+        return QPixmap.fromImage(self._qimage)
+
+    def to_icon(self) -> QIcon:
+        return QIcon(self.to_pixmap())
+
+
+    # TODO replace with base85
+    def to_base64(self) -> str:
+        return self.bytes().toBase64().data().decode("utf-8")
+
+
+class Layer:
+    def __init__(self, node: krita.Node):
+        self._node = node
+
+
+    @staticmethod
+    def fromImage(document: "Document", name: str, image: Image, x: int, y: int) -> Self:
+        layer = document.new_paint_layer(name)
+        layer.write_image(image, x, y)
+        return layer
+
+
+    @property
+    def id(self) -> str:
+        return self._node.uniqueId().toString()
+
+    @property
+    def parent(self) -> Self:
+        return Layer(self._node.parentNode())
+
+    @property
+    def type(self) -> LayerType:
+        return LayerType(self._node.type())
+
+
+    @property
+    def name(self) -> str:
+        return self._node.name()
+
+    @name.setter
+    def name(self, value: str):
+        if self.name != value:
+            self._node.setName(value)
+
+
+    @property
+    def is_visible(self) -> bool:
+        return self._node.visible()
+
+    @is_visible.setter
+    def is_visible(self, value: bool):
+        if self.is_visible != value:
+            self._node.setVisible(value)
+
+
+    @property
+    def is_locked(self) -> bool:
+        return self._node.locked()
+
+    @is_locked.setter
+    def is_locked(self, value: bool):
+        if self.is_locked != value:
+            self._node.setLocked(value)
+
+
+    def merge_down(self):
+        self._node.mergeDown()
+        self._node = None
+
+
+    def write_image(self, image: Self, x: int, y: int):
+        if not self._node.setPixelData(image.bytes(), x, y, image.width, image.height):
+            raise RuntimeError("Writing image failed")
+
+
+    def replace_image(self, image: Image, x: int, y: int):
+        self.write_image(image, x, y)
+        self.crop(x, y, image.width, image.height)
+
+
+    def move_to_top(self, parent: Self):
+        old_parent = self._node.parentNode()
+
+        if old_parent != parent._node or self._node.index() != len(parent._node.childNodes()) - 1:
+            if old_parent is not None:
+                old_parent.removeChildNode(self._node)
+
+            parent._node.addChildNode(self._node, None)
+
+
+    def remove(self):
+        self._node.remove()
+
+
+    def crop(self, x: int, y: int, width: int, height: int):
+        self._node.cropNode(x, y, width, height)
+
+
+    def insert_child(self, child: Self, above: Self | None=None):
+        if above is None:
+            self._node.addChildNode(child._node, None)
+        else:
+            self._node.addChildNode(child._node, above._node)
+
+
+    # Iterates over the immediate children
+    def children(self) -> Generator[Self, None, None]:
+        for child in reversed(self._node.childNodes()):
+            yield Layer(child)
+
+
+    # Iterates over all children, recursively
+    def all_children(self) -> Generator[Self, None, None]:
+        for child in self.children():
+            yield child
+
+            yield from child.all_children()
+
+
+    def bounds(self) -> Bounds:
+        return Bounds.from_qrect(self._node.bounds())
+
+
+    def image(self, bounds: Bounds) -> Image:
+        assert self._node.colorDepth() == "U8", "Can only get the pixels of 8-bit images"
+
+        data = self._node.projectionPixelData(bounds.x, bounds.y, bounds.width, bounds.height)
+
+        assert data is not None and data.size() >= bounds.area() * 4
+
+        return Image.from_packed_bytes(data, bounds.width, bounds.height, swap_rgb=True)
 
 
 class Selection:
@@ -455,7 +643,7 @@ class Document:
 
 
     @staticmethod
-    def create(width: int, height: int, name: str, color_model: str, color_depth: str, color_profile: str, pixels_per_inch: float) -> Document:
+    def create(width: int, height: int, name: str, color_model: str, color_depth: str, color_profile: str, pixels_per_inch: float) -> Self:
         instance = Krita.instance()
 
         new_document = Document(instance.createDocument(
@@ -502,8 +690,7 @@ class Document:
         return value.size() > 0
 
 
-    # TODO use generics
-    def get_key_bytes(self, key: str, default: object=None) -> QByteArray | object:
+    def get_key_bytes[A](self, key: str, default: A=None) -> QByteArray | A:
         value = self._document.annotation(key)
         if value.size() > 0:
             return value
@@ -513,8 +700,7 @@ class Document:
         self._document.setAnnotation(key, description, value)
 
 
-    # TODO use generics
-    def get_key_str(self, key: str, default: object=None) -> str | object:
+    def get_key_str[A](self, key: str, default: A=None) -> str | A:
         value = self.get_key_bytes(key)
         if value is not None:
             return value.data().decode("utf-8")
@@ -524,8 +710,7 @@ class Document:
         self.set_key_bytes(key, description, QByteArray(value.encode("utf-8")))
 
 
-    # TODO use generics
-    def get_key_json(self, key: str, default: object=None) -> JSON | object:
+    def get_key_json[A](self, key: str, default: A=None) -> JSON | A:
         value = self.get_key_str(key)
         if value is not None:
             return loads(value)
@@ -775,287 +960,99 @@ class Document:
                 self.refresh()
 
 
-class Mask:
-    def __init__(self, qimage: QImage):
-        self._qimage = qimage
-
-
-    @staticmethod
-    def solid(value: int, width: int, height: int) -> Self:
-        qimage = QImage(width, height, QImage.Format.Format_Grayscale8)
-        qimage.fill(value)
-        return Mask(qimage)
-
-
-    @staticmethod
-    def from_packed_bytes(data: QByteArray, width: int, height: int) -> Self:
-        stride = width
-        qimg = QImage(data, width, height, stride, QImage.Format.Format_Grayscale8)
-        return Mask(qimg)
-
-
-    @property
-    def width(self) -> int:
-        return self._qimage.width()
-
-    @property
-    def height(self) -> int:
-        return self._qimage.height()
-
-
-    def check_format(self):
-        assert self._qimage.format() == QImage.Format.Format_Grayscale8
-
-
-    def is_solid(self, value: int) -> bool:
-        raw = Image(self._qimage).bytes()
-
-        array = np.frombuffer(bytes(raw), dtype=np.uint8)
-
-        return np.all(array == value)
-
-
-    # TODO replace with base85
-    def to_base64(self) -> str:
-        return Image(self._qimage).to_base64()
-
-
-class Image:
-    def __init__(self, qimage: QImage):
-        self._qimage = qimage
-
-
-    @staticmethod
-    def filename(name: str) -> str:
-        return str(Path(__file__).parent.parent / "images" / name)
-
-
-    @staticmethod
-    def load_file(filename: str) -> Self:
-        path = Image.filename(filename)
-        image = QImage()
-        if not image.load(path):
-            raise RuntimeError("Failed to load image {}", path)
-        return Image(image)
-
-
-    @staticmethod
-    def from_qicon(qicon: QIcon, width: int, height: int, mode: QIcon.Mode=QIcon.Mode.Normal, state: QIcon.State=QIcon.State.Off) -> Self:
-        qimage = qicon.pixmap(QSize(width, height), mode, state).toImage()
-        qimage.convertTo(QImage.Format.Format_ARGB32)
-        return Image(qimage)
-
-
-    # TODO replace with base85
-    @staticmethod
-    def from_base64(data: str, width: int, height: int) -> Self:
-        bytes = QByteArray.fromBase64(data.encode("utf-8"))
-        return Image.from_packed_bytes(bytes, width, height, swap_rgb=True)
-
-
-    @staticmethod
-    def from_krita_qimage(qimage: QImage) -> Self:
-        # Krita uses BGR so we have to swap it to RGB
-        qimage.rgbSwap()
-        return Image(qimage)
-
-
-    @staticmethod
-    def from_packed_bytes(data: QByteArray, width: int, height: int, swap_rgb: bool) -> Self:
-        assert data.size() == (width * height) * 4
-
-        stride = width * 4
-        qimage = QImage(data, width, height, stride, QImage.Format.Format_ARGB32)
-
-        # Krita uses BGR so we have to swap it to RGB
-        if swap_rgb:
-            qimage.rgbSwap()
-
-        return Image(qimage)
-
-
-    @property
-    def width(self) -> int:
-        return self._qimage.width()
-
-    @property
-    def height(self) -> int:
-        return self._qimage.height()
-
-    def byte_size(self) -> int:
-        return self._qimage.sizeInBytes()
-
-    def bytes(self) -> QByteArray:
-        ptr = self._qimage.constBits()
-        return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
-
-
-    def check_format(self):
-        assert self._qimage.format() == QImage.Format.Format_ARGB32
-
-
-    def scale_to_fit(self, width: int, height: int) -> Self:
-        scale = min(width / self.width, height / self.height)
-
-        # Scale the width / height while keeping the same aspect ratio
-        width = int(round(self.width * scale))
-        height = int(round(self.height * scale))
-
-        if self.width == width and self.height == height:
-            return Image(self._qimage.copy())
-
-        mode = Qt.AspectRatioMode.IgnoreAspectRatio
-        quality = Qt.TransformationMode.SmoothTransformation
-        scaled = self._qimage.scaled(width, height, mode, quality)
-        return Image(scaled)
-
-
-    def draw_image(self, image: Self, bounds: Bounds):
-        mode = QPainter.CompositionMode.CompositionMode_SourceOver
-        painter = QPainter(self._qimage)
-        painter.setCompositionMode(mode)
-        painter.drawImage(bounds.to_qrect(), image._qimage)
-        painter.end()
-
-
-    def draw_icon(self, icon: QIcon, bounds: Bounds, alignment: Qt.AlignmentFlag, state: QIcon.State):
-        mode = QPainter.CompositionMode.CompositionMode_SourceOver
-        painter = QPainter(self._qimage)
-        painter.setCompositionMode(mode)
-        icon.paint(painter, bounds.to_qrect(), alignment, QIcon.Mode.Normal, state)
-        painter.end()
-
-
-    def to_pixmap(self) -> QPixmap:
-        return QPixmap.fromImage(self._qimage)
-
-    def to_icon(self) -> QIcon:
-        return QIcon(self.to_pixmap())
-
-
-    # TODO replace with base85
-    def to_base64(self) -> str:
-        return self.bytes().toBase64().data().decode("utf-8")
-
-
-class Layer:
-    def __init__(self, node: krita.Node):
-        self._node = node
-
-
-    @staticmethod
-    def fromImage(document: Document, name: str, image: Image, x: int, y: int) -> Self:
-        layer = document.new_paint_layer(name)
-        layer.write_image(image, x, y)
-        return layer
-
-
-    @property
-    def id(self) -> str:
-        return self._node.uniqueId().toString()
-
-    @property
-    def parent(self) -> Layer:
-        return Layer(self._node.parentNode())
-
-    @property
-    def type(self) -> LayerType:
-        return LayerType(self._node.type())
-
-
-    @property
-    def name(self) -> str:
-        return self._node.name()
-
-    @name.setter
-    def name(self, value: str):
-        if self.name != value:
-            self._node.setName(value)
-
-
-    @property
-    def is_visible(self) -> bool:
-        return self._node.visible()
-
-    @is_visible.setter
-    def is_visible(self, value: bool):
-        if self.is_visible != value:
-            self._node.setVisible(value)
-
-
-    @property
-    def is_locked(self) -> bool:
-        return self._node.locked()
-
-    @is_locked.setter
-    def is_locked(self, value: bool):
-        if self.is_locked != value:
-            self._node.setLocked(value)
-
-
-    def merge_down(self):
-        self._node.mergeDown()
-        self._node = None
-
-
-    def write_image(self, image: Self, x: int, y: int):
-        if not self._node.setPixelData(image.bytes(), x, y, image.width, image.height):
-            raise RuntimeError("Writing image failed")
-
-
-    def replace_image(self, image: Image, x: int, y: int):
-        self.write_image(image, x, y)
-        self.crop(x, y, image.width, image.height)
-
-
-    def move_to_top(self, parent: Self):
-        old_parent = self._node.parentNode()
-
-        if old_parent != parent._node or self._node.index() != len(parent._node.childNodes()) - 1:
-            if old_parent is not None:
-                old_parent.removeChildNode(self._node)
-
-            parent._node.addChildNode(self._node, None)
-
-
-    def remove(self):
-        self._node.remove()
-
-
-    def crop(self, x: int, y: int, width: int, height: int):
-        self._node.cropNode(x, y, width, height)
-
-
-    def insert_child(self, child: Self, above: Self | None=None):
-        if above is None:
-            self._node.addChildNode(child._node, None)
+class LayerMetadata:
+    def __init__(self, id: str, name: str, type: LayerType, path: str):
+        self.id = id
+        self.name = name
+        self.type = type
+        self.path = path
+
+    def __eq__(self, other: object):
+        if isinstance(other, LayerMetadata):
+            return self.id == other.id and self.name == other.name and self.type == other.type and self.path == other.path
         else:
-            self._node.addChildNode(child._node, above._node)
+            return NotImplemented
 
 
-    # Iterates over the immediate children
-    def children(self) -> Generator[Self, None, None]:
-        for child in reversed(self._node.childNodes()):
-            yield Layer(child)
+"""
+    Manages the current document, notifies when it changes, and also notifies when layers change.
+"""
+class DocumentManager(QObject):
+    document_changed = pyqtSignal()
+    layers_changed = pyqtSignal()
 
 
-    # Iterates over all children, recursively
-    def all_children(self) -> Generator[Self, None, None]:
-        for child in self.children():
-            yield child
+    def __init__(self, parent: QObject):
+        super().__init__(parent)
 
-            yield from child.all_children()
+        self._document: Document | None = None
+
+        self.layers: list[LayerMetadata] = []
+
+        # Krita doesn't provide any way to be notified when the layers are changed,
+        # so unfortunately we have to poll in order to detect changes.
+        self._timer: QTimer = QTimer(self)
+        self._timer.start(500)
+        self._timer.timeout.connect(self._update_layers)
+
+        self.check_changes()
 
 
-    def bounds(self) -> Bounds:
-        return Bounds.from_qrect(self._node.bounds())
+    def _get_all_layers(self) -> list[LayerMetadata]:
+        layers = []
+
+        document = self._document
+
+        if document is not None:
+            root: Layer | None = document.root_layer()
+
+            if root is not None:
+                def loop(node: Layer, path: str):
+                    for layer in node.children():
+                        if layer.type.is_group() or layer.type.is_image():
+                            child_path = path + [layer.name]
+                            full_path = " ┊ ".join(child_path)
+
+                            layers.append(LayerMetadata(layer.id, layer.name, layer.type, full_path))
+
+                            loop(layer, child_path)
+
+                loop(root, [])
+
+        return layers
 
 
-    def image(self, bounds: Bounds) -> Image:
-        assert self._node.colorDepth() == "U8", "Can only get the pixels of 8-bit images"
+    @pyqtSlot()
+    def _update_layers(self, emit: bool=True):
+        new_layers = self._get_all_layers()
 
-        data = self._node.projectionPixelData(bounds.x, bounds.y, bounds.width, bounds.height)
+        if self.layers != new_layers:
+            self.layers = new_layers
 
-        assert data is not None and data.size() >= bounds.area() * 4
+            if emit:
+                self.layers_changed.emit()
 
-        return Image.from_packed_bytes(data, bounds.width, bounds.height, swap_rgb=True)
+
+    def is_equal(self, new: Document) -> bool:
+        if self._document is None and new is None:
+            return True
+        elif self._document is not None and new is not None:
+            return self._document._document == new._document
+        else:
+            return False
+
+
+    def current(self):
+        document = Document.current()
+
+        if self.is_equal(document):
+            return self._document
+
+
+    def check_changes(self):
+        document = Document.current()
+
+        if not self.is_equal(document):
+            self._document = document
+            self._update_layers(False)
+            self.document_changed.emit()

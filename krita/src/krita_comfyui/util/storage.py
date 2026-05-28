@@ -1,9 +1,12 @@
 import json
 import contextlib
+from shared import JSON
+from typing import Self, overload, cast
+from collections.abc import Callable
 
 
-class Listener:
-    def __init__(self, item, listener):
+class Listener[A: JSON]:
+    def __init__(self, item: "Item[A]", listener: Callable[[A, A], None]):
         self.item = item
         self.listener = listener
 
@@ -11,12 +14,16 @@ class Listener:
         self.item.listeners.remove(self.listener)
 
 
-class Item:
-    def __init__(self, root, serialized, id, default):
+class Item[A: JSON]:
+    def __init__(self, root: "Storage", serialized: dict[str, JSON], id: str, default: A):
         is_default = False
 
         try:
             value = serialized[id]
+
+            if not isinstance(value, type(default)):
+                raise TypeError(f"{id} must be of type {type(default)}")
+
         except KeyError:
             value = default
             is_default = True
@@ -31,16 +38,16 @@ class Item:
 
 
     @classmethod
-    def from_serialized(cls, root, serialized, id, default):
+    def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: A) -> Self:
         return cls(root, serialized, id, default)
 
 
-    def add_listener(self, f):
+    def add_listener(self, f: Callable[[A, A], None]) -> Listener[A]:
         self.listeners.append(f)
         return Listener(self, f)
 
 
-    def notify_listeners(self, old_value):
+    def notify_listeners(self, old_value: A):
         new_value = self.value
 
         if old_value != new_value:
@@ -48,7 +55,7 @@ class Item:
                 listener(old_value, new_value)
 
 
-    def with_value(self, f):
+    def with_value(self, f: Callable[[A], None]):
         def on_change(old, new):
             assert self.value == new
             f(new)
@@ -60,11 +67,11 @@ class Item:
         self.root = None
 
 
-    def get(self):
+    def get(self) -> A:
         return self.value
 
 
-    def set(self, value, *, save=True, notify_listeners=True):
+    def set(self, value: A, *, save: bool=True, notify_listeners: bool=True):
         assert self.root is not None
 
         old_value = self.value
@@ -88,7 +95,7 @@ class Item:
             self.notify_listeners(old_value)
 
 
-    def reset_to_default(self, *, save=True, notify_listeners=True):
+    def reset_to_default(self, *, save: bool=True, notify_listeners: bool=True):
         assert self.root is not None
 
         should_save = save and not self.is_default
@@ -106,7 +113,7 @@ class Item:
             self.notify_listeners(old_value)
 
 
-    def change_default(self, new_default):
+    def change_default(self, new_default: A):
         assert self.root is not None
 
         self.default = new_default
@@ -116,11 +123,20 @@ class Item:
 
 
 class DictBase:
-    def __init__(self, root, serialized):
+    def __init__(self, root: "Storage", serialized: dict[str, JSON]):
         self.root = root
         self.serialized = serialized
-        self.items = {}
+        self.items: dict[str, Item[JSON]] = {}
 
+
+    @overload
+    def _make_item[A: JSON](self, id: str, default: A, item_class: type[Item[A]]) -> Item[A]: ...
+
+    @overload
+    def _make_item(self, id: str, default: dict[str, JSON], item_class: type["ItemDict"]) -> "ItemDict": ...
+
+    @overload
+    def _make_item(self, id: str, default: dict[str, JSON], item_class: type["ItemList"]) -> "ItemList": ...
 
     def _make_item(self, id, default, item_class):
         metadata = self.root._metadata(id, default)
@@ -135,7 +151,7 @@ class DictBase:
             return item
 
 
-    def get(self, id, *, default=None):
+    def get[A: JSON](self, id: str, *, default: A | None=None) -> A:
         metadata = self.root._metadata(id, default)
         id = metadata.get_id()
 
@@ -145,27 +161,31 @@ class DictBase:
             return metadata.get_default()
 
 
-    def keys(self):
+    def keys(self) -> list[str]:
         return self.serialized.keys()
 
-    def item(self, id, *, default=None):
+    def item[A: JSON](self, id: str, *, default: A | None=None) -> Item[A]:
         return self._make_item(id, default, self.root.ITEM_CLASS)
 
-    def item_dict(self, id, *, default=None):
+    def item_dict(self, id: str, *, default: dict[str, JSON] | None=None) -> "ItemDict":
         return self._make_item(id, default, self.root.ITEM_DICT_CLASS)
 
-    def item_list(self, id, *, default=None):
+    def item_list(self, id: str, *, default: list[dict[str, JSON]] | None=None) -> "ItemList":
         return self._make_item(id, default, self.root.ITEM_LIST_CLASS)
 
 
 class ItemDict(DictBase):
     @classmethod
-    def from_serialized(cls, root, serialized, id, default):
+    def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: dict[str, JSON]) -> Self:
         if default is None:
             default = {}
 
         try:
             value = serialized[id]
+
+            if not isinstance(value, dict):
+                raise TypeError(f"{id} must be a dict")
+
         except KeyError:
             value = default
 
@@ -184,21 +204,25 @@ class ItemDict(DictBase):
 
 
 class ItemList:
-    def __init__(self, root, serialized, id, values):
+    def __init__(self, root: "Storage", serialized: dict[str, JSON], id: str, values: list[dict[str, JSON]]):
         self.root = root
         self.serialized = serialized
         self.id = id
         self.values = values
-        self.items = [ItemDict(self.root, value) for value in values]
+        self.items: list[ItemDict] = [ItemDict(self.root, value) for value in values]
 
 
     @classmethod
-    def from_serialized(cls, root, serialized, id, default):
+    def from_serialized(cls, root: "Storage", serialized: dict[str, JSON], id: str, default: list[dict[str, JSON]] | None) -> Self:
         if default is None:
             default = []
 
         try:
             values = serialized[id]
+
+            if not isinstance(values, list):
+                raise TypeError(f"{id} must be a list")
+
         except KeyError:
             values = default
 
@@ -216,7 +240,7 @@ class ItemList:
             self.root = None
 
 
-    def move(self, old_index, new_index):
+    def move(self, old_index: int, new_index: int):
         assert self.root is not None
 
         assert old_index != new_index
@@ -231,7 +255,7 @@ class ItemList:
         self.root.save()
 
 
-    def remove(self, index):
+    def remove(self, index: int):
         assert self.root is not None
 
         item = self.items.pop(index)
@@ -246,27 +270,27 @@ class ItemList:
         self.root.save()
 
 
-    def append(self, value):
+    def append(self, value: dict[str, JSON]) -> ItemDict:
         item = ItemDict(self.root, value)
 
         self.values.append(value)
         self.items.append(item)
 
-        self.serialized[self.id] = self.values
+        self.serialized[self.id] = cast(JSON, self.values)
         self.root.save()
 
         return item
 
 
-class Metadata:
-    def __init__(self, id, default):
+class Metadata[A]:
+    def __init__(self, id: str, default: A | None):
         self.id = id
         self.default = default
 
-    def get_id(self):
+    def get_id(self) -> str:
         return self.id
 
-    def get_default(self):
+    def get_default(self) -> A:
         return self.default
 
 
@@ -277,7 +301,7 @@ class SaveState:
         self.did_save = False
 
 
-    def try_save(self):
+    def try_save(self) -> bool:
         if self.enabled:
             if self.delayed:
                 self.did_save = True
@@ -286,13 +310,13 @@ class SaveState:
         return False
 
 
-    def start_delay(self):
+    def start_delay(self) -> bool:
         delayed = self.delayed
         self.delayed = True
         return delayed
 
 
-    def end_delay(self, delayed):
+    def end_delay(self, delayed: bool) -> bool:
         # If we attempted to save, then now it's time to actually save.
         if self.enabled and self.did_save:
             self.did_save = False
@@ -313,14 +337,14 @@ class Storage(DictBase):
     ITEM_LIST_CLASS = ItemList
 
     # These methods are intended to be overwritten by subclasses
-    def _metadata(self, id, default):
+    def _metadata[A](self, id: str, default: A) -> Metadata[A]:
         return Metadata(id, default)
 
     def _save(self):
         pass
 
 
-    def __init__(self, serialized):
+    def __init__(self, serialized: dict[str, JSON]):
         super().__init__(self, serialized)
         self.save_state = SaveState()
 
@@ -356,12 +380,12 @@ class Storage(DictBase):
             self.items = {}
 
 
-    def replace_serialized(self, new_serialized):
+    def replace_serialized(self, new_serialized: dict[str, JSON]):
         self.serialized = new_serialized
         self.disconnect_items()
 
 
-    def clear(self):
+    def clear(self) -> bool:
         if self.serialized != {}:
             self.replace_serialized({})
             self.save()
@@ -369,11 +393,11 @@ class Storage(DictBase):
         return False
 
 
-    def snapshot(self):
+    def snapshot(self) -> dict[str, JSON]:
         return json.loads(json.dumps(self.serialized))
 
 
-    def restore_snapshot(self, snapshot):
+    def restore_snapshot(self, snapshot: dict[str, JSON]) -> bool:
         if self.serialized != snapshot:
             self.replace_serialized(snapshot)
             self.save()
