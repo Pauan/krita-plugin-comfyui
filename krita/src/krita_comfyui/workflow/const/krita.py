@@ -213,18 +213,36 @@ class KritaLayers(ConstantNode):
         return (images, masks, names)
 
 
-@function(
-    name="Krita Seed",
-    inputs_constant=True,
-)
 class KritaSeed(ConstantNode):
-    def run(self):
-        assert self.workflow.seed >= MIN_SEED and self.workflow.seed <= MAX_SEED
+    @staticmethod
+    def normalize(seed):
+        assert seed >= MIN_SEED and seed <= MAX_SEED
 
         # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1570
         # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/comfy_extras/nodes_primitive.py#L52
         # We have to normalize the integer into the range of [0, sys.maxsize]
-        return self.workflow.seed - MIN_SEED
+        return seed - MIN_SEED
+
+    def run(self):
+        seeds = []
+        is_fixed = []
+
+        info = self.workflow.get_ui_values("seed/seed")
+
+        if len(info) == 0:
+            seeds.append(self.normalize(self.workflow.random_seed()))
+            is_fixed.append(False)
+
+        else:
+            for info in info:
+                if info["fixed"]:
+                    seeds.append(self.normalize(info["seed"]))
+                    is_fixed.append(True)
+                else:
+                    seeds.append(self.normalize(self.workflow.random_seed()))
+                    is_fixed.append(False)
+
+        return ConstantOutputs([Link(seeds), Link(is_fixed)])
 
 
 # This could be implemented in ComfyUI, except prompt loras are only

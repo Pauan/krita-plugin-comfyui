@@ -325,7 +325,8 @@ class KritaSeed(io.ComfyNode):
             description="Retrieves the seed from Krita.",
             inputs=[],
             outputs=[
-                io.Int.Output(display_name="seed"),
+                io.Int.Output(display_name="seed", is_output_list=True),
+                io.Boolean.Output(display_name="is_fixed", is_output_list=True),
             ],
         )
 

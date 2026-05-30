@@ -15,7 +15,7 @@ from ..util.krita import DocumentManager
 from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
 
 from . import Workflow
-from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiPrompt, UiGroup, UiRow, UiList, UiLabel
+from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiPrompt, UiGroup, UiRow, UiList, UiLabel, UiSeed
 from .prompt import PromptParser
 from .graph import WorkflowGraph
 
@@ -65,8 +65,6 @@ class LiveModeState(QObject):
         self.extension = extension
 
         self.live_mode_enabled = extension.settings.settings.item("live_mode_enabled")
-        self.fixed_seed_enabled = extension.settings.settings.item("fixed_seed_enabled")
-        self.fixed_seed = extension.settings.settings.item("fixed_seed")
 
         self.is_running = False
         self.debounce_time = None
@@ -159,8 +157,6 @@ class WorkflowWidget(QWidget):
         self.live_mode_state = LiveModeState(self, self.extension)
         # TODO cleanup listeners when dock is removed
         self.live_mode_state.live_mode_enabled.add_listener(self.on_live_mode_changed)
-        self.live_mode_state.fixed_seed_enabled.add_listener(self.on_seed_changed)
-        self.live_mode_state.fixed_seed.add_listener(self.on_seed_changed)
         self.live_mode_state.timer.timeout.connect(self.maybe_run_live_mode)
 
         self.prompt_parser = PromptParser(self.extension.settings.bundles)
@@ -269,63 +265,63 @@ class WorkflowWidget(QWidget):
 
         match info["type"]:
             case "layer_id":
-                widget = UiLayerId.from_json(storage, info, self.layer_combo_options)
+                widget = UiLayerId.from_json(self.workflow, storage, info, self.layer_combo_options)
                 self.ui_widgets.append(widget)
                 self.ui_layer_inputs.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "combo":
-                widget = UiCombo.from_json(storage, info)
+                widget = UiCombo.from_json(self.workflow, storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "string":
-                widget = UiString.from_json(storage, info)
+                widget = UiString.from_json(self.workflow, storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "prompt":
-                widget = UiPrompt.from_json(storage, info, self.extension.settings)
+                widget = UiPrompt.from_json(self.workflow, storage, info, self.extension.settings)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "boolean":
-                widget = UiBoolean.from_json(storage, info)
+                widget = UiBoolean.from_json(self.workflow, storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "int":
-                widget = UiInt.from_json(storage, info)
+                widget = UiInt.from_json(self.workflow, storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "float":
-                widget = UiFloat.from_json(storage, info)
+                widget = UiFloat.from_json(self.workflow, storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "percentage":
-                widget = UiFloat.from_json_percentage(storage, info)
+                widget = UiFloat.from_json_percentage(self.workflow, storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "label":
                 assert not "enabled_if" in info
-                widget = UiLabel.from_json(storage, info)
+                widget = UiLabel.from_json(self.workflow, storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "group":
-                widget = UiGroup.from_json(storage, info)
+                widget = UiGroup.from_json(self.workflow, storage, info)
 
                 for child in info["children"]:
                     self.add_widget(storage, widget.layout, child, default_stretch)
@@ -337,11 +333,17 @@ class WorkflowWidget(QWidget):
             case "row":
                 assert not "enabled_if" in info
 
-                widget = UiRow.from_json(storage, info)
+                widget = UiRow.from_json(self.workflow, storage, info)
 
                 for child in info["children"]:
                     self.add_widget(storage, widget.layout, child, default_stretch)
 
+                self.ui_widgets.append(widget)
+                parent.widget(widget, stretch=info.get("stretch", default_stretch))
+
+
+            case "seed":
+                widget = UiSeed.from_json(self.workflow, storage, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
@@ -351,8 +353,8 @@ class WorkflowWidget(QWidget):
                     values=storage.item_list(info["id"]),
                     label=info.get("label", None),
 
-                    visible_if=InputEqual.from_json(storage, info, "visible_if"),
-                    enabled_if=InputEqual.from_json(storage, info, "enabled_if"),
+                    visible_if=InputEqual.from_json(self.workflow, storage, info, "visible_if"),
+                    enabled_if=InputEqual.from_json(self.workflow, storage, info, "enabled_if"),
 
                     # When an item is added, removed, or moved, it clears out all the
                     # existing widgets and remakes them from scratch.
@@ -435,6 +437,7 @@ class WorkflowWidget(QWidget):
     def on_workflow_changed(self):
         with self.catch_errors():
             if self.workflow.change_workflow(self.workflow_selector.currentData()):
+                # TODO cleanup item
                 self.extension.settings.settings.item("selected_workflow").set(self.workflow.id)
                 self.update_widgets()
                 self.can_run_changed.emit()
@@ -478,7 +481,9 @@ class WorkflowWidget(QWidget):
 
 
     def get_ui_values(self):
-        ui_values = {}
+        ui_values = {
+            "seed/seed": [],
+        }
 
         for id in self.workflow.layout_ids:
             ui_values[id] = []
@@ -487,54 +492,56 @@ class WorkflowWidget(QWidget):
         for widget in self.ui_widgets:
             inputs = widget.inputs
 
-            input = inputs.value
+            if inputs.is_valid():
+                if isinstance(widget, UiSeed):
+                    if widget.seed.inputs.is_valid():
+                        ui_values["seed/seed"].append({
+                            "fixed": True,
+                            "seed": widget.seed.inputs.value.get(),
+                        })
+                    else:
+                        ui_values["seed/seed"].append({
+                            "fixed": False,
+                        })
 
-            if input is not None:
-                is_visible = inputs.visible_if is None or inputs.visible_if.is_equal()
-                is_enabled = inputs.enabled_if is None or inputs.enabled_if.is_equal()
+                else:
+                    input = inputs.value
 
-                if is_visible and is_enabled:
-                    info = {
-                        "value": input.value,
-                        "is_default": input.value == input.default,
-                    }
+                    if input is not None:
+                        info = {
+                            "value": input.get(),
+                            "is_default": input.get() == input.default,
+                        }
 
-                    if isinstance(widget, UiPrompt):
-                        parsed = self.prompt_parser.parse(input.value)
-                        info["positive"] = parsed.serialize_positive()
-                        info["negative"] = parsed.serialize_negative()
-                        info["loras"] = parsed.loras
+                        if isinstance(widget, UiPrompt):
+                            parsed = self.prompt_parser.parse(input.get())
+                            info["positive"] = parsed.serialize_positive()
+                            info["negative"] = parsed.serialize_negative()
+                            info["loras"] = parsed.loras
 
-                    elif isinstance(widget, UiLayerId):
-                        info["layer_name"] = ""
+                        elif isinstance(widget, UiLayerId):
+                            info["layer_name"] = ""
 
-                        option = widget.current_option()
+                            option = widget.current_option()
 
-                        if option is not None:
-                            try:
-                                info["layer_name"] = option["layer_name"]
-                            except KeyError:
-                                pass
+                            if option is not None:
+                                try:
+                                    info["layer_name"] = option["layer_name"]
+                                except KeyError:
+                                    pass
 
-                    elif isinstance(widget, UiCombo):
-                        info["label"] = ""
+                        elif isinstance(widget, UiCombo):
+                            info["label"] = ""
 
-                        option = widget.current_option()
+                            option = widget.current_option()
 
-                        if option is not None:
-                            info["label"] = option["label"]
-                            assert info["label"] == widget.currentText()
+                            if option is not None:
+                                info["label"] = option["label"]
+                                assert info["label"] == widget.currentText()
 
-                    ui_values[input.id].append(info)
+                        ui_values[input.id].append(info)
 
         return ui_values
-
-
-    def get_seed(self):
-        if self.extension.settings.settings.get("fixed_seed_enabled"):
-            return self.extension.settings.settings.get("fixed_seed")
-        else:
-            return WorkflowGraph.random_seed()
 
 
     def run_workflow(self):
@@ -543,7 +550,6 @@ class WorkflowWidget(QWidget):
         with Perf("run_workflow"):
             self.workflow.run_graph(
                 ui_values=self.get_ui_values(),
-                seed=self.get_seed(),
                 is_live_mode=False,
                 should_notify=True,
             )
@@ -553,7 +559,6 @@ class WorkflowWidget(QWidget):
         with Perf("run_live_workflow"):
             self.workflow.run_graph(
                 ui_values=self.get_ui_values(),
-                seed=self.get_seed(),
                 is_live_mode=True,
                 should_notify=False,
             )
@@ -573,10 +578,6 @@ class WorkflowWidget(QWidget):
             self.stop_live_mode(emit=False)
 
         self.live_mode_changed.emit()
-
-
-    def on_seed_changed(self, old, new):
-        self.maybe_run_live_mode(force_modified=True)
 
 
     def stop_live_mode(self, *, emit=True):

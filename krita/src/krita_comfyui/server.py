@@ -1039,7 +1039,7 @@ class ComfyUIClient(QObject):
         self.run_command.emit(run)
 
 
-    def execute_graph(self, *, graph, ui_values, document, seed, is_live_mode, should_notify):
+    def execute_graph(self, *, graph, ui_values, document, is_live_mode, should_notify):
         document_id = document.root_layer().id
 
         # Constant evaluating a graph can take 20+ milliseconds,
@@ -1059,7 +1059,6 @@ class ComfyUIClient(QObject):
                 evaluated_graph = WorkflowGraph(
                     document=document,
                     json=graph,
-                    seed=seed,
                     ui_values=ui_values,
                 ).evaluate()
 

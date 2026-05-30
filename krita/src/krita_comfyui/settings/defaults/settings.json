@@ -3,8 +3,6 @@
   "autocomplete_minimum_characters": 3,
   "autocomplete_danbooru": true,
   "live_mode_enabled": false,
-  "fixed_seed_enabled": false,
-  "fixed_seed": 0,
   "logging_level": "debug",
   "selected_workflow": "",
   "workflow_order": [

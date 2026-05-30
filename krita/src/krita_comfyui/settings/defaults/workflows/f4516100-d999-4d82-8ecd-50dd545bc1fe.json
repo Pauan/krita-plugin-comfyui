@@ -167,6 +167,17 @@
     },
     {
       "type": "group",
+      "id": "seed",
+      "label": "Seed",
+      "indent": true,
+      "children": [
+        {
+          "type": "seed"
+        }
+      ]
+    },
+    {
+      "type": "group",
       "id": "advanced",
       "label": "Advanced",
       "indent": true,

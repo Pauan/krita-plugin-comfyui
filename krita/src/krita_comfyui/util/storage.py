@@ -1,6 +1,7 @@
 import json
 import contextlib
 from shared import JSON
+from weakref import WeakValueDictionary
 from typing import Self, Iterable, overload, cast
 from collections.abc import Callable
 
@@ -130,39 +131,39 @@ class DictBase:
     def __init__(self, root: "Storage", serialized: dict[str, JSON]):
         self.root = root
         self.serialized = serialized
-        self.items: dict[str, Item[JSON]] = {}
+        self.items: WeakValueDictionary[str, Item[JSON]] = WeakValueDictionary({})
 
 
     @overload
     def _make_item[A: JSON](self, id: str, default: A | None, item_class: type[Item[JSON]]) -> Item[A]: ...
 
     @overload
-    def _make_item(self, id: str, default: dict[str, JSON] | None, item_class: type["ItemDict"]) -> "ItemDict": ...
+    def _make_item(self, id: str, default: dict[str, JSON], item_class: type["ItemDict"]) -> "ItemDict": ...
 
     @overload
-    def _make_item(self, id: str, default: list[dict[str, JSON]] | None, item_class: type["ItemList"]) -> "ItemList": ...
+    def _make_item(self, id: str, default: list[dict[str, JSON]], item_class: type["ItemList"]) -> "ItemList": ...
 
     def _make_item(self, id, default, item_class):
-        metadata = self.root._metadata(id, default) # pyright: ignore [reportPrivateUsage]
-        id = metadata.get_id()
-
         try:
             return self.items[id]
 
         except KeyError:
-            item = item_class.from_serialized(self, id, metadata.get_default())
+            if default is None:
+                default = self.root._get_default(id)
+
+            item = item_class.from_serialized(self, id, default)
             self.items[id] = item
             return item
 
 
     def get[A: JSON](self, id: str, *, default: A | None=None) -> A:
-        metadata: Metadata[A] = self.root._metadata(id, default) # pyright: ignore [reportPrivateUsage]
-        id = metadata.get_id()
-
         try:
             return cast(A, self.serialized[id])
         except KeyError:
-            return metadata.get_default()
+            if default is None:
+                return self.root._get_default(id)
+            else:
+                return default
 
 
     def keys(self) -> Iterable[str]:
@@ -171,10 +172,10 @@ class DictBase:
     def item[A: JSON](self, id: str, *, default: A | None=None) -> Item[A]:
         return self._make_item(id, default, self.root.ITEM_CLASS)
 
-    def item_dict(self, id: str, *, default: dict[str, JSON] | None=None) -> "ItemDict":
+    def item_dict(self, id: str, *, default: dict[str, JSON]={}) -> "ItemDict":
         return self._make_item(id, default, self.root.ITEM_DICT_CLASS)
 
-    def item_list(self, id: str, *, default: list[dict[str, JSON]] | None=None) -> "ItemList":
+    def item_list(self, id: str, *, default: list[dict[str, JSON]]=[]) -> "ItemList":
         return self._make_item(id, default, self.root.ITEM_LIST_CLASS)
 
 
@@ -280,19 +281,6 @@ class ItemList:
         return item
 
 
-class Metadata[A]:
-    def __init__(self, id: str, default: A | None):
-        self.id = id
-        self.default = default
-
-    def get_id(self) -> str:
-        return self.id
-
-    def get_default(self) -> A:
-        assert self.default is not None
-        return self.default
-
-
 class SaveState:
     def __init__(self):
         self.enabled = True
@@ -336,8 +324,8 @@ class Storage(DictBase):
     ITEM_LIST_CLASS: type[ItemList] = ItemList
 
     # These methods are intended to be overwritten by subclasses
-    def _metadata[A](self, id: str, default: A | None) -> Metadata[A]:
-        return Metadata(id, default)
+    def _get_default(self, id: str) -> JSON:
+        raise ValueError("default must be provided")
 
     def _save(self):
         pass
@@ -361,7 +349,7 @@ class Storage(DictBase):
     def stop(self):
         self.disconnect_items()
         self.root = None
-        self.items = cast(dict[str, Item[JSON]], None)
+        self.items = cast(WeakValueDictionary[str, Item[JSON]], None)
         self.serialized = None
         self.save_state.enabled = False
 
@@ -376,7 +364,7 @@ class Storage(DictBase):
             for item in self.items.values():
                 item.disconnect()
         finally:
-            self.items = {}
+            self.items.clear()
 
 
     def replace_serialized(self, new_serialized: dict[str, JSON]):

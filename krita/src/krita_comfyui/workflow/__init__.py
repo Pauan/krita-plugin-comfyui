@@ -1,5 +1,5 @@
 import json
-from ..util.storage import Storage, Metadata
+from ..util.storage import Storage
 from ..settings import LogLevel
 from .graph import WorkflowGraph, WorkflowError
 
@@ -30,55 +30,26 @@ class Workflow(Storage):
         self.metadata = {}
 
 
-    def _full_id(type, id):
-        return f"{type}/{id}"
-
-
-    def _metadata(self, id, default):
-        metadata = self.metadata[id]
-
-        if default is None:
-            default = metadata["default"]
-
-        type = metadata["type"]
-
-        return Metadata(Workflow._full_id(type, id), default)
-
-
     def _save(self):
         if self.id != "" and self.document is not None:
             self.document.set_key_json(f"krita_comfyui/ui_inputs/{self.id}", "krita_comfyui: Stored UI Inputs", self.serialized)
 
 
-    def _get_default_for_widget(self, widget):
-        default = widget.get("default", None)
-
-        # Widget default always has highest priority
-        if default is None:
-            link_to = widget.get("link_to", None)
-
-            # Get the default from the ComfyUI Node metadata
-            if link_to is not None:
-                metadata = self.settings.get_node_metadata(link_to["node_id"]).input(link_to["input"])
-                default = metadata.info.get("default", None)
-
-        # If there is no default, pick a suitable default
-        if default is None:
-            match widget["type"]:
-                case "layer_id" | "combo" | "string" | "prompt": return ""
-                case "int": return 0
-                case "float" | "percentage": return 0.0
-                case "boolean": return True
-                case "group": return False
-                case "list": return []
-                case _: raise RuntimeError(f"Unknown widget type {widget["type"]}")
-
-        assert default is not None
-        return default
+    @staticmethod
+    def _get_default(info):
+        match info["type"]:
+            case "layer_id" | "combo" | "string" | "prompt": return ""
+            case "int": return 0
+            case "float" | "percentage": return 0.0
+            case "boolean": return True
+            case "group": return False
+            case "list": return []
+            case _: raise RuntimeError(f"Unknown widget type {info["type"]}")
 
 
-    def _get_type_for_widget(self, widget):
-        match widget["type"]:
+    @staticmethod
+    def _get_type(info):
+        match info["type"]:
             case "layer_id": return "layer_id"
             case "combo": return "combo"
             case "string": return "string"
@@ -88,7 +59,30 @@ class Workflow(Storage):
             case "float" | "percentage": return "float"
             case "list": return "list"
             case "group": return "group"
-            case _: raise RuntimeError(f"Unknown widget type {widget["type"]}")
+            case _: raise RuntimeError(f"Unknown widget type {info["type"]}")
+
+
+    def _get_metadata(self, info):
+        default = info.get("default", None)
+
+        # Explicit default always has priority.
+        if default is None:
+            link_to = info.get("link_to", None)
+
+            # Get the default from the ComfyUI Node metadata
+            if link_to is not None:
+                metadata = self.settings.get_node_metadata(link_to["node_id"]).input(link_to["input"])
+                default = metadata.info.get("default", None)
+
+        if default is None:
+            default = self._get_default(info)
+
+        type = self._get_type(info)
+
+        return {
+            "id": f"{type}/{info["id"]}",
+            "default": default,
+        }
 
 
     def _update_metadata(self):
@@ -96,31 +90,27 @@ class Workflow(Storage):
         self.layout_ids = set()
 
         if self.layout is not None:
-            # We look for every widget in the layout and get the default.
+            # We look for every widget in the layout and set the metadata.
             for widget in all_children(self.layout):
                 id = widget.get("id", None)
 
                 if id is not None:
-                    default = self._get_default_for_widget(widget)
-                    type = self._get_type_for_widget(widget)
-
+                    new_metadata = self._get_metadata(widget)
                     old_metadata = self.metadata.get(id, None)
 
                     if old_metadata is not None:
+                        new_type = new_metadata["type"]
                         old_type = old_metadata["type"]
-                        if old_type != type:
-                            raise WorkflowError(f"The id \"{id}\" has two different types:\n    {old_type}\n    {type}")
+                        if old_type != new_type:
+                            raise WorkflowError(f"The id \"{id}\" has two different types:\n    {old_type}\n    {new_type}")
 
+                        new_default = new_metadata["default"]
                         old_default = old_metadata["default"]
-                        if old_default != default:
-                            raise WorkflowError(f"The id \"{id}\" has two different defaults:\n    {json.dumps(old_default)}\n    {json.dumps(default)}")
+                        if old_default != new_default:
+                            raise WorkflowError(f"The id \"{id}\" has two different defaults:\n    {json.dumps(old_default)}\n    {json.dumps(new_default)}")
 
-                    self.metadata[id] = {
-                        "default": default,
-                        "type": type,
-                    }
-
-                    self.layout_ids.add(Workflow._full_id(type, id))
+                    self.metadata[id] = new_metadata
+                    self.layout_ids.add(new_metadata["id"])
 
 
     def _update_serialized(self):
@@ -221,7 +211,7 @@ class Workflow(Storage):
         return self.document is not None and self.id != "" and self.graph is not None
 
 
-    def run_graph(self, *, ui_values, seed, is_live_mode, should_notify):
+    def run_graph(self, *, ui_values, is_live_mode, should_notify):
         if self.document is None:
             raise WorkflowError("Krita does not have an opened image")
 
@@ -241,7 +231,6 @@ class Workflow(Storage):
             document=self.document,
 
             # This is safe because these are primitive values.
-            seed=seed,
             is_live_mode=is_live_mode,
             should_notify=should_notify,
         )

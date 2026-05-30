@@ -7,7 +7,7 @@ from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
 from shared import timestamp_local, Perf
 from ..util.qt import BlockSignals
-from ..util.storage import Storage, Metadata
+from ..util.storage import Storage
 
 
 class InputMetadata:
@@ -98,11 +98,8 @@ class SettingsFile(Storage):
             return {}
 
 
-    def _metadata(self, key, default):
-        if default is None:
-            default = self.defaults.get(key, None)
-
-        return Metadata(key, default)
+    def _get_default(self, id: str):
+        return self.defaults[id]
 
 
     def _save(self):
