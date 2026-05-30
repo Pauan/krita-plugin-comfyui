@@ -130,6 +130,9 @@ class NodeMetadata(QObject):
             except FileNotFoundError:
                 pass
 
+        if self.data is not None:
+            self.changed.emit()
+
 
     @pyqtSlot(dict)
     def on_save(self, data):
@@ -140,6 +143,7 @@ class NodeMetadata(QObject):
             with open(self.dir / "node_metadata.json", "w") as file:
                 dump(data, file, indent=2)
 
+        assert self.data is not None
         self.changed.emit()
 
 

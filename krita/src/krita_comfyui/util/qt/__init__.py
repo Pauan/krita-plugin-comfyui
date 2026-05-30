@@ -472,6 +472,18 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
+    def icon(self, icon, *, width, height, stretch=0, tooltip=None):
+        widget = QLabel()
+
+        if icon is not None:
+            widget.setPixmap(icon.pixmap(QSize(width, height)))
+
+        if tooltip is not None:
+            widget.setToolTip(tooltip)
+
+        return self.widget(widget, stretch=stretch)
+
+
     def label(self, *, stretch=0, text=None, selectable=False, tooltip=None):
         widget = QLabel()
 

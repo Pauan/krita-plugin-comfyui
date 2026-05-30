@@ -200,8 +200,6 @@ class WorkflowWidget(QWidget):
                     with column.column(align=Qt.AlignmentFlag.AlignTop) as widgets:
                         self.widgets_container = widgets
 
-                    column.stretch()
-
                 scroll.setWidget(widget)
 
         self.update_workflow_selector()
@@ -391,8 +389,19 @@ class WorkflowWidget(QWidget):
         self.widgets_container.clear()
 
         if self.workflow.is_loaded():
-            for widget in self.workflow.layout:
-                self.add_widget(self.workflow, self.widgets_container, widget, 0)
+            if self.workflow.layout is not None:
+                for widget in self.workflow.layout:
+                    self.add_widget(self.workflow, self.widgets_container, widget, 0)
+
+                self.widgets_container.stretch()
+
+        else:
+            with self.widgets_container.column(stretch=1, align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter) as column:
+                with column.row() as row:
+                    with row.icon(Krita.icon("warning"), width=16, height=16) as icon:
+                        icon.setContentsMargins(4, 4, 4, 4)
+
+                    row.label(text="Not connected to ComfyUI")
 
 
     def get_layer_combo_options(self):

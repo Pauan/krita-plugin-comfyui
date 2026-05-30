@@ -365,9 +365,8 @@ class LiveModeWarning(QFrame):
         """)
 
         with self.layout_manager.row() as row:
-            with row.label() as icon:
+            with row.icon(Krita.icon("warning"), width=16, height=16) as icon:
                 icon.setContentsMargins(0, 0, 0, 0)
-                icon.setPixmap(Krita.icon("warning").pixmap(QSize(16, 16)))
 
             with row.label(stretch=1) as label:
                 self.warning_label = label

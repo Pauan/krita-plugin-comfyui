@@ -87,12 +87,14 @@ class Workflow(Storage):
 
 
     def _update_metadata(self):
-        self.metadata = None
         self.layout_ids = set()
 
-        if self.layout is not None and self.settings.node_metadata.is_loaded():
+        if self.settings.node_metadata.is_loaded():
             self.metadata = {}
+        else:
+            self.metadata = None
 
+        if self.layout is not None and self.metadata is not None:
             # We look for every widget in the layout and set the metadata.
             for widget in all_children(self.layout):
                 id = widget.get("id", None)
@@ -207,11 +209,16 @@ class Workflow(Storage):
 
     def initialize(self, document, id):
         self.document = document
-        self.change_workflow(id)
+
+        if not self.change_workflow(id):
+            assert id == ""
+
+            # If the id is "" we have to update the metadata
+            self._update_metadata()
 
 
     def is_loaded(self):
-        return self.layout is not None and self.metadata is not None
+        return self.metadata is not None
 
 
     def is_valid(self):
