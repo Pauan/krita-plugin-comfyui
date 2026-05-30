@@ -574,6 +574,8 @@ class ComfyUIClient(QObject):
 
         request.setAttribute(QNetworkRequest.Attribute.User, metadata)
 
+        self.settings.log_str(url.toString(), level=LogLevel.TRACE)
+
         return request
 
 
@@ -944,6 +946,8 @@ class ComfyUIClient(QObject):
         else:
             page = f"b{self.last_danbooru_id}"
 
+        minimum_posts = self.settings.settings.get("danbooru_minimum_posts")
+
         self.http.get(self.request(
             url="https://danbooru.donmai.us/tags.json",
             query={
@@ -951,6 +955,7 @@ class ComfyUIClient(QObject):
                 "search[hide_empty]": "yes",
                 "search[is_deprecated]": "no",
                 "search[order]": "id",
+                "search[post_count]": f">={minimum_posts}",
                 "only": "id,name,post_count,category,consequent_aliases[antecedent_name]",
                 "page": page,
             },
