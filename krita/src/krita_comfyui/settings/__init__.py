@@ -10,7 +10,7 @@ from ..util.qt import BlockSignals
 from ..util.storage import Storage
 
 
-class InputMetadata:
+class Input:
     def __init__(self):
         self.info = {}
         self.sub_options = {}
@@ -32,21 +32,20 @@ class InputMetadata:
         if node_type == "COMFY_DYNAMICCOMBO_V3":
             for option in info["options"]:
                 key = option["key"]
-                metadata = NodeMetadata(key)
+                metadata = Node(key)
                 metadata.update(option["inputs"])
                 self.sub_options[key] = metadata
 
 
-class NodeMetadata:
+class Node:
     def __init__(self, node_id):
-        self.exists = False
         self.node_id = node_id
         self.inputs = {}
 
     def update_inputs(self, inputs):
         if inputs is not None:
             for name, input in inputs.items():
-                metadata = InputMetadata()
+                metadata = Input()
 
                 if len(input) > 1:
                     info = input[1]
@@ -57,19 +56,15 @@ class NodeMetadata:
                 self.inputs[name] = metadata
 
     def update(self, inputs):
-        self.exists = True
         self.update_inputs(inputs.get("required", None))
         self.update_inputs(inputs.get("optional", None))
 
     def input(self, name):
         if isinstance(name, str):
-            if self.exists:
-                try:
-                    return self.inputs[name]
-                except KeyError:
-                    raise RuntimeError(f"Input does not exist [{self.node_id}]: {name}")
-            else:
-                return InputMetadata()
+            try:
+                return self.inputs[name]
+            except KeyError:
+                raise RuntimeError(f"Input does not exist [{self.node_id}]: {name}")
 
         else:
             metadata = self
@@ -80,6 +75,72 @@ class NodeMetadata:
                 metadata = metadata.input(name)
 
             return metadata
+
+
+class NodeMetadata(QObject):
+    changed = pyqtSignal()
+    saved = pyqtSignal(dict)
+
+    def __init__(self, dir):
+        super().__init__()
+
+        self.dir = dir
+
+        self.data = None
+        self.cache = {}
+
+        self.saved.connect(self.on_save)
+
+
+    def save(self, data):
+        self.saved.emit(data)
+
+
+    def is_loaded(self):
+        return self.data is not None
+
+
+    def get(self, node_id):
+        metadata = self.cache.get(node_id)
+
+        if metadata is None:
+            metadata = Node(node_id)
+
+            try:
+                info = self.data[node_id]
+            except KeyError:
+                raise RuntimeError(f"Could not find node [{node_id}]")
+
+            metadata.update(info["input"])
+
+            self.cache[node_id] = metadata
+
+        return metadata
+
+
+    @pyqtSlot()
+    def load(self):
+        with Perf("NodeMetadata.load"):
+            assert self.data is None
+            assert self.cache == {}
+
+            try:
+                with open(self.dir / "node_metadata.json", "r") as file:
+                    self.data = load(file)
+            except FileNotFoundError:
+                pass
+
+
+    @pyqtSlot(dict)
+    def on_save(self, data):
+        with Perf("NodeMetadata.save"):
+            self.data = data
+            self.cache = {}
+
+            with open(self.dir / "node_metadata.json", "w") as file:
+                dump(data, file, indent=2)
+
+        self.changed.emit()
 
 
 class SettingsFile(Storage):
@@ -465,8 +526,6 @@ class DanbooruTags(QObject):
 
 
 class Settings(QObject):
-    node_metadata_changed = pyqtSignal()
-
     default_settings = load_default_file("settings.json")
     default_bundles = load_default_file("bundles.json")
     default_presets = load_default_file("presets.json")
@@ -478,9 +537,6 @@ class Settings(QObject):
         self.dir = Path(Krita.getAppDataLocation()) / "krita_comfyui"
 
         os.makedirs(self.dir, exist_ok=True)
-
-        self.node_metadata = None
-        self.cached_node_metadata = {}
 
         with Perf("Loading settings"):
             self.settings = SettingsFile(self.dir / "settings.json", self.default_settings)
@@ -502,14 +558,15 @@ class Settings(QObject):
 
         self.thread = QThread(self)
 
+        self.node_metadata = NodeMetadata(self.dir)
+        self.node_metadata.moveToThread(self.thread)
+        self.thread.started.connect(self.node_metadata.load)
+
         self.danbooru_tags = DanbooruTags(self.dir, self.settings)
         self.danbooru_tags.moveToThread(self.thread)
         self.thread.started.connect(self.danbooru_tags.load)
 
         self.logging_level = self.settings.item("logging_level")
-
-        with Perf("Loading node metadata"):
-            self.load_node_metadata()
 
         self.thread.start()
 
@@ -579,45 +636,3 @@ class Settings(QObject):
             except:
                 self.restore_snapshot(snapshot)
                 raise
-
-
-    def get_node_metadata(self, node_id):
-        metadata = self.cached_node_metadata.get(node_id)
-
-        if metadata is None:
-            metadata = NodeMetadata(node_id)
-
-            if self.node_metadata is not None:
-                try:
-                    info = self.node_metadata[node_id]
-                except KeyError:
-                    raise RuntimeError(f"Could not find node [{node_id}]")
-
-                metadata.update(info["input"])
-
-            self.cached_node_metadata[node_id] = metadata
-
-        return metadata
-
-
-    def load_node_metadata(self):
-        assert self.node_metadata is None
-
-        try:
-            with open(self.dir / "node_metadata.json", "r") as file:
-                self.node_metadata = load(file)
-        except FileNotFoundError:
-            pass
-
-        self.cached_node_metadata = {}
-
-
-    @pyqtSlot(dict)
-    def save_node_metadata(self, metadata):
-        self.node_metadata = metadata
-        self.cached_node_metadata = {}
-
-        with open(self.dir / "node_metadata.json", "w") as file:
-            dump(metadata, file, indent=2)
-
-        self.node_metadata_changed.emit()

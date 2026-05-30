@@ -147,7 +147,7 @@ class WorkflowWidget(QWidget):
         super().__init__()
 
         self.extension = extension
-        self.extension.settings.node_metadata_changed.connect(self.on_metadata_changed)
+        self.extension.settings.node_metadata.changed.connect(self.on_metadata_changed)
         self.extension.settings.workflows.changed.connect(self.on_workflows_changed)
 
         self.document = DocumentManager(self)
@@ -230,7 +230,7 @@ class WorkflowWidget(QWidget):
         else:
             new_info = {}
 
-            metadata = self.extension.settings.get_node_metadata(link_to["node_id"]).input(link_to["input"])
+            metadata = self.extension.settings.node_metadata.get(link_to["node_id"]).input(link_to["input"])
 
             # Combo values
             try:
@@ -390,7 +390,7 @@ class WorkflowWidget(QWidget):
 
         self.widgets_container.clear()
 
-        if self.workflow.layout is not None:
+        if self.workflow.is_loaded():
             for widget in self.workflow.layout:
                 self.add_widget(self.workflow, self.widgets_container, widget, 0)
 
@@ -432,6 +432,7 @@ class WorkflowWidget(QWidget):
             if self.workflow.change_metadata():
                 # Various `link_to` stuff might have changed, so we have to remake all of the widgets.
                 self.update_widgets()
+                self.can_run_changed.emit()
 
 
     def on_workflow_changed(self):

@@ -27,7 +27,7 @@ class Workflow(Storage):
         self.layout = None
 
         self.layout_ids = set()
-        self.metadata = {}
+        self.metadata = None
 
 
     def _save(self):
@@ -71,7 +71,7 @@ class Workflow(Storage):
 
             # Get the default from the ComfyUI Node metadata
             if link_to is not None:
-                metadata = self.settings.get_node_metadata(link_to["node_id"]).input(link_to["input"])
+                metadata = self.settings.node_metadata.get(link_to["node_id"]).input(link_to["input"])
                 default = metadata.info.get("default", None)
 
         if default is None:
@@ -81,15 +81,18 @@ class Workflow(Storage):
 
         return {
             "id": f"{type}/{info["id"]}",
+            "type": type,
             "default": default,
         }
 
 
     def _update_metadata(self):
-        self.metadata = {}
+        self.metadata = None
         self.layout_ids = set()
 
-        if self.layout is not None:
+        if self.layout is not None and self.settings.node_metadata.is_loaded():
+            self.metadata = {}
+
             # We look for every widget in the layout and set the metadata.
             for widget in all_children(self.layout):
                 id = widget.get("id", None)
@@ -207,8 +210,12 @@ class Workflow(Storage):
         self.change_workflow(id)
 
 
+    def is_loaded(self):
+        return self.layout is not None and self.metadata is not None
+
+
     def is_valid(self):
-        return self.document is not None and self.id != "" and self.graph is not None
+        return self.document is not None and self.id != "" and self.graph is not None and self.metadata is not None
 
 
     def run_graph(self, *, ui_values, is_live_mode, should_notify):

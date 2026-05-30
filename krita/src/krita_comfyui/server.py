@@ -833,7 +833,7 @@ class ComfyUIClient(QObject):
             case "object_info":
                 if error is None:
                     node_metadata = json.loads(reply.readAll().data().decode("utf-8"))
-                    self.settings.save_node_metadata(node_metadata)
+                    self.settings.node_metadata.save(node_metadata)
 
             case "danbooru_tags":
                 if error is None:
