@@ -3,10 +3,10 @@ import functools
 from enum import Enum
 from json import dump, dumps, load, loads
 from pathlib import Path
-from PyQt6.QtCore import QObject, QStringListModel, QThread, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
 from shared import timestamp_local, Perf
-from ..util.qt import BlockSignals
+from ..util.qt import BlockSignals, Thread
 from ..util.storage import Storage
 
 
@@ -560,25 +560,24 @@ class Settings(QObject):
                 defaults=self.default_workflows,
             )
 
-        self.thread = QThread(self)
-
         self.node_metadata = NodeMetadata(self.dir)
-        self.node_metadata.moveToThread(self.thread)
-        self.thread.started.connect(self.node_metadata.load)
-
         self.danbooru_tags = DanbooruTags(self.dir, self.settings)
-        self.danbooru_tags.moveToThread(self.thread)
-        self.thread.started.connect(self.danbooru_tags.load)
 
         self.logging_level = self.settings.item("logging_level")
+
+        self.thread = Thread(self)
+
+        self.thread.move(self.node_metadata)
+        self.thread.started.connect(self.node_metadata.load)
+
+        self.thread.move(self.danbooru_tags)
+        self.thread.started.connect(self.danbooru_tags.load)
 
         self.thread.start()
 
 
     def cleanup(self):
-        self.thread.quit()
-        self.thread.deleteLater()
-        self.danbooru_tags.deleteLater()
+        return self.thread.stop()
 
 
     def clear_log(self):

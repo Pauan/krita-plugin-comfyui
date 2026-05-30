@@ -1,11 +1,12 @@
 import contextlib
 from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 
 from .server import ComfyUIClient
 from .settings import Settings
 from .settings.dialog import SettingsDialog
 from .util.notify import NotifyWorker
+from .util.qt import Thread
 
 
 class ComfyUIExtension(Extension):
@@ -17,24 +18,26 @@ class ComfyUIExtension(Extension):
 
         self.live_mode_enabled = True
 
+        self.notify = NotifyWorker()
+
         # The notifier needs to run async functions.
         # Instead of connecting Python's async event loop into the QEventLoop,
         # it's easier to just run it on a separate thread.
-        self.notify_thread = QThread(self)
-        self.notify = NotifyWorker()
-        self.notify.moveToThread(self.notify_thread)
+        self.notify_thread = Thread(self)
+        self.notify_thread.move(self.notify)
 
         self.settings = Settings(self)
-        self.settings_dialog = SettingsDialog(self.settings)
         self.settings.clear_log()
+
+        self.settings_dialog = SettingsDialog(self.settings)
 
         self.client = ComfyUIClient(self.settings, url="127.0.0.1:8188", reconnect_delay=10000)
 
         # We execute jobs in a separate thread so it doesn't freeze the UI.
-        self.client_thread = QThread(self)
+        self.client_thread = Thread(self)
         # We immediately connect to ComfyUI so we can update the node metadata
         self.client_thread.started.connect(self.client.connect)
-        self.client.moveToThread(self.client_thread)
+        self.client_thread.move(self.client)
 
         self.client.graph_changed.connect(self.on_graph_changed)
 
@@ -76,15 +79,14 @@ class ComfyUIExtension(Extension):
 
 
     def shutdown(self):
-        self.settings.cleanup()
+        self.settings_dialog.deleteLater()
 
         self.client.disconnect()
-        self.client.deleteLater()
-        self.client_thread.quit()
-        self.client_thread.deleteLater()
 
-        self.notify_thread.quit()
-        self.notify_thread.deleteLater()
-        self.notify.deleteLater()
-
-        self.settings_dialog.deleteLater()
+        # Context manager makes sure that things get cleaned up in the right order.
+        with (
+            self.settings.cleanup(),
+            self.client_thread.stop(),
+            self.notify_thread.stop(),
+        ):
+            pass

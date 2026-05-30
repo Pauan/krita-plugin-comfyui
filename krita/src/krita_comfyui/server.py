@@ -867,10 +867,12 @@ class ComfyUIClient(QObject):
         #self.update_danbooru_tags()
 
 
-    @pyqtSlot()
     def disconnect(self):
-        self.websocket.disconnect()
-        self.update_is_websocket_connected()
+        def run():
+            self.websocket.disconnect()
+            self.update_is_websocket_connected()
+
+        self.run_command.emit(run)
 
 
     @pyqtSlot(result=list)

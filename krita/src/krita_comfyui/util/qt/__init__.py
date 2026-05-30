@@ -1,5 +1,6 @@
 import re
-from PyQt6.QtCore import QObject, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
+import contextlib
+from PyQt6.QtCore import QObject, QThread, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QWidget,
     QCheckBox,
@@ -49,6 +50,32 @@ class BlockMouseWheel(QObject):
                 return True
 
         return super().eventFilter(obj, event)
+
+
+class Thread(QThread):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.objects = []
+
+
+    def move(self, object):
+        self.objects.append(object)
+        object.moveToThread(self)
+
+
+    @contextlib.contextmanager
+    def stop(self):
+        try:
+            for x in self.objects:
+                x.deleteLater()
+
+        finally:
+            self.quit()
+
+            # This causes it to schedule all of the waits at the same time.
+            yield
+
+            self.wait()
 
 
 class ComboBox(QComboBox):
