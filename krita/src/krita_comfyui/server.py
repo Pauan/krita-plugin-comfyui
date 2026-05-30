@@ -914,7 +914,7 @@ class ComfyUIClient(QObject):
                             "alias_for": name,
                         }
 
-            self.settings.save_danbooru_tags(danbooru_tags)
+            self.settings.danbooru_tags.save(danbooru_tags)
 
         finally:
             self.last_danbooru_id = None

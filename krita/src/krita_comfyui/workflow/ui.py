@@ -523,7 +523,7 @@ class UiPrompt(UiStringMultiline):
         self.minimum_characters = self.settings.settings.get("autocomplete_minimum_characters")
 
         if autocomplete and self.settings.settings.get("autocomplete_danbooru"):
-            self.completer = DanbooruCompleter(self, settings.danbooru_tags_model)
+            self.completer = DanbooruCompleter(self, settings.danbooru_tags.model)
             self.completer.activated.connect(self.on_autocomplete)
 
             self.timer = QTimer(self)

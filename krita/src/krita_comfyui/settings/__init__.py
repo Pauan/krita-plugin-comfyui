@@ -3,7 +3,7 @@ import functools
 from enum import Enum
 from json import dump, dumps, load, loads
 from pathlib import Path
-from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QObject, QStringListModel, QThread, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
 from shared import timestamp_local, Perf
 from ..util.qt import BlockSignals
@@ -384,9 +384,88 @@ class DanbooruTagSorter:
         return self.cmp(other) < 0
 
 
+class DanbooruTags(QObject):
+    changed = pyqtSignal()
+    saved = pyqtSignal(dict)
+
+    def __init__(self, dir, settings):
+        super().__init__()
+
+        self.dir = dir
+        self.settings = settings
+        self.tags = {}
+        self.model = QStringListModel(parent=self)
+
+        self.saved.connect(self.on_save)
+
+
+    def get(self, name, default):
+        return self.tags.get(name, default)
+
+
+    def save(self, tags):
+        self.saved.emit(tags)
+
+
+    @pyqtSlot()
+    def load(self):
+        with Perf("DanbooruTags.load"):
+            try:
+                with open(self.dir / "danbooru_tags.json", "r") as file:
+                    self.tags = load(file)
+            except FileNotFoundError:
+                self.tags = {}
+
+        self.update()
+
+
+    @pyqtSlot(dict)
+    def on_save(self, tags):
+        with Perf("DanbooruTags.save"):
+            self.tags = tags
+
+            with open(self.dir / "danbooru_tags.json", "w") as file:
+                dump(tags, file, indent=2)
+
+        self.update()
+
+
+    def update(self):
+        with Perf("DanbooruTags.update"):
+            minimum_posts = self.settings.get("danbooru_minimum_posts")
+            minimum_characters = self.settings.get("autocomplete_minimum_characters")
+
+            tags = []
+
+            for name, tag in self.tags.items():
+                if len(name) >= minimum_characters:
+                    alias = tag.get("alias_for", None)
+
+                    if alias is not None:
+                        # If the alias is a subset of the parent, we skip it.
+                        # This removes unnecessary aliases like 4girl -> 4girls and 1girls -> 1girl
+                        if alias.startswith(name) or (alias in name):
+                            continue
+
+                        name = f"{name}  ➜  {alias}"
+                        is_alias = True
+                        post_count = self.tags[alias]["post_count"]
+                    else:
+                        is_alias = False
+                        post_count = tag["post_count"]
+
+                    if post_count >= minimum_posts:
+                        tags.append(DanbooruTagSorter(name, post_count, is_alias))
+
+            tags.sort()
+
+            self.model.setStringList([tag.name for tag in tags])
+
+        self.changed.emit()
+
+
 class Settings(QObject):
     node_metadata_changed = pyqtSignal()
-    danbooru_tags_changed = pyqtSignal()
 
     default_settings = load_default_file("settings.json")
     default_bundles = load_default_file("bundles.json")
@@ -421,23 +500,31 @@ class Settings(QObject):
                 defaults=self.default_workflows,
             )
 
-        with Perf("Loading danbooru tags"):
-            self.danbooru_tags = self.load_danbooru_tags()
+        self.thread = QThread(self)
 
-        with Perf("Processing danbooru tags"):
-            self.danbooru_tags_model = QStringListModel()
-            self.update_danbooru_tags()
+        self.danbooru_tags = DanbooruTags(self.dir, self.settings)
+        self.danbooru_tags.moveToThread(self.thread)
+        self.thread.started.connect(self.danbooru_tags.load)
 
         self.logging_level = self.settings.item("logging_level")
 
         with Perf("Loading node metadata"):
             self.load_node_metadata()
 
+        self.thread.start()
+
+
+    def cleanup(self):
+        self.thread.quit()
+        self.thread.deleteLater()
+        self.danbooru_tags.deleteLater()
+
 
     def clear_log(self):
-        # Deletes the log file
-        with open(self.dir / "debug.log", "w") as file:
-            pass
+        with Perf("clear_log"):
+            # Deletes the log file
+            with open(self.dir / "debug.log", "w") as file:
+                pass
 
     def log_str(self, str, *, level):
         if level.matches(self.logging_level.get()):
@@ -534,53 +621,3 @@ class Settings(QObject):
             dump(metadata, file, indent=2)
 
         self.node_metadata_changed.emit()
-
-
-    def load_danbooru_tags(self):
-        try:
-            with open(self.dir / "danbooru_tags.json", "r") as file:
-                return load(file)
-        except FileNotFoundError:
-            return {}
-
-
-    @pyqtSlot(dict)
-    def save_danbooru_tags(self, tags):
-        self.danbooru_tags = tags
-
-        with open(self.dir / "danbooru_tags.json", "w") as file:
-            dump(tags, file, indent=2)
-
-        self.danbooru_tags_changed.emit()
-        self.update_danbooru_tags()
-
-
-    def update_danbooru_tags(self):
-        minimum_posts = self.settings.get("danbooru_minimum_posts")
-        minimum_characters = self.settings.get("autocomplete_minimum_characters")
-
-        tags = []
-
-        for name, tag in self.danbooru_tags.items():
-            if len(name) >= minimum_characters:
-                alias = tag.get("alias_for", None)
-
-                if alias is not None:
-                    # If the alias is a subset of the parent, we skip it.
-                    # This removes unnecessary aliases like 4girl -> 4girls and 1girls -> 1girl
-                    if alias.startswith(name) or (alias in name):
-                        continue
-
-                    name = f"{name}  ➜  {alias}"
-                    is_alias = True
-                    post_count = self.danbooru_tags[alias]["post_count"]
-                else:
-                    is_alias = False
-                    post_count = tag["post_count"]
-
-                if post_count >= minimum_posts:
-                    tags.append(DanbooruTagSorter(name, post_count, is_alias))
-
-        tags.sort()
-
-        self.danbooru_tags_model.setStringList([tag.name for tag in tags])

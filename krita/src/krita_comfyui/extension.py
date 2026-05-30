@@ -76,6 +76,8 @@ class ComfyUIExtension(Extension):
 
 
     def shutdown(self):
+        self.settings.cleanup()
+
         self.client.disconnect()
         self.client.deleteLater()
         self.client_thread.quit()
