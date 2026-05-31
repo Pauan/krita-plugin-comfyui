@@ -1,5 +1,6 @@
 from krita import DockWidget
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QListWidget,
@@ -130,18 +131,6 @@ class QueueWidget(QWidget):
         self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
-            # TODO cleanup listeners when dock is removed
-            widget = UiBoolean(
-                value=self.settings.item("live_mode_enabled"),
-                visible_if=[],
-                enabled_if=[],
-                tooltip="Enable live mode, which automatically generates new images.",
-                label="Enable live mode.",
-                style="switch",
-            )
-
-            column.widget(widget)
-
             with column.row(align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop) as row:
                 row.label(text="Job Queue")
 
@@ -214,6 +203,7 @@ class InputsWidget(QWidget):
 
                     widget_action = QWidgetAction(self.queue_menu)
                     widget_action.setDefaultWidget(self.queue)
+                    widget_action.setMenuRole(QAction.MenuRole.NoRole)
                     self.queue_menu.addAction(widget_action)
 
                     for info in self.extension.client.current_queue():

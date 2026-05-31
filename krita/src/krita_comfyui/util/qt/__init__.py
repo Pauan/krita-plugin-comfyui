@@ -286,6 +286,7 @@ class Toolbar:
 
         if text is not None:
             widget.setText(text)
+            widget.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
 
         if cursor is not None:
             widget.setCursor(cursor)
@@ -474,6 +475,7 @@ class Layout:
 
         if text is not None:
             widget.setText(text)
+            widget.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
 
         if cursor is not None:
             widget.setCursor(cursor)

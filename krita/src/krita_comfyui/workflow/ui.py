@@ -205,7 +205,7 @@ class UiLayerId(UiCombo):
 
 
 class UiBoolean(QWidget):
-    def __init__(self, *, value, visible_if, enabled_if, tooltip, label, style):
+    def __init__(self, *, value, reset_to_default, visible_if, enabled_if, tooltip, label, style):
         super().__init__()
 
         if style is None:
@@ -213,6 +213,8 @@ class UiBoolean(QWidget):
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip=None)
+
+        self.reset_to_default = reset_to_default
 
         self.checkbox = BooleanSwitch(
             tooltip=self.inputs.format_tooltip(tooltip),
@@ -237,6 +239,7 @@ class UiBoolean(QWidget):
 
         return UiBoolean(
             value=storage.item(metadata["id"], default=metadata["default"]),
+            reset_to_default=False,
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
@@ -250,7 +253,12 @@ class UiBoolean(QWidget):
 
 
     def on_changed(self):
-        self.inputs.value.set(self.checkbox.isChecked())
+        is_checked = self.checkbox.isChecked()
+
+        if self.reset_to_default and self.inputs.value.default == is_checked:
+            self.inputs.value.reset_to_default()
+        else:
+            self.inputs.value.set(is_checked)
 
 
 class UiSeed(QWidget):
@@ -271,6 +279,7 @@ class UiSeed(QWidget):
         with self.layout_manager.row() as row:
             self.enabled = UiBoolean(
                 value=enabled,
+                reset_to_default=True,
                 visible_if=[],
                 enabled_if=[],
                 tooltip="If true it will use a fixed seed.\nIf false it will generate a random seed every time.",

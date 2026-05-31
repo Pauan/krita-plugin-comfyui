@@ -3,11 +3,15 @@ import traceback
 import contextlib
 from krita import DockWidget
 from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
     QWidget,
     QFrame,
+    QToolButton,
+    QMenu,
+    QWidgetAction,
 )
 from shared import Perf
 from ..util import number_of_decimals
@@ -50,6 +54,52 @@ class WorkflowSelector(ComboBox):
                 self.setCurrentIndex(index)
 
 
+class WorkflowSettings(QWidget):
+    def __init__(self, settings):
+        super().__init__()
+
+        self.settings = settings
+
+        self.selected_workflow = self.settings.item("selected_workflow")
+
+        self.layout_manager = LayoutManager(self)
+
+        with self.layout_manager.column() as column:
+            column.set_padding(left=6, top=6, right=6, bottom=6)
+
+            self.container = column
+
+            #column.label(text="Hi!")
+
+        # TODO cleanup listeners when dock is removed
+        self.selected_workflow.with_value(self.update)
+
+
+    def update(self, selected):
+        self.container.clear()
+
+        print(self.settings.item_dict("workflows"))
+
+        selected = self.settings.item_dict("workflows", cache=False).item_dict(selected, cache=False)
+
+        # TODO cleanup listeners when dock is removed
+        self.container.widget(UiBoolean(
+            value=selected.item("live_mode_enabled", default=False, cache=False),
+            reset_to_default=True,
+            visible_if=[],
+            enabled_if=[],
+            tooltip="Enable live mode, which automatically generates new images.",
+            label="Enable live mode.",
+            style="switch",
+        ))
+
+
+    # This causes it to not close the menu when clicking.
+    def mousePressEvent(self, event):
+        event.accept()
+
+
+
 class LiveModeState(QObject):
     # When running live mode we poll for changes every 100 ms.
     POLL_DELAY = 100
@@ -64,7 +114,7 @@ class LiveModeState(QObject):
 
         self.extension = extension
 
-        self.live_mode_enabled = extension.settings.settings.item("live_mode_enabled")
+        self.live_mode_enabled = extension.settings.settings.item("live_mode_enabled", default=False)
 
         self.is_running = False
         self.debounce_time = None
@@ -181,8 +231,18 @@ class WorkflowWidget(QWidget):
                     self.workflow_selector = combo
                     combo.activated.connect(self.on_workflow_changed)
 
-                with row.tool_button(icon=Krita.icon("properties"), tooltip="Open settings") as button:
-                    button.clicked.connect(self.open_settings)
+                with row.tool_button(icon=Krita.icon("settings-button"), tooltip="Open settings") as button:
+                    self.workflow_menu = QMenu(self)
+
+                    self.workflow_settings = WorkflowSettings(self.extension.settings.settings)
+
+                    widget_action = QWidgetAction(self.workflow_menu)
+                    widget_action.setDefaultWidget(self.workflow_settings)
+                    widget_action.setMenuRole(QAction.MenuRole.NoRole)
+                    self.workflow_menu.addAction(widget_action)
+
+                    button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+                    button.setMenu(self.workflow_menu)
 
             with column.scroll() as scroll:
                 scroll.setFrameShape(QFrame.Shape.Panel)

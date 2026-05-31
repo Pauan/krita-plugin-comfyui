@@ -91,6 +91,7 @@ class Item[A: JSON]:
             except KeyError:
                 should_save = True
 
+            self._parent.ensure_exists()
             self._parent.serialized[self.id] = value
 
             if should_save:
@@ -134,6 +135,10 @@ class DictBase:
         self.items: WeakValueDictionary[str, Item[JSON]] = WeakValueDictionary({})
 
 
+    def ensure_exists(self):
+        pass
+
+
     @overload
     def _make_item[A: JSON](self, id: str, default: A | None, item_class: type[Item[JSON]]) -> Item[A]: ...
 
@@ -143,17 +148,24 @@ class DictBase:
     @overload
     def _make_item(self, id: str, default: list[dict[str, JSON]], item_class: type["ItemList"]) -> "ItemList": ...
 
-    def _make_item(self, id, default, item_class):
-        try:
-            return self.items[id]
+    def _make_item(self, id, default, cache: bool, item_class):
+        if cache:
+            try:
+                return self.items[id]
 
-        except KeyError:
+            except KeyError:
+                if default is None:
+                    default = self.root._get_default(id)
+
+                item = item_class.from_serialized(self, id, default)
+                self.items[id] = item
+                return item
+
+        else:
             if default is None:
                 default = self.root._get_default(id)
 
-            item = item_class.from_serialized(self, id, default)
-            self.items[id] = item
-            return item
+            return item_class.from_serialized(self, id, default)
 
 
     def get[A: JSON](self, id: str, *, default: A | None=None) -> A:
@@ -169,17 +181,30 @@ class DictBase:
     def keys(self) -> Iterable[str]:
         return self.serialized.keys()
 
-    def item[A: JSON](self, id: str, *, default: A | None=None) -> Item[A]:
-        return self._make_item(id, default, self.root.ITEM_CLASS)
+    def item[A: JSON](self, id: str, *, default: A | None=None, cache=True) -> Item[A]:
+        return self._make_item(id, default, cache, self.root.ITEM_CLASS)
 
-    def item_dict(self, id: str, *, default: dict[str, JSON]={}) -> "ItemDict":
-        return self._make_item(id, default, self.root.ITEM_DICT_CLASS)
+    def item_dict(self, id: str, *, default: dict[str, JSON]={}, cache=True) -> "ItemDict":
+        return self._make_item(id, default, cache, self.root.ITEM_DICT_CLASS)
 
-    def item_list(self, id: str, *, default: list[dict[str, JSON]]=[]) -> "ItemList":
-        return self._make_item(id, default, self.root.ITEM_LIST_CLASS)
+    def item_list(self, id: str, *, default: list[dict[str, JSON]]=[], cache=True) -> "ItemList":
+        return self._make_item(id, default, cache, self.root.ITEM_LIST_CLASS)
 
 
 class ItemDict(DictBase):
+    def __init__(self, parent, id, value):
+        super().__init__(parent.root, value)
+        self.id = id
+        self.parent = parent
+
+
+    def ensure_exists(self):
+        self.parent.ensure_exists()
+
+        if not self.id in self.parent.serialized:
+            self.parent.serialized[self.id] = self.serialized
+
+
     @classmethod
     def from_serialized(cls, parent: DictBase, id: str, default: dict[str, JSON]) -> Self:
         assert isinstance(default, dict)
@@ -193,7 +218,7 @@ class ItemDict(DictBase):
         except KeyError:
             value = default
 
-        return cls(parent.root, value)
+        return cls(parent, id, value)
 
 
     def disconnect(self):

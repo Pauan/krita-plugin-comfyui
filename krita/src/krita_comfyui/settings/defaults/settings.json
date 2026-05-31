@@ -2,7 +2,6 @@
   "danbooru_minimum_posts": 50,
   "autocomplete_minimum_characters": 3,
   "autocomplete_danbooru": true,
-  "live_mode_enabled": false,
   "logging_level": "debug",
   "selected_workflow": "",
   "workflow_order": [

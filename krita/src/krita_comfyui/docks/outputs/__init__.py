@@ -19,7 +19,7 @@ class OutputsWidget(QWidget):
         self.extension.job_started.connect(self.on_job_started)
 
         self.settings = settings
-        self.live_mode_enabled = self.settings.item("live_mode_enabled")
+        self.live_mode_enabled = self.settings.item("live_mode_enabled", default=False)
 
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred))
 
