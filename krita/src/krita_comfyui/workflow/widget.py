@@ -263,6 +263,11 @@ class WorkflowWidget(QWidget):
                     self.workflow_settings = WorkflowSettings(self.extension, self.extension.settings)
                     self.workflow_menu = Menu(self, self.workflow_settings)
 
+                    self.workflow_menu_timer = QTimer(self)
+                    self.workflow_menu_timer.setSingleShot(True)
+                    self.workflow_menu_timer.setInterval(100)
+                    self.workflow_menu_timer.timeout.connect(self.workflow_menu.refresh_size)
+
                     button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
                     button.setMenu(self.workflow_menu)
 
@@ -344,7 +349,7 @@ class WorkflowWidget(QWidget):
             return new_info
 
 
-    def add_widget(self, storage, parent, info, default_stretch):
+    def add_widget(self, storage, parent, info, default_stretch, on_group_changed):
         info = self.get_node_metadata(info)
 
         match info["type"]:
@@ -407,8 +412,12 @@ class WorkflowWidget(QWidget):
             case "group":
                 widget = UiGroup.from_json(self.workflow, storage, info)
 
+                # TODO figure out a less hacky way of doing this
+                if on_group_changed is not None:
+                    widget.inputs.listeners.append(widget.inputs.value.add_listener(on_group_changed))
+
                 for child in info["children"]:
-                    self.add_widget(storage, widget.layout, child, default_stretch)
+                    self.add_widget(storage, widget.layout, child, default_stretch, on_group_changed)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -420,7 +429,7 @@ class WorkflowWidget(QWidget):
                 widget = UiRow.from_json(self.workflow, storage, info)
 
                 for child in info["children"]:
-                    self.add_widget(storage, widget.layout, child, default_stretch)
+                    self.add_widget(storage, widget.layout, child, default_stretch, on_group_changed)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -450,7 +459,7 @@ class WorkflowWidget(QWidget):
 
                 for storage, layout in widget.make_children():
                     for child in info["children"]:
-                        self.add_widget(storage, layout, child, default_stretch)
+                        self.add_widget(storage, layout, child, default_stretch, on_group_changed)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -485,8 +494,12 @@ class WorkflowWidget(QWidget):
 
                 container = self.workflow_settings.container
 
+                def on_group_changed():
+                    self.workflow_menu.refresh_size()
+                    self.workflow_menu_timer.start()
+
                 for widget in self.workflow.global_widgets:
-                    self.add_widget(storage, container, widget, 0)
+                    self.add_widget(storage, container, widget, 0, on_group_changed)
 
                 container.stretch()
 
@@ -498,7 +511,7 @@ class WorkflowWidget(QWidget):
 
             if len(self.workflow.document_widgets) > 0:
                 for widget in self.workflow.document_widgets:
-                    self.add_widget(self.workflow.root, self.widgets_container, widget, 0)
+                    self.add_widget(self.workflow.root, self.widgets_container, widget, 0, None)
 
                 self.widgets_container.stretch()
 
