@@ -26,7 +26,6 @@
       "type": "group",
       "id": "advanced",
       "label": "Advanced",
-      "indent": true,
       "default": false,
       "children": [
         {
@@ -43,7 +42,6 @@
           "type": "group",
           "id": "resize_layers_group",
           "label": "Resize other layers",
-          "indent": true,
           "children": [
             {
               "type": "row",

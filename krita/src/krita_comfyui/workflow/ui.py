@@ -689,7 +689,7 @@ class UiGroup(QWidget):
             label = ""
 
         if indent is None:
-            indent = False
+            indent = True
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip=None)

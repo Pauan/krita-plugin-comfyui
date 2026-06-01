@@ -65,12 +65,12 @@ class Menu(QMenu):
         widget_action.setMenuRole(QAction.MenuRole.NoRole)
         self.addAction(widget_action)
 
-        self.aboutToShow.connect(self.on_show)
+        #self.aboutToShow.connect(self.on_show)
 
 
-    def on_show(self):
-        print("RESIZING", self.widget.sizeHint())
-        self.resize(self.sizeHint())
+    #def on_show(self):
+        #print("RESIZING", self.widget.sizeHint())
+        #self.resize(self.sizeHint())
 
 
 class WorkflowSettings(QWidget):
@@ -105,7 +105,7 @@ class WorkflowSettings(QWidget):
                 with top.tool_button(icon=Krita.icon("configure-thicker"), tooltip="Open settings") as button:
                     button.clicked.connect(self.extension.show_settings)
 
-            with root.scroll() as scroll:
+            with root.scroll(stretch=1) as scroll:
                 self.scroll = scroll
 
                 scroll.setFrameShape(QFrame.Shape.Panel)
@@ -125,12 +125,22 @@ class WorkflowSettings(QWidget):
 
                 scroll.setWidget(widget)
 
-            root.stretch()
-
 
     # This causes it to not close the menu when clicking.
     def mousePressEvent(self, event):
         event.accept()
+
+
+    def show_inputs(self):
+        self.scroll.setVisible(True)
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(400)
+
+
+    def hide_inputs(self):
+        self.scroll.setVisible(False)
+        self.setMinimumWidth(0)
+        self.setMinimumHeight(0)
 
 
 
@@ -496,10 +506,12 @@ class WorkflowWidget(QWidget):
                 for widget in self.workflow.global_widgets:
                     self.add_widget(storage, container, widget, 0)
 
-                self.workflow_settings.scroll.setVisible(True)
+                container.stretch()
+
+                self.workflow_settings.show_inputs()
 
             else:
-                self.workflow_settings.scroll.setVisible(False)
+                self.workflow_settings.hide_inputs()
 
 
             if len(self.workflow.document_widgets) > 0:

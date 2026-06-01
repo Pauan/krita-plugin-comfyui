@@ -7,90 +7,166 @@
 
   "global_widgets": [
     {
-      "type": "combo",
-      "id": "checkpoint",
-      "link_to": {
-        "node_id": "UNETLoader",
-        "input": "unet_name"
-      }
-    },
-    {
-      "type": "row",
+      "type": "group",
+      "id": "model_group",
+      "label": "Model",
+      "default": true,
       "children": [
         {
           "type": "combo",
-          "id": "sampler_name",
+          "id": "checkpoint",
           "link_to": {
-            "node_id": "KSampler",
-            "input": "sampler_name"
-          },
-          "stretch": 1,
-          "default": "euler"
+            "node_id": "UNETLoader",
+            "input": "unet_name"
+          }
         },
         {
-          "type": "combo",
-          "id": "scheduler",
+          "type": "row",
+          "children": [
+            {
+              "type": "combo",
+              "id": "sampler_name",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "sampler_name"
+              },
+              "stretch": 1,
+              "default": "euler"
+            },
+            {
+              "type": "combo",
+              "id": "scheduler",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "scheduler"
+              },
+              "stretch": 1,
+              "default": "simple"
+            },
+            {
+              "type": "int",
+              "id": "steps",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "steps"
+              },
+              "default": 30,
+              "suffix": " steps"
+            }
+          ]
+        },
+        {
+          "type": "float",
+          "id": "prompt_weight",
           "link_to": {
             "node_id": "KSampler",
-            "input": "scheduler"
+            "input": "cfg"
           },
-          "stretch": 1,
-          "default": "simple"
+          "suffix": " prompt weight",
+          "default": 5.0
+        },
+        {
+          "type": "prompt",
+          "id": "default_prompt",
+          "tooltip": "Default prompt",
+          "placeholder": "Default prompt..."
         },
         {
           "type": "int",
-          "id": "steps",
+          "id": "batch_size",
           "link_to": {
-            "node_id": "KSampler",
-            "input": "steps"
+            "node_id": "krita_comfyui: img2img",
+            "input": "batch_size"
           },
-          "default": 30,
-          "suffix": " steps"
+          "suffix": " batch size",
+          "default": 4
         }
       ]
     },
-    {
-      "type": "float",
-      "id": "prompt_weight",
-      "link_to": {
-        "node_id": "KSampler",
-        "input": "cfg"
-      },
-      "suffix": " prompt weight",
-      "default": 5.0
-    },
-    {
-      "type": "prompt",
-      "id": "default_prompt",
-      "tooltip": "Default prompt",
-      "placeholder": "Default prompt..."
-    },
-    {
-      "type": "int",
-      "id": "batch_size",
-      "link_to": {
-        "node_id": "krita_comfyui: img2img",
-        "input": "batch_size"
-      },
-      "suffix": " batch size",
-      "default": 4
-    },
-    {
-      "type": "int",
-      "id": "feather",
-      "link_to": {
-        "node_id": "krita_comfyui: KritaSelectionFeather",
-        "input": "amount"
-      },
-      "suffix": "px feathering",
-      "default": 16
-    },
+
     {
       "type": "group",
-      "id": "detail_group",
-      "label": "Detailer",
-      "indent": true,
+      "id": "live_mode_group",
+      "label": "Model (live mode)",
       "children": [
+        {
+          "type": "combo",
+          "id": "live_mode_checkpoint",
+          "link_to": {
+            "node_id": "UNETLoader",
+            "input": "unet_name"
+          }
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "combo",
+              "id": "live_mode_sampler_name",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "sampler_name"
+              },
+              "stretch": 1,
+              "default": "euler"
+            },
+            {
+              "type": "combo",
+              "id": "live_mode_scheduler",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "scheduler"
+              },
+              "stretch": 1,
+              "default": "simple"
+            },
+            {
+              "type": "int",
+              "id": "live_mode_steps",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "steps"
+              },
+              "default": 30,
+              "suffix": " steps"
+            }
+          ]
+        },
+        {
+          "type": "float",
+          "id": "live_mode_prompt_weight",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "cfg"
+          },
+          "suffix": " prompt weight",
+          "default": 5.0
+        },
+        {
+          "type": "prompt",
+          "id": "live_mode_default_prompt",
+          "tooltip": "Default prompt",
+          "placeholder": "Default prompt..."
+        }
+      ]
+    },
+
+    {
+      "type": "group",
+      "id": "inpainting_group",
+      "label": "Inpainting",
+      "children": [
+        {
+          "type": "int",
+          "id": "feather",
+          "link_to": {
+            "node_id": "krita_comfyui: KritaSelectionFeather",
+            "input": "amount"
+          },
+          "suffix": "px feathering",
+          "default": 16
+        },
+
         {
           "type": "row",
           "children": [
@@ -133,7 +209,6 @@
       "type": "group",
       "id": "debug_group",
       "label": "Debug",
-      "indent": true,
       "children": [
         {
           "type": "boolean",
@@ -171,6 +246,7 @@
       "id": "mask_regions_group",
       "label": "Mask Regions",
       "default": false,
+      "indent": false,
       "children": [
         {
           "type": "list",
@@ -216,6 +292,7 @@
       "id": "controlnet_group",
       "label": "Control Nets",
       "default": false,
+      "indent": false,
       "children": [
         {
           "type": "list",
@@ -315,7 +392,6 @@
       "type": "group",
       "id": "seed",
       "label": "Seed",
-      "indent": true,
       "children": [
         {
           "type": "seed"
@@ -770,19 +846,19 @@
           0
         ],
         "steps": [
-          "83",
+          "415",
           0
         ],
         "cfg": [
-          "70",
+          "413",
           0
         ],
         "sampler_name": [
-          "81",
+          "411",
           0
         ],
         "scheduler": [
-          "82",
+          "407",
           0
         ],
         "denoise": [
@@ -1159,7 +1235,7 @@
     "285": {
       "inputs": {
         "unet_name": [
-          "91",
+          "398",
           0
         ],
         "weight_dtype": "default"
@@ -1745,7 +1821,7 @@
           0
         ],
         "string_b": [
-          "346",
+          "401",
           0
         ],
         "delimiter": ", "
@@ -1762,8 +1838,8 @@
           1
         ],
         "string_b": [
-          "346",
-          1
+          "404",
+          0
         ],
         "delimiter": ", "
       },
@@ -1811,8 +1887,8 @@
           2
         ],
         "inputs.input1": [
-          "346",
-          2
+          "405",
+          0
         ],
         "inputs.input2": [
           "356",
@@ -2279,6 +2355,241 @@
         ],
         "on_true": [
           "394",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "397": {
+      "inputs": {
+        "id": "live_mode_checkpoint"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "398": {
+      "inputs": {
+        "switch": [
+          "399",
+          0
+        ],
+        "on_false": [
+          "91",
+          0
+        ],
+        "on_true": [
+          "397",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "399": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaLiveMode",
+      "_meta": {
+        "title": "Krita Live Mode"
+      }
+    },
+    "400": {
+      "inputs": {
+        "id": "live_mode_default_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "401": {
+      "inputs": {
+        "switch": [
+          "402",
+          0
+        ],
+        "on_false": [
+          "346",
+          0
+        ],
+        "on_true": [
+          "400",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "402": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaLiveMode",
+      "_meta": {
+        "title": "Krita Live Mode"
+      }
+    },
+    "404": {
+      "inputs": {
+        "switch": [
+          "402",
+          0
+        ],
+        "on_false": [
+          "346",
+          1
+        ],
+        "on_true": [
+          "400",
+          1
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "405": {
+      "inputs": {
+        "switch": [
+          "402",
+          0
+        ],
+        "on_false": [
+          "346",
+          2
+        ],
+        "on_true": [
+          "400",
+          2
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "407": {
+      "inputs": {
+        "switch": [
+          "408",
+          0
+        ],
+        "on_false": [
+          "82",
+          0
+        ],
+        "on_true": [
+          "409",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "408": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaLiveMode",
+      "_meta": {
+        "title": "Krita Live Mode"
+      }
+    },
+    "409": {
+      "inputs": {
+        "id": "live_mode_scheduler"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "410": {
+      "inputs": {
+        "id": "live_mode_sampler_name"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "411": {
+      "inputs": {
+        "switch": [
+          "408",
+          0
+        ],
+        "on_false": [
+          "81",
+          0
+        ],
+        "on_true": [
+          "410",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "412": {
+      "inputs": {
+        "id": "live_mode_prompt_weight"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "413": {
+      "inputs": {
+        "switch": [
+          "408",
+          0
+        ],
+        "on_false": [
+          "70",
+          0
+        ],
+        "on_true": [
+          "412",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "414": {
+      "inputs": {
+        "id": "live_mode_steps"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "415": {
+      "inputs": {
+        "switch": [
+          "408",
+          0
+        ],
+        "on_false": [
+          "83",
+          0
+        ],
+        "on_true": [
+          "414",
           0
         ]
       },
