@@ -3,20 +3,18 @@ import traceback
 import contextlib
 from krita import DockWidget
 from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
     QWidget,
     QFrame,
     QToolButton,
-    QMenu,
-    QWidgetAction,
+    QAbstractScrollArea,
 )
 from shared import Perf
 from ..util import number_of_decimals
 from ..util.krita import DocumentManager
-from ..util.qt import LayoutManager, MessageBox, ComboBox, BlockSignals
+from ..util.qt import LayoutManager, MessageBox, ComboBox, Menu, ScrollArea, BlockSignals
 
 from . import Workflow
 from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiPrompt, UiGroup, UiRow, UiList, UiLabel, UiSeed
@@ -54,25 +52,6 @@ class WorkflowSelector(ComboBox):
                 self.setCurrentIndex(index)
 
 
-class Menu(QMenu):
-    def __init__(self, parent, widget):
-        super().__init__(parent)
-
-        self.widget = widget
-
-        widget_action = QWidgetAction(self)
-        widget_action.setDefaultWidget(self.widget)
-        widget_action.setMenuRole(QAction.MenuRole.NoRole)
-        self.addAction(widget_action)
-
-        #self.aboutToShow.connect(self.on_show)
-
-
-    #def on_show(self):
-        #print("RESIZING", self.widget.sizeHint())
-        #self.resize(self.sizeHint())
-
-
 class WorkflowSettings(QWidget):
     def __init__(self, extension, settings):
         super().__init__()
@@ -83,6 +62,7 @@ class WorkflowSettings(QWidget):
         self.layout_manager = LayoutManager(self)
 
         self.setMaximumWidth(400)
+        self.setMaximumHeight(600)
 
         with self.layout_manager.column() as root:
             with root.row() as top:
@@ -105,42 +85,44 @@ class WorkflowSettings(QWidget):
                 with top.tool_button(icon=Krita.icon("configure-thicker"), tooltip="Open settings") as button:
                     button.clicked.connect(self.extension.show_settings)
 
-            with root.scroll(stretch=1) as scroll:
+
+            with root.widget(ScrollArea()) as scroll:
                 self.scroll = scroll
 
                 scroll.setFrameShape(QFrame.Shape.Panel)
                 scroll.setFrameShadow(QFrame.Shadow.Sunken)
 
-                widget = QWidget()
-                layout = LayoutManager(widget)
+                # Needed to get the right size
+                scroll.setWidgetResizable(True)
+                scroll.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+                scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+                self.scroll_widget = QWidget()
+                self.scroll_layout = LayoutManager(self.scroll_widget)
 
                 # Causes the children to shrink horizontally, to avoid a horizontal scrollbar
-                widget.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred))
+                self.scroll_widget.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred))
 
-                with layout.column() as column:
+                with self.scroll_layout.column() as column:
                     column.set_padding(left=4, right=5, top=4, bottom=4)
 
                     with column.column(align=Qt.AlignmentFlag.AlignTop) as widgets:
                         self.container = widgets
 
-                scroll.setWidget(widget)
+                scroll.setWidget(self.scroll_widget)
+
+        self.hide_inputs()
 
 
-    # This causes it to not close the menu when clicking.
-    def mousePressEvent(self, event):
-        event.accept()
-
+    def on_menu_show(self):
+        # Needed so the menu can resize properly
+        self.scroll.updateGeometry()
 
     def show_inputs(self):
         self.scroll.setVisible(True)
-        self.setMinimumWidth(400)
-        self.setMinimumHeight(400)
-
 
     def hide_inputs(self):
         self.scroll.setVisible(False)
-        self.setMinimumWidth(0)
-        self.setMinimumHeight(0)
 
 
 

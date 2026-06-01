@@ -1,8 +1,11 @@
 import re
 import contextlib
 from PyQt6.QtCore import QObject, QThread, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QWidget,
+    QMenu,
+    QWidgetAction,
     QCheckBox,
     QToolButton,
     QPushButton,
@@ -76,6 +79,53 @@ class Thread(QThread):
             yield
 
             self.wait()
+
+
+class ScrollArea(QScrollArea):
+    def sizeHint(self):
+        frame = self.frameWidth() * 2
+
+        if self.verticalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+            width = self.verticalScrollBar().sizeHint().width()
+        else:
+            width = 0
+
+        if self.horizontalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+            height = self.horizontalScrollBar().sizeHint().height()
+        else:
+            height = 0
+
+        return QSize(frame, frame) + self.widget().sizeHint() + QSize(width, height)
+
+
+class Menu(QMenu):
+    def __init__(self, parent, widget):
+        super().__init__(parent)
+
+        self.widget = widget
+
+        self.action = QWidgetAction(self)
+        self.action.setDefaultWidget(self.widget)
+        self.action.setMenuRole(QAction.MenuRole.NoRole)
+        self.addAction(self.action)
+
+
+    def refresh_size(self):
+        self.widget.on_menu_show()
+        self.widget.adjustSize()
+
+        # TODO figure out an automatic way of finding the margin size
+        self.resize(self.widget.size() + QSize(8, 8))
+
+
+    # This causes it to not close the menu when clicking inside the menu.
+    def mouseReleaseEvent(self, event):
+        event.ignore()
+
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.refresh_size()
 
 
 class ComboBox(QComboBox):

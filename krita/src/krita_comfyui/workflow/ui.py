@@ -752,12 +752,14 @@ class UiGroup(QWidget):
         if checked:
             self.toggle_button.setArrowType(Qt.ArrowType.DownArrow)
             self.toggle_button.setToolTip("Close group...")
-            self.container.show()
+
+            self.container.setVisible(True)
 
         else:
             self.toggle_button.setArrowType(Qt.ArrowType.RightArrow)
             self.toggle_button.setToolTip("Open group...")
-            self.container.hide()
+
+            self.container.setVisible(False)
 
 
     def on_toggled(self, checked):
