@@ -17,10 +17,11 @@ CONST_NODES = {
 
 
 class WorkflowGraph:
-    def __init__(self, document, json, ui_values):
+    def __init__(self, *, document, json, ui_values, is_live_mode):
         self.document = document
         self.json = json
         self.ui_values = ui_values
+        self.is_live_mode = is_live_mode
 
         self.graph = Graph()
 

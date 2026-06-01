@@ -315,6 +315,25 @@ class KritaCanvasSize(io.ComfyNode):
         raise RuntimeError("Workflow must be run from Krita.")
 
 
+class KritaLiveMode(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaLiveMode",
+            display_name="Krita Live Mode",
+            category="krita/input",
+            description="Retrieves the live mode information from Krita.",
+            inputs=[],
+            outputs=[
+                io.Boolean.Output(display_name="is_enabled"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
 class KritaSeed(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:

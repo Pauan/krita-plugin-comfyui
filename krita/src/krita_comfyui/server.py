@@ -1067,6 +1067,7 @@ class ComfyUIClient(QObject):
                     document=document,
                     json=graph,
                     ui_values=ui_values,
+                    is_live_mode=is_live_mode,
                 ).evaluate()
 
             except Exception as error:

@@ -44,6 +44,7 @@ class KritaComfyui(ComfyExtension):
             nodes.KritaCanvasImage,
             nodes.KritaCanvasSize,
             nodes.KritaLayers,
+            nodes.KritaLiveMode,
             nodes.KritaSeed,
 
             # krita/output

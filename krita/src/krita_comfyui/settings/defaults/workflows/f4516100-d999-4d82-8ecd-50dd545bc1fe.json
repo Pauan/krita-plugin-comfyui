@@ -1869,7 +1869,7 @@
           2
         ],
         "on_false": [
-          "386",
+          "395",
           0
         ],
         "on_true": [
@@ -1906,7 +1906,7 @@
           1
         ],
         "batch_size": [
-          "128",
+          "396",
           0
         ]
       },
@@ -2126,7 +2126,7 @@
     "385": {
       "inputs": {
         "pixels": [
-          "376",
+          "391",
           0
         ],
         "vae": [
@@ -2171,11 +2171,11 @@
           0
         ],
         "pixels": [
-          "376",
+          "391",
           0
         ],
         "mask": [
-          "375",
+          "390",
           0
         ]
       },
@@ -2195,6 +2195,102 @@
       "class_type": "ComfyMathExpression",
       "_meta": {
         "title": "Math Expression"
+      }
+    },
+    "390": {
+      "inputs": {
+        "switch": [
+          "374",
+          2
+        ],
+        "on_false": [
+          "384",
+          0
+        ],
+        "on_true": [
+          "375",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "391": {
+      "inputs": {
+        "switch": [
+          "374",
+          2
+        ],
+        "on_false": [
+          "126",
+          0
+        ],
+        "on_true": [
+          "376",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "393": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaLiveMode",
+      "_meta": {
+        "title": "Krita Live Mode"
+      }
+    },
+    "394": {
+      "inputs": {
+        "value": 1
+      },
+      "class_type": "PrimitiveInt",
+      "_meta": {
+        "title": "Int"
+      }
+    },
+    "395": {
+      "inputs": {
+        "switch": [
+          "393",
+          0
+        ],
+        "on_false": [
+          "386",
+          0
+        ],
+        "on_true": [
+          "253",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "396": {
+      "inputs": {
+        "switch": [
+          "393",
+          0
+        ],
+        "on_false": [
+          "128",
+          0
+        ],
+        "on_true": [
+          "394",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
       }
     }
   }

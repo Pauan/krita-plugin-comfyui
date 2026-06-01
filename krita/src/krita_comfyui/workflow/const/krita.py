@@ -82,6 +82,15 @@ class KritaCanvasSize(ConstantNode):
         )
 
 
+@function(
+    name="Krita Live Mode",
+    inputs_constant=True,
+)
+class KritaLiveMode(ConstantNode):
+    def run(self):
+        return self.workflow.is_live_mode
+
+
 class KritaDebug(ConstantNode):
     def serialize_any(self, x):
         if is_link(x):
@@ -432,6 +441,7 @@ CONST_NODES = {
     "krita_comfyui: KritaCanvasImage": KritaCanvasImage,
     "krita_comfyui: KritaCanvasSize": KritaCanvasSize,
     "krita_comfyui: KritaLayers": KritaLayers,
+    "krita_comfyui: KritaLiveMode": KritaLiveMode,
     "krita_comfyui: KritaDebug": KritaDebug,
     "krita_comfyui: KritaSeed": KritaSeed,
     "krita_comfyui: ApplyLoras": ApplyLoras,
