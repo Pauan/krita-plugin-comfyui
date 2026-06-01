@@ -488,7 +488,7 @@ class WorkflowWidget(QWidget):
                 storage = (
                     self.extension.settings.settings.root.dict("workflows")
                         .dict(self.selected_workflow.get())
-                        .dict("ui_values")
+                        .dict("ui_inputs")
                 )
 
                 container = self.workflow_settings.container
