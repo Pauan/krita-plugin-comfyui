@@ -169,13 +169,13 @@ class SettingsFile(Storage):
 
     def _save(self):
         with open(self.path, "w") as file:
-            dump(self.serialized, file, indent=2)
+            dump(self._serialized, file, indent=2)
 
 
 class Workflow:
-    def __init__(self, settings, file):
-        self.settings = settings
+    def __init__(self, file, is_hidden):
         self.file = file
+        self._is_hidden = is_hidden
 
     def id(self):
         return self.file["id"]
@@ -193,7 +193,7 @@ class Workflow:
         return self.file["graph"]
 
     def is_hidden(self):
-        return self.settings.get("hidden", False)
+        return self._is_hidden.get()
 
 
 class Workflows(QObject):
@@ -212,8 +212,9 @@ class Workflows(QObject):
 
         self._process_order()
 
-        self.settings.add_listener(lambda old, new: self.changed.emit())
-        self.order.add_listener(lambda old, new: self.changed.emit())
+        # TODO emit changed whenever the is_hidden changes
+        #self.settings.add_listener(lambda: self.changed.emit())
+        self.order.add_listener(lambda: self.changed.emit())
 
 
     @staticmethod
@@ -250,7 +251,7 @@ class Workflows(QObject):
                     pass
 
         # Adds default workflows that aren't in the order.
-        for id in self.order.default:
+        for id in self.order.default():
             if not id in seen:
                 new_order.insert(last_default, id)
                 seen.add(id)
@@ -284,8 +285,7 @@ class Workflows(QObject):
 
     def get(self, id):
         file = self._get_file(id)
-        settings = self.settings.get()
-        return Workflow(settings.get(id, {}), file)
+        return Workflow(file, self.settings.dict(id).value("is_hidden", bool, default=False))
 
 
     def set(self, id, value):
@@ -497,8 +497,8 @@ class DanbooruTags(QObject):
 
     def update(self):
         with Perf("DanbooruTags.update"):
-            minimum_posts = self.settings.get("danbooru_minimum_posts")
-            minimum_characters = self.settings.get("autocomplete_minimum_characters")
+            minimum_posts = self.settings.root.value("danbooru_minimum_posts", int).get()
+            minimum_characters = self.settings.root.value("autocomplete_minimum_characters", int).get()
 
             tags = []
 
@@ -554,8 +554,8 @@ class Settings(QObject):
         with Perf("Loading workflows"):
             self.workflows = Workflows(
                 self,
-                settings=self.settings.item("workflows"),
-                order=self.settings.item("workflow_order"),
+                settings=self.settings.root.dict("workflows"),
+                order=self.settings.root.value("workflow_order", list),
                 folder=self.dir / "workflows",
                 defaults=self.default_workflows,
             )
@@ -563,7 +563,7 @@ class Settings(QObject):
         self.node_metadata = NodeMetadata(self.dir)
         self.danbooru_tags = DanbooruTags(self.dir, self.settings)
 
-        self.logging_level = self.settings.item("logging_level")
+        self.logging_level = self.settings.root.value("logging_level", str)
 
         self.thread = Thread(self)
 
@@ -574,6 +574,10 @@ class Settings(QObject):
         self.thread.started.connect(self.danbooru_tags.load)
 
         self.thread.start()
+
+
+    def with_selected_workflow(self, f):
+        return self.settings.root.value("selected_workflow", str).map(lambda x: f(self.settings.root.dict("workflows").dict(x)))
 
 
     def cleanup(self):
@@ -632,10 +636,10 @@ class Settings(QObject):
             snapshot = self.snapshot()
 
             try:
-                self.settings.clear()
-                self.bundles.clear()
-                self.presets.clear()
-                self.workflows.clear()
+                self.settings.replace_serialized({})
+                self.bundles.replace_serialized({})
+                self.presets.replace_serialized({})
+                self.workflows.replace_serialized({})
             except:
                 self.restore_snapshot(snapshot)
                 raise

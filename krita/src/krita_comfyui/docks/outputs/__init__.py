@@ -19,7 +19,6 @@ class OutputsWidget(QWidget):
         self.extension.job_started.connect(self.on_job_started)
 
         self.settings = settings
-        self.live_mode_enabled = self.settings.item("live_mode_enabled", default=False)
 
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred))
 
@@ -39,7 +38,7 @@ class OutputsWidget(QWidget):
                 self.live_mode = LiveModeWidget(extension, self.document)
                 stack.widget(self.live_mode)
 
-        # TODO remove the event listener when the QWidget is destroyed
+        self.live_mode_enabled = self.settings.with_selected_workflow(lambda x: x.value("live_mode_enabled", bool))
         self.live_mode_enabled.with_value(self.on_live_mode_changed)
 
 
@@ -110,7 +109,7 @@ class ComfyUIOutputWidget(DockWidget):
         self.extension = get_extension(ComfyUIExtension)
         self.extension.client.graph_changed.connect(self.on_graph_changed)
 
-        self._widget = OutputsWidget(self.extension, self.extension.settings.settings)
+        self._widget = OutputsWidget(self.extension, self.extension.settings)
         self._widget.setParent(self)
         self._widget.image.total_bytes_changed.connect(self.update_title)
         self._widget.live_mode.total_bytes_changed.connect(self.update_title)

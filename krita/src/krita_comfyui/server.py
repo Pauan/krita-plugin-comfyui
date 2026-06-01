@@ -948,7 +948,7 @@ class ComfyUIClient(QObject):
         else:
             page = f"b{self.last_danbooru_id}"
 
-        minimum_posts = self.settings.settings.get("danbooru_minimum_posts")
+        minimum_posts = self.settings.settings.root.value("danbooru_minimum_posts", int).get()
 
         self.http.get(self.request(
             url="https://danbooru.donmai.us/tags.json",

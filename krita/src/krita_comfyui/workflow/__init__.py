@@ -32,11 +32,11 @@ class Workflow(Storage):
 
     def _save(self):
         if self.id != "" and self.document is not None:
-            self.document.set_key_json(f"krita_comfyui/ui_inputs/{self.id}", "krita_comfyui: Stored UI Inputs", self.serialized)
+            self.document.set_key_json(f"krita_comfyui/ui_inputs/{self.id}", "krita_comfyui: Stored UI Inputs", self._serialized)
 
 
     @staticmethod
-    def _get_default(info):
+    def _get_metadata_default(info):
         match info["type"]:
             case "layer_id" | "combo" | "string" | "prompt": return ""
             case "int": return 0
@@ -48,7 +48,7 @@ class Workflow(Storage):
 
 
     @staticmethod
-    def _get_type(info):
+    def _get_metadata_type(info):
         match info["type"]:
             case "layer_id": return "layer_id"
             case "combo": return "combo"
@@ -59,6 +59,17 @@ class Workflow(Storage):
             case "float" | "percentage": return "float"
             case "list": return "list"
             case "group": return "group"
+            case _: raise RuntimeError(f"Unknown widget type {info["type"]}")
+
+
+    @staticmethod
+    def _get_metadata_cls(info):
+        match info["type"]:
+            case "layer_id" | "combo" | "string" | "prompt": return str
+            case "boolean" | "group": return bool
+            case "int": return int
+            case "float" | "percentage": return float
+            case "list": return list
             case _: raise RuntimeError(f"Unknown widget type {info["type"]}")
 
 
@@ -75,12 +86,15 @@ class Workflow(Storage):
                 default = metadata.info.get("default", None)
 
         if default is None:
-            default = self._get_default(info)
+            default = self._get_metadata_default(info)
 
-        type = self._get_type(info)
+        type = self._get_metadata_type(info)
+
+        cls = self._get_metadata_cls(info)
 
         return {
             "id": f"{type}/{info["id"]}",
+            "cls": cls,
             "type": type,
             "default": default,
         }
@@ -122,9 +136,11 @@ class Workflow(Storage):
         assert self.id is not None
 
         if self.id == "" or self.document is None:
-            self.replace_serialized({})
+            serialized = {}
         else:
-            self.replace_serialized(self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {}))
+            serialized = self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {})
+
+        self.replace_serialized(serialized, notify_listeners=False)
 
 
     def _update_workflow(self, id):
@@ -178,7 +194,6 @@ class Workflow(Storage):
                     self.graph = new_graph
                     self.layout = new_layout
                     self._update_metadata()
-                    self.disconnect_items()
                     return True
 
         return False
@@ -186,7 +201,6 @@ class Workflow(Storage):
 
     def change_metadata(self):
         self._update_metadata()
-        self.disconnect_items()
         return True
 
 

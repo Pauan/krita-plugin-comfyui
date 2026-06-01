@@ -1,309 +1,443 @@
 import json
 import contextlib
 from shared import JSON
-from weakref import WeakValueDictionary
-from typing import Self, Iterable, overload, cast
+from typing import Protocol
 from collections.abc import Callable
 
 
-class Listener[A: JSON]:
-    def __init__(self, item: "Item[A]", listener: Callable[[A, A], None]):
-        self._item = item
-        self._listener = listener
+class Listener(Protocol):
+    def stop(self):
+        ...
+
+
+class LeafListener(Listener):
+    def __init__(self, storage: "Storage", path: tuple[str | int, ...], receiver: Callable[[], None]):
+        self._storage = storage
+        self._path = path
+        self._receiver = receiver
 
     def stop(self):
-        self._item.remove_listener(self._listener)
+        self._storage.remove_listener(self._path, self._receiver)
 
 
-class Item[A: JSON]:
-    def __init__(self, parent: "DictBase", id: str, default: A):
-        is_default = False
+class PathLeaf[A](Protocol):
+    _storage: "Storage"
 
-        try:
-            value = parent.serialized[id]
-
-            if not isinstance(value, type(default)):
-                raise TypeError(f"{id} must be of type {type(default)}")
-
-        except KeyError:
-            value = default
-            is_default = True
-
-        self.id = id
-        self.default = default
-        self.is_default = is_default
-
-        self._value = value
-
-        self._parent = parent
-        self._listeners: list[Callable[[A, A], None]] = []
-
-
-    @classmethod
-    def from_serialized(cls, parent: "DictBase", id: str, default: A) -> Self:
-        return cls(parent, id, default)
-
-
-    def add_listener(self, f: Callable[[A, A], None]) -> Listener[A]:
-        self._listeners.append(f)
-        return Listener(self, f)
-
-    def remove_listener(self, f: Callable[[A, A], None]):
-        self._listeners.remove(f)
-
-
-    def notify_listeners(self, old_value: A):
-        new_value = self._value
-
-        if old_value != new_value:
-            for listener in self._listeners:
-                listener(old_value, new_value)
-
-
-    def with_value(self, f: Callable[[A], None]) -> Listener[A]:
-        def on_change(old: A, new: A):
-            assert self._value == new
-            f(new)
-        f(self._value)
-        return self.add_listener(on_change)
-
-
-    def disconnect(self):
-        self._parent = None
-
+    _path: tuple[str | int, ...]
 
     def get(self) -> A:
-        return self._value
+        ...
+
+    def add_listener(self, f: Callable[[], None]) -> Listener:
+        self._storage.add_listener(self._path, f)
+        return LeafListener(self._storage, self._path, f)
+
+    def with_value(self, f: Callable[[A], None]):
+        f(self.get())
+        return self.add_listener(lambda: f(self.get()))
+
+    def map[B](self, f: Callable[[A], "PathValue[B]"]) -> "Map[A, B]":
+        return Map(self._storage, self, f)
 
 
-    def set(self, value: A, *, save: bool=True, notify_listeners: bool=True):
-        assert self._parent is not None
+class PathValue[A](PathLeaf[A]):
+    def key(self) -> str:
+        ...
 
-        old_value = self._value
+    def default(self) -> A:
+        ...
 
-        self._value = value
-        self.is_default = False
+    def set(self, value: A) -> bool:
+        ...
 
-        if save:
-            try:
-                # We only save if the new value is different from the old value.
-                should_save = self._parent.serialized[self.id] != value
-            except KeyError:
-                should_save = True
-
-            self._parent.ensure_exists()
-            self._parent.serialized[self.id] = value
-
-            if should_save:
-                self._parent.root.save()
-
-        if notify_listeners:
-            self.notify_listeners(old_value)
+    def remove(self) -> bool:
+        ...
 
 
-    def reset_to_default(self, *, save: bool=True, notify_listeners: bool=True):
-        assert self._parent is not None
+class Path[A](PathLeaf[A]):
+    def _ensure_exists(self) -> A:
+        ...
 
-        should_save = save and not self.is_default
-
-        old_value = self._value
-
-        self._value = self.default
-        self.is_default = True
-
-        if should_save:
-            del self._parent.serialized[self.id]
-            self._parent.root.save()
-
-        if notify_listeners:
-            self.notify_listeners(old_value)
+    def _remove(self):
+        ...
 
 
-    def change_default(self, new_default: A):
-        assert self._parent is not None
+class MapListener[A, B](Listener):
+    def __init__(self, map: "Map[A, B]", receiver: Callable[[], None]):
+        self._map = map
+        self._receiver = receiver
 
-        self.default = new_default
-
-        if self.is_default:
-            self.reset_to_default(save=False)
-
-
-class DictBase:
-    def __init__(self, root: "Storage", serialized: dict[str, JSON]):
-        self.root = root
-        self.serialized = serialized
-        self.items: WeakValueDictionary[str, Item[JSON]] = WeakValueDictionary({})
+    def stop(self):
+        self._map.remove_listener(self._receiver)
 
 
-    def ensure_exists(self):
-        pass
+class Map[A, B](PathValue[B]):
+    def __init__(self, storage: "Storage", parent: PathLeaf[A], map: Callable[[A], PathValue[B]]):
+        self._storage = storage
+        self._parent = parent
+        self._map = map
+
+        self._listeners: list[Callable[[], None]] = []
+        self._listener: Listener | None = None
+
+        self._value = map(parent.get())
+        self._path = self._value._path
+
+        self._parent_listener = parent.add_listener(self._update)
 
 
-    @overload
-    def _make_item[A: JSON](self, id: str, default: A | None, item_class: type[Item[JSON]]) -> Item[A]: ...
+    def stop(self):
+        self._parent_listener.stop()
 
-    @overload
-    def _make_item(self, id: str, default: dict[str, JSON], item_class: type["ItemDict"]) -> "ItemDict": ...
+        self._listeners.clear()
 
-    @overload
-    def _make_item(self, id: str, default: list[dict[str, JSON]], item_class: type["ItemList"]) -> "ItemList": ...
-
-    def _make_item(self, id, default, cache: bool, item_class):
-        if cache:
-            try:
-                return self.items[id]
-
-            except KeyError:
-                if default is None:
-                    default = self.root._get_default(id)
-
-                item = item_class.from_serialized(self, id, default)
-                self.items[id] = item
-                return item
-
-        else:
-            if default is None:
-                default = self.root._get_default(id)
-
-            return item_class.from_serialized(self, id, default)
+        if self._listener is not None:
+            self._listener.stop()
+            self._listener = None
 
 
-    def get[A: JSON](self, id: str, *, default: A | None=None) -> A:
+    def _emit(self):
+        for listener in self._listeners:
+            listener()
+
+
+    def _update(self):
+        self._value = self._map(self._parent.get())
+        self._path = self._value._path
+
+        if self._listener is not None:
+            self._listener.stop()
+            self._listener = self._value.add_listener(self._emit)
+
+        self._emit()
+
+
+    def key(self) -> str:
+        return self._value.key()
+
+    def default(self) -> B:
+        return self._value.default()
+
+    def get(self) -> B:
+        return self._value.get()
+
+    def set(self, value: B):
+        return self._value.set(value)
+
+    def remove(self):
+        return self._value.remove()
+
+
+    def add_listener(self, f: Callable[[], None]) -> Listener:
+        if self._listener is None:
+            self._listener = self._value.add_listener(self._emit)
+
+        self._listeners.append(f)
+        return MapListener(self, f)
+
+
+    def remove_listener(self, f: Callable[[], None]):
+        self._listeners.remove(f)
+
+        if len(self._listeners) == 0:
+            if self._listener is not None:
+                self._listener.stop()
+                self._listener = None
+
+
+class PathDict(Path[dict[str, JSON]]):
+    def dict(self, key: str, *, optional: bool=True) -> "Dict":
+        return Dict(self._storage, self, key, optional)
+
+    def list(self, key: str, *, optional: bool=True) -> "List":
+        return List(self._storage, self, key, optional)
+
+    def value[A: JSON](self, key: str, cls: type[A], *, default: A | None=None) -> "Value[A]":
+        return Value(self._storage, self, key, cls, default)
+
+
+class Root(PathDict):
+    _path: tuple[str | int, ...] = tuple()
+
+    def __init__(self, storage: "Storage"):
+        self._storage = storage
+
+    def get(self) -> dict[str, JSON]:
+        return self._storage._serialized # pyright: ignore [reportPrivateUsage]
+
+    def _ensure_exists(self) -> dict[str, JSON]:
+        return self._storage._serialized # pyright: ignore [reportPrivateUsage]
+
+    def _remove(self):
+        assert len(self._storage._serialized) == 0 # pyright: ignore [reportPrivateUsage]
+
+
+class Dict(PathDict):
+    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, optional: bool):
+        self._storage = storage
+        self._parent = parent
+        self._key = key
+        self._optional = optional
+        self._path = (*parent._path, key)
+
+
+    def get(self) -> dict[str, JSON]:
+        parent = self._parent.get()
+
         try:
-            return cast(A, self.serialized[id])
+            out = parent[self._key]
+
+            if not isinstance(out, dict):
+                raise TypeError(f"{self._key} is not a dict")
+
+            return out
+
         except KeyError:
-            if default is None:
-                return self.root._get_default(id)
+            if self._optional:
+                return {}
             else:
-                return default
+                raise
 
 
-    def keys(self) -> Iterable[str]:
-        return self.serialized.keys()
-
-    def item[A: JSON](self, id: str, *, default: A | None=None, cache=True) -> Item[A]:
-        return self._make_item(id, default, cache, self.root.ITEM_CLASS)
-
-    def item_dict(self, id: str, *, default: dict[str, JSON]={}, cache=True) -> "ItemDict":
-        return self._make_item(id, default, cache, self.root.ITEM_DICT_CLASS)
-
-    def item_list(self, id: str, *, default: list[dict[str, JSON]]=[], cache=True) -> "ItemList":
-        return self._make_item(id, default, cache, self.root.ITEM_LIST_CLASS)
-
-
-class ItemDict(DictBase):
-    def __init__(self, parent, id, value):
-        super().__init__(parent.root, value)
-        self.id = id
-        self.parent = parent
-
-
-    def ensure_exists(self):
-        self.parent.ensure_exists()
-
-        if not self.id in self.parent.serialized:
-            self.parent.serialized[self.id] = self.serialized
-
-
-    @classmethod
-    def from_serialized(cls, parent: DictBase, id: str, default: dict[str, JSON]) -> Self:
-        assert isinstance(default, dict)
+    def _ensure_exists(self) -> dict[str, JSON]:
+        parent = self._parent._ensure_exists()
 
         try:
-            value = parent.serialized[id]
+            out = parent[self._key]
 
-            if not isinstance(value, dict):
-                raise TypeError(f"{id} must be a dict")
+            if not isinstance(out, dict):
+                raise TypeError(f"{self._key} is not a dict")
+
+            return out
 
         except KeyError:
-            value = default
-
-        return cls(parent, id, value)
-
-
-    def disconnect(self):
-        try:
-            for item in self.items.values():
-                item.disconnect()
-        finally:
-            self.root = None
+            default: dict[str, JSON] = {}
+            parent[self._key] = default
+            return default
 
 
-class ItemList:
-    def __init__(self, root: "Storage", serialized: dict[str, JSON], id: str, values: list[dict[str, JSON]]):
-        self.root = root
-        self.serialized = serialized
-        self.id = id
-        self.values = values
-        self.items: list[ItemDict] = [ItemDict(self.root, value) for value in values]
-
-
-    @classmethod
-    def from_serialized(cls, parent: DictBase, id: str, default: list[dict[str, JSON]]) -> Self:
-        assert isinstance(default, list)
+    def _remove(self):
+        parent = self._parent.get()
 
         try:
-            values = parent.serialized[id]
-
-            if not isinstance(values, list):
-                raise TypeError(f"{id} must be a list")
+            value = parent.pop(self._key)
+            assert isinstance(value, dict)
+            assert len(value) == 0
+            changed = True
 
         except KeyError:
-            values = default
+            changed = False
 
-        return cls(parent.root, parent.serialized, id, cast(list[dict[str, JSON]], values))
+        if changed and len(parent) == 0:
+            self._parent._remove()
 
 
-    def disconnect(self):
+class List(Path[list[JSON]]):
+    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, optional: bool):
+        self._storage = storage
+        self._parent = parent
+        self._key = key
+        self._optional = optional
+        self._path = (*parent._path, key)
+
+
+    def get(self) -> list[JSON]:
+        parent = self._parent.get()
+
         try:
-            for item in self.items:
-                item.disconnect()
-        finally:
-            self.root = None
+            out = parent[self._key]
+
+            if not isinstance(out, list):
+                raise TypeError(f"{self._key} is not a list")
+
+            return out
+
+        except KeyError:
+            if self._optional:
+                return []
+            else:
+                raise
 
 
-    def move(self, old_index: int, new_index: int):
-        assert self.root is not None
+    def _ensure_exists(self) -> list[JSON]:
+        parent = self._parent._ensure_exists()
 
-        assert old_index != new_index
-        assert new_index >= 0
-        assert new_index < len(self.values)
+        try:
+            out = parent[self._key]
 
-        assert self.serialized[self.id] is self.values
+            if not isinstance(out, list):
+                raise TypeError(f"{self._key} is not a list")
 
-        self.items.insert(new_index, self.items.pop(old_index))
-        self.values.insert(new_index, self.values.pop(old_index))
+            return out
 
-        self.root.save()
+        except KeyError:
+            default: list[JSON] = []
+            parent[self._key] = default
+            return default
+
+
+    def _remove(self):
+        parent = self._parent.get()
+
+        try:
+            value = parent.pop(self._key)
+            assert isinstance(value, list)
+            assert len(value) == 0
+            changed = True
+
+        except KeyError:
+            changed = False
+
+        if changed and len(parent) == 0:
+            self._parent._remove()
+
+
+    def append(self, value: dict[str, JSON]):
+        list = self._ensure_exists()
+        list.append(value)
+        self._storage.on_changed(self._path)
 
 
     def remove(self, index: int):
-        assert self.root is not None
+        assert index >= 0
 
-        item = self.items.pop(index)
-        item.disconnect()
+        list = self.get()
 
-        assert self.serialized[self.id] is self.values
-        del self.values[index]
+        assert index < len(list)
 
-        if len(self.values) == 0:
-            del self.serialized[self.id]
+        value = list.pop(index)
 
-        self.root.save()
+        if len(list) == 0:
+            self._remove()
+
+        self._storage.on_changed(self._path)
+        return value
 
 
-    def append(self, value: dict[str, JSON]) -> ItemDict:
-        assert self.root is not None
+    def move(self, old_index: int, new_index: int):
+        assert old_index != new_index
+        assert old_index >= 0
+        assert new_index >= 0
 
-        item = ItemDict(self.root, value)
+        list = self.get()
 
-        self.values.append(value)
-        self.items.append(item)
+        assert old_index < len(list)
+        assert new_index < len(list)
 
-        self.serialized[self.id] = cast(JSON, self.values)
-        self.root.save()
+        list.insert(new_index, list.pop(old_index))
 
-        return item
+        self._storage.on_changed(self._path)
+
+
+    def index(self, index: int):
+        return Index(self._storage, self, index)
+
+
+class Index(PathDict):
+    def __init__(self, storage: "Storage", parent: Path[list[JSON]], index: int):
+        self._storage = storage
+        self._parent = parent
+        self._index = index
+        self._path = (*parent._path, index)
+
+
+    def get(self) -> dict[str, JSON]:
+        parent = self._parent.get()
+        out = parent[self._index]
+
+        if not isinstance(out, dict):
+            raise TypeError(f"{self._index} is not a dict")
+
+        return out
+
+
+    def _ensure_exists(self) -> dict[str, JSON]:
+        parent = self._parent._ensure_exists()
+
+        #for _ in range(len(parent), self.index + 1):
+            #parent.append({})
+
+        out = parent[self._index]
+
+        if not isinstance(out, dict):
+            raise TypeError(f"{self._index} is not a dict")
+
+        return out
+
+
+    def _remove(self):
+        pass
+
+
+class Value[A: JSON](PathValue[A]):
+    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, cls: type[A], default: A | None):
+        self._storage = storage
+        self._parent = parent
+        self._key = key
+        self._cls = cls
+        self._default = default
+        self._path = (*parent._path, key)
+
+
+    def key(self) -> str:
+        return self._key
+
+
+    def default(self) -> A:
+        if self._default is None:
+            default = self._storage._get_default(self._key) # pyright: ignore [reportPrivateUsage]
+            assert isinstance(default, self._cls)
+            return default
+        else:
+            return self._default
+
+
+    def get(self) -> A:
+        parent = self._parent.get()
+
+        try:
+            out = parent[self._key]
+
+            if not isinstance(out, self._cls):
+                raise TypeError(f"{self._key} is not a {self._cls.__name__}")
+
+            return out
+
+        except KeyError:
+            return self.default()
+
+
+    def set(self, value: A):
+        parent = self._parent._ensure_exists() # pyright: ignore [reportPrivateUsage]
+
+        try:
+            changed = parent[self._key] != value
+        except KeyError:
+            changed = True
+
+        if changed:
+            parent[self._key] = value
+            self._storage.on_changed(self._path)
+
+        return changed
+
+
+    def remove(self):
+        parent = self._parent.get()
+
+        try:
+            del parent[self._key]
+            changed = True
+        except KeyError:
+            changed = False
+
+        if changed:
+            if len(parent) == 0:
+                self._parent._remove() # pyright: ignore [reportPrivateUsage]
+
+            self._storage.on_changed(self._path)
+
+        return changed
 
 
 class SaveState:
@@ -342,76 +476,93 @@ class SaveState:
             return False
 
 
-class Storage(DictBase):
-    # These attributes are intended to be overwritten by subclasses
-    ITEM_CLASS: type[Item[JSON]] = Item
-    ITEM_DICT_CLASS: type[ItemDict] = ItemDict
-    ITEM_LIST_CLASS: type[ItemList] = ItemList
+class Storage:
+    def __init__(self, serialized: dict[str, JSON]):
+        self.root = Root(self)
+
+        self._save_state = SaveState()
+        self._serialized = serialized
+        self._listeners: dict[tuple[str | int, ...], list[Callable[[], None]]] = {}
+
 
     # These methods are intended to be overwritten by subclasses
-    def _get_default(self, id: str) -> JSON:
+    def _get_default[A](self, key: str) -> JSON:
         raise ValueError("default must be provided")
 
     def _save(self):
         pass
 
 
-    def __init__(self, serialized: dict[str, JSON]):
-        super().__init__(self, serialized)
-        self.save_state = SaveState()
+    def save(self):
+        if self._save_state.try_save():
+            self._save()
 
 
     @contextlib.contextmanager
     def delay_save(self):
-        delayed = self.save_state.start_delay()
+        delayed = self._save_state.start_delay()
         try:
             yield
         finally:
-            if self.save_state.end_delay(delayed):
+            if self._save_state.end_delay(delayed):
                 self.save()
 
 
-    def stop(self):
-        self.disconnect_items()
-        self.root = None
-        self.items = cast(WeakValueDictionary[str, Item[JSON]], None)
-        self.serialized = None
-        self.save_state.enabled = False
+    def replace_serialized(self, new_serialized: dict[str, JSON], *, notify_listeners: bool=True):
+        if self._serialized != new_serialized:
+            self._serialized = new_serialized
 
-
-    def save(self):
-        if self.save_state.try_save():
-            self._save()
-
-
-    def disconnect_items(self):
-        try:
-            for item in self.items.values():
-                item.disconnect()
-        finally:
-            self.items.clear()
-
-
-    def replace_serialized(self, new_serialized: dict[str, JSON]):
-        self.serialized = new_serialized
-        self.disconnect_items()
-
-
-    def clear(self) -> bool:
-        if self.serialized != {}:
-            self.replace_serialized({})
             self.save()
+
+            if notify_listeners:
+                for listeners in self._listeners.values():
+                    for listener in listeners:
+                        listener()
+
             return True
+
         return False
 
 
     def snapshot(self) -> dict[str, JSON]:
-        return json.loads(json.dumps(self.serialized))
+        return json.loads(json.dumps(self._serialized))
 
 
-    def restore_snapshot(self, snapshot: dict[str, JSON]) -> bool:
-        if self.serialized != snapshot:
-            self.replace_serialized(snapshot)
-            self.save()
-            return True
-        return False
+    def restore_snapshot(self, snapshot: dict[str, JSON], *, notify_listeners: bool=True) -> bool:
+        return self.replace_serialized(snapshot, notify_listeners=notify_listeners)
+
+
+    def on_changed(self, path: tuple[str | int, ...]):
+        self.save()
+
+        try:
+            listeners = self._listeners[path]
+        except KeyError:
+            return
+
+        for listener in listeners:
+            listener()
+
+
+    def add_listener(self, path: tuple[str | int, ...], f: Callable[[], None]):
+        try:
+            listeners = self._listeners[path]
+        except KeyError:
+            listeners = self._listeners[path] = []
+
+        listeners.append(f)
+
+
+    def remove_listener(self, path: tuple[str | int, ...], f: Callable[[], None]):
+        try:
+            listeners = self._listeners[path]
+        except KeyError:
+            return
+
+        try:
+            listeners.remove(f)
+        except ValueError:
+            return
+
+        if len(listeners) == 0:
+            del self._listeners[path]

@@ -31,7 +31,7 @@ class InputEqual:
             metadata = workflow.metadata[info["id"]]
 
             return [InputEqual(
-                storage.item(metadata["id"], default=metadata["default"]),
+                storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
                 info["value"],
             )]
 
@@ -62,9 +62,9 @@ class Inputs:
 
     def format_tooltip(self, tooltip):
         if tooltip is None:
-            return f"[{self.value.id}]"
+            return f"[{self.value.key()}]"
         else:
-            return f"[{self.value.id}]\n{tooltip}"
+            return f"[{self.value.key()}]\n{tooltip}"
 
 
     def is_valid(self):
@@ -85,7 +85,7 @@ class Inputs:
             if tooltip is not None:
                 widget.setToolTip(self.format_tooltip(tooltip))
 
-            self.listeners.append(self.value.add_listener(lambda old, new: widget.sync()))
+            self.listeners.append(self.value.add_listener(widget.sync))
 
 
 # If we call `widget.setVisible(True)` it will cause
@@ -119,7 +119,7 @@ class UiCombo(ComboBox):
         metadata = workflow.metadata[json["id"]]
 
         return UiCombo(
-            value=storage.item(metadata["id"], default=metadata["default"]),
+            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
@@ -196,7 +196,7 @@ class UiLayerId(UiCombo):
         metadata = workflow.metadata[json["id"]]
 
         return UiLayerId(
-            value=storage.item(metadata["id"], default=metadata["default"]),
+            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
@@ -238,7 +238,7 @@ class UiBoolean(QWidget):
         metadata = workflow.metadata[json["id"]]
 
         return UiBoolean(
-            value=storage.item(metadata["id"], default=metadata["default"]),
+            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
             reset_to_default=False,
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
@@ -255,8 +255,8 @@ class UiBoolean(QWidget):
     def on_changed(self):
         is_checked = self.checkbox.isChecked()
 
-        if self.reset_to_default and self.inputs.value.default == is_checked:
-            self.inputs.value.reset_to_default()
+        if self.reset_to_default and self.inputs.value.default() == is_checked:
+            self.inputs.value.remove()
         else:
             self.inputs.value.set(is_checked)
 
@@ -318,8 +318,8 @@ class UiSeed(QWidget):
     @staticmethod
     def from_json(workflow, storage, json):
         return UiSeed(
-            enabled=storage.item("seed/fixed", default=False),
-            value=storage.item("seed/seed", default=0),
+            enabled=storage.value("seed/fixed", bool, default=False),
+            value=storage.value("seed/seed", int, default=0),
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
         )
@@ -349,7 +349,7 @@ class UiString(QLineEdit):
 
         if multiline:
             return UiStringMultiline(
-                value=storage.item(metadata["id"], default=metadata["default"]),
+                value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
                 visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
                 enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
                 tooltip=json.get("tooltip", None),
@@ -361,7 +361,7 @@ class UiString(QLineEdit):
 
         else:
             return UiString(
-                value=storage.item(metadata["id"], default=metadata["default"]),
+                value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
                 visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
                 enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
                 tooltip=json.get("tooltip", None),
@@ -529,9 +529,9 @@ class UiPrompt(UiStringMultiline):
         )
 
         self.settings = settings
-        self.minimum_characters = self.settings.settings.get("autocomplete_minimum_characters")
+        self.minimum_characters = self.settings.settings.root.value("autocomplete_minimum_characters", int).get()
 
-        if autocomplete and self.settings.settings.get("autocomplete_danbooru"):
+        if autocomplete and self.settings.settings.root.value("autocomplete_danbooru", bool).get():
             self.completer = DanbooruCompleter(self, settings.danbooru_tags.model)
             self.completer.activated.connect(self.on_autocomplete)
 
@@ -550,7 +550,7 @@ class UiPrompt(UiStringMultiline):
         metadata = workflow.metadata[json["id"]]
 
         return UiPrompt(
-            value=storage.item(metadata["id"], default=metadata["default"]),
+            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
             settings=settings,
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
@@ -735,7 +735,7 @@ class UiGroup(QWidget):
         metadata = workflow.metadata[json["id"]]
 
         return UiGroup(
-            value=storage.item(metadata["id"], default=metadata["default"]),
+            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
             label=json.get("label", None),
@@ -761,8 +761,8 @@ class UiGroup(QWidget):
 
 
     def on_toggled(self, checked):
-        if self.inputs.value.default == checked:
-            self.inputs.value.reset_to_default()
+        if self.inputs.value.default() == checked:
+            self.inputs.value.remove()
         else:
             self.inputs.value.set(checked)
 
@@ -892,7 +892,7 @@ class UiFloat(QWidget):
         metadata = workflow.metadata[json["id"]]
 
         return UiFloat(
-            value=storage.item(metadata["id"], default=metadata["default"]),
+            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
@@ -912,7 +912,7 @@ class UiFloat(QWidget):
         metadata = workflow.metadata[json["id"]]
 
         return UiFloat(
-            value=storage.item(metadata["id"], default=metadata["default"]),
+            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
@@ -1055,7 +1055,7 @@ class UiInt(QWidget):
         metadata = workflow.metadata[json["id"]]
 
         return UiInt(
-            value=storage.item(metadata["id"], default=metadata["default"]),
+            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
             visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
@@ -1208,7 +1208,7 @@ class UiList(QWidget):
 
 
     def make_children(self):
-        for index, storage in enumerate(self.values.items):
+        for index in range(len(self.values.get())):
             if index == 0:
                 self.layout.spacer(2)
             else:
@@ -1216,7 +1216,7 @@ class UiList(QWidget):
 
             with self.layout.widget(UiListChild(self, index)) as child:
                 self.children.append(child)
-                yield (storage, child.layout)
+                yield (self.values.index(index), child.layout)
 
         for child in self.children:
             child.update_buttons()

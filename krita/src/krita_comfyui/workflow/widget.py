@@ -60,38 +60,20 @@ class WorkflowSettings(QWidget):
 
         self.settings = settings
 
-        self.selected_workflow = self.settings.item("selected_workflow")
-
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.column() as column:
             column.set_padding(left=6, top=6, right=6, bottom=6)
 
-            self.container = column
-
-            #column.label(text="Hi!")
-
-        # TODO cleanup listeners when dock is removed
-        self.selected_workflow.with_value(self.update)
-
-
-    def update(self, selected):
-        self.container.clear()
-
-        print(self.settings.item_dict("workflows"))
-
-        selected = self.settings.item_dict("workflows", cache=False).item_dict(selected, cache=False)
-
-        # TODO cleanup listeners when dock is removed
-        self.container.widget(UiBoolean(
-            value=selected.item("live_mode_enabled", default=False, cache=False),
-            reset_to_default=True,
-            visible_if=[],
-            enabled_if=[],
-            tooltip="Enable live mode, which automatically generates new images.",
-            label="Enable live mode.",
-            style="switch",
-        ))
+            column.widget(UiBoolean(
+                value=self.settings.with_selected_workflow(lambda x: x.value("live_mode_enabled", bool)),
+                reset_to_default=True,
+                visible_if=[],
+                enabled_if=[],
+                tooltip="Enable live mode, which automatically generates new images.",
+                label="Enable live mode.",
+                style="switch",
+            ))
 
 
     # This causes it to not close the menu when clicking.
@@ -113,8 +95,6 @@ class LiveModeState(QObject):
         super().__init__(parent)
 
         self.extension = extension
-
-        self.live_mode_enabled = extension.settings.settings.item("live_mode_enabled", default=False)
 
         self.is_running = False
         self.debounce_time = None
@@ -200,13 +180,17 @@ class WorkflowWidget(QWidget):
         self.extension.settings.node_metadata.changed.connect(self.on_metadata_changed)
         self.extension.settings.workflows.changed.connect(self.on_workflows_changed)
 
+        self.selected_workflow =  self.extension.settings.settings.root.value("selected_workflow", str)
+        self.selected_workflow.add_listener(self.on_workflow_changed)
+
+        self.live_mode_enabled = self.extension.settings.with_selected_workflow(lambda x: x.value("live_mode_enabled", bool))
+        self.live_mode_enabled.add_listener(self.on_live_mode_changed)
+
         self.document = DocumentManager(self)
         self.document.document_changed.connect(self.on_document_changed)
         self.document.layers_changed.connect(self.update_layer_inputs)
 
         self.live_mode_state = LiveModeState(self, self.extension)
-        # TODO cleanup listeners when dock is removed
-        self.live_mode_state.live_mode_enabled.add_listener(self.on_live_mode_changed)
         self.live_mode_state.timer.timeout.connect(self.maybe_run_live_mode)
 
         self.prompt_parser = PromptParser(self.extension.settings.bundles)
@@ -229,12 +213,12 @@ class WorkflowWidget(QWidget):
 
                 with row.widget(WorkflowSelector(tooltip="Workflow")) as combo:
                     self.workflow_selector = combo
-                    combo.activated.connect(self.on_workflow_changed)
+                    combo.activated.connect(self.set_workflow)
 
                 with row.tool_button(icon=Krita.icon("settings-button"), tooltip="Open settings") as button:
                     self.workflow_menu = QMenu(self)
 
-                    self.workflow_settings = WorkflowSettings(self.extension.settings.settings)
+                    self.workflow_settings = WorkflowSettings(self.extension.settings)
 
                     widget_action = QWidgetAction(self.workflow_menu)
                     widget_action.setDefaultWidget(self.workflow_settings)
@@ -267,7 +251,7 @@ class WorkflowWidget(QWidget):
         with self.catch_errors():
             self.workflow.initialize(
                 self.document.current(),
-                self.extension.settings.settings.get("selected_workflow"),
+                self.selected_workflow.get(),
             )
             self.workflow_selector.set_selected(self.workflow.id)
             self.update_widgets()
@@ -275,6 +259,10 @@ class WorkflowWidget(QWidget):
 
     def open_settings(self):
         self.extension.show_settings()
+
+
+    def set_workflow(self):
+        self.selected_workflow.set(self.workflow_selector.currentData())
 
 
     # If the widget has a link_to, we need to fetch the
@@ -408,7 +396,7 @@ class WorkflowWidget(QWidget):
 
             case "list":
                 widget = UiList(
-                    values=storage.item_list(info["id"]),
+                    values=storage.list(info["id"]),
                     label=info.get("label", None),
 
                     visible_if=InputEqual.from_json(self.workflow, storage, info, "visible_if"),
@@ -451,7 +439,7 @@ class WorkflowWidget(QWidget):
         if self.workflow.is_loaded():
             if self.workflow.layout is not None:
                 for widget in self.workflow.layout:
-                    self.add_widget(self.workflow, self.widgets_container, widget, 0)
+                    self.add_widget(self.workflow.root, self.widgets_container, widget, 0)
 
                 self.widgets_container.stretch()
 
@@ -506,9 +494,7 @@ class WorkflowWidget(QWidget):
 
     def on_workflow_changed(self):
         with self.catch_errors():
-            if self.workflow.change_workflow(self.workflow_selector.currentData()):
-                # TODO cleanup item
-                self.extension.settings.settings.item("selected_workflow").set(self.workflow.id)
+            if self.workflow.change_workflow(self.selected_workflow.get()):
                 self.update_widgets()
                 self.can_run_changed.emit()
 
@@ -580,7 +566,7 @@ class WorkflowWidget(QWidget):
                     if input is not None:
                         info = {
                             "value": input.get(),
-                            "is_default": input.get() == input.default,
+                            "is_default": input.get() == input.default(),
                         }
 
                         if isinstance(widget, UiPrompt):
@@ -609,7 +595,7 @@ class WorkflowWidget(QWidget):
                                 info["label"] = option["label"]
                                 assert info["label"] == widget.currentText()
 
-                        ui_values[input.id].append(info)
+                        ui_values[input.key()].append(info)
 
         return ui_values
 
@@ -637,14 +623,14 @@ class WorkflowWidget(QWidget):
 
 
     def is_live_mode_enabled(self):
-        return self.live_mode_state.live_mode_enabled.get()
+        return self.live_mode_enabled.get()
 
     def is_live_mode_running(self):
         return self.live_mode_state.is_running
 
 
-    def on_live_mode_changed(self, old, new):
-        if not new:
+    def on_live_mode_changed(self):
+        if not self.is_live_mode_enabled():
             self.stop_live_mode(emit=False)
 
         self.live_mode_changed.emit()
