@@ -186,8 +186,11 @@ class Workflow:
     def name(self):
         return self.file["name"]
 
-    def layout(self):
-        return self.file["layout"]
+    def global_widgets(self):
+        return self.file.get("global_widgets", [])
+
+    def document_widgets(self):
+        return self.file.get("document_widgets", [])
 
     def graph(self):
         return self.file["graph"]

@@ -5,7 +5,153 @@
   "icon": "config-canvas-only",
   "is_default": true,
 
-  "layout": [
+  "global_widgets": [
+    {
+      "type": "combo",
+      "id": "checkpoint",
+      "link_to": {
+        "node_id": "UNETLoader",
+        "input": "unet_name"
+      }
+    },
+    {
+      "type": "row",
+      "children": [
+        {
+          "type": "combo",
+          "id": "sampler_name",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "sampler_name"
+          },
+          "stretch": 1,
+          "default": "euler"
+        },
+        {
+          "type": "combo",
+          "id": "scheduler",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "scheduler"
+          },
+          "stretch": 1,
+          "default": "simple"
+        },
+        {
+          "type": "int",
+          "id": "steps",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "steps"
+          },
+          "default": 30,
+          "suffix": " steps"
+        }
+      ]
+    },
+    {
+      "type": "float",
+      "id": "prompt_weight",
+      "link_to": {
+        "node_id": "KSampler",
+        "input": "cfg"
+      },
+      "suffix": " prompt weight",
+      "default": 5.0
+    },
+    {
+      "type": "prompt",
+      "id": "default_prompt",
+      "tooltip": "Default prompt",
+      "placeholder": "Default prompt..."
+    },
+    {
+      "type": "int",
+      "id": "batch_size",
+      "link_to": {
+        "node_id": "krita_comfyui: img2img",
+        "input": "batch_size"
+      },
+      "suffix": " batch size",
+      "default": 4
+    },
+    {
+      "type": "int",
+      "id": "feather",
+      "link_to": {
+        "node_id": "krita_comfyui: KritaSelectionFeather",
+        "input": "amount"
+      },
+      "suffix": "px feathering",
+      "default": 16
+    },
+    {
+      "type": "group",
+      "id": "detail_group",
+      "label": "Detailer",
+      "indent": true,
+      "children": [
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "boolean",
+              "id": "detail_enabled",
+              "tooltip": "Enable detailing when inpainting.",
+              "default": true
+            },
+            {
+              "type": "float",
+              "id": "detail_megapixels",
+              "stretch": 1,
+              "link_to": {
+                "node_id": "krita_comfyui: DetailSize",
+                "input": [
+                  "resize_type",
+                  "scale total pixels",
+                  "megapixels"
+                ]
+              },
+              "enabled_if": {
+                "id": "detail_enabled",
+                "value": true
+              },
+              "suffix": " megapixels"
+            }
+          ]
+        },
+        {
+          "type": "boolean",
+          "id": "detail_always",
+          "label": "Always detail",
+          "tooltip": "If false then it will only detail when inpainting.",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "debug_group",
+      "label": "Debug",
+      "indent": true,
+      "children": [
+        {
+          "type": "boolean",
+          "id": "debug_text",
+          "label": "Debug text",
+          "default": false
+        },
+        {
+          "type": "boolean",
+          "id": "debug_images",
+          "label": "Debug images",
+          "default": false
+        }
+      ]
+    }
+  ],
+
+  "document_widgets": [
     {
       "type": "percentage",
       "id": "image_strength",
@@ -173,158 +319,6 @@
       "children": [
         {
           "type": "seed"
-        }
-      ]
-    },
-    {
-      "type": "group",
-      "id": "advanced",
-      "label": "Advanced",
-      "indent": true,
-      "default": false,
-      "children": [
-        {
-          "type": "combo",
-          "id": "checkpoint",
-          "link_to": {
-            "node_id": "UNETLoader",
-            "input": "unet_name"
-          }
-        },
-        {
-          "type": "row",
-          "children": [
-            {
-              "type": "combo",
-              "id": "sampler_name",
-              "link_to": {
-                "node_id": "KSampler",
-                "input": "sampler_name"
-              },
-              "stretch": 1,
-              "default": "gradient_estimation"
-            },
-            {
-              "type": "combo",
-              "id": "scheduler",
-              "link_to": {
-                "node_id": "KSampler",
-                "input": "scheduler"
-              },
-              "stretch": 1,
-              "default": "simple"
-            },
-            {
-              "type": "int",
-              "id": "steps",
-              "link_to": {
-                "node_id": "KSampler",
-                "input": "steps"
-              },
-              "default": 30,
-              "suffix": " steps"
-            }
-          ]
-        },
-        {
-          "type": "float",
-          "id": "prompt_weight",
-          "link_to": {
-            "node_id": "KSampler",
-            "input": "cfg"
-          },
-          "suffix": " prompt weight",
-          "default": 5.0
-        },
-        {
-          "type": "prompt",
-          "id": "default_prompt",
-          "tooltip": "Default prompt",
-          "placeholder": "Default prompt..."
-        },
-        {
-          "type": "int",
-          "id": "batch_size",
-          "link_to": {
-            "node_id": "krita_comfyui: img2img",
-            "input": "batch_size"
-          },
-          "suffix": " batch size",
-          "default": 4
-        },
-        {
-          "type": "int",
-          "id": "feather",
-          "link_to": {
-            "node_id": "krita_comfyui: KritaSelectionFeather",
-            "input": "amount"
-          },
-          "suffix": "px feathering",
-          "default": 16
-        },
-        {
-          "type": "group",
-          "id": "detail_group",
-          "label": "Detailer",
-          "indent": true,
-          "children": [
-            {
-              "type": "row",
-              "children": [
-                {
-                  "type": "boolean",
-                  "id": "detail_enabled",
-                  "tooltip": "Enable detailing when inpainting.",
-                  "default": true
-                },
-                {
-                  "type": "float",
-                  "id": "detail_megapixels",
-                  "stretch": 1,
-                  "link_to": {
-                    "node_id": "krita_comfyui: DetailSize",
-                    "input": [
-                      "resize_type",
-                      "scale total pixels",
-                      "megapixels"
-                    ]
-                  },
-                  "enabled_if": {
-                    "id": "detail_enabled",
-                    "value": true
-                  },
-                  "suffix": " megapixels"
-                }
-              ]
-            },
-            {
-              "type": "boolean",
-              "id": "detail_always",
-              "label": "Always detail",
-              "tooltip": "If false then it will only detail when inpainting.",
-              "default": false
-            }
-          ]
-        },
-        {
-          "type": "group",
-          "id": "debug_group",
-          "label": "Debug",
-          "indent": true,
-          "children": [
-            {
-              "type": "boolean",
-              "id": "debug_text",
-              "label": "Debug text",
-              "default": false
-            },
-            {
-              "type": "boolean",
-              "id": "debug_images",
-              "label": "Debug images",
-              "default": false
-            }
-          ]
         }
       ]
     }

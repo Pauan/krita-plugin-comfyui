@@ -4,9 +4,6 @@
   "id": "e61de2cf-cee7-4c97-842b-4bafd4ee7c9a",
   "icon": "warning",
   "is_default": true,
-
-  "layout": [],
-
   "graph": {
     "1": {
       "inputs": {

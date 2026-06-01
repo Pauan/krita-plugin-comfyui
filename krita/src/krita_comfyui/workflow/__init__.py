@@ -4,7 +4,7 @@ from ..settings import LogLevel
 from .graph import WorkflowGraph, WorkflowError
 
 
-# Loops recursively over all the children in a layout
+# Loops recursively over all the children
 def all_children(children):
     for child in children:
         yield child
@@ -24,9 +24,10 @@ class Workflow(Storage):
         self.id = ""
         self.document = None
         self.graph = None
-        self.layout = None
+        self.global_widgets = []
+        self.document_widgets = []
 
-        self.layout_ids = set()
+        self.widget_ids = set()
         self.metadata = None
 
 
@@ -100,36 +101,41 @@ class Workflow(Storage):
         }
 
 
+    def _find_metadata(self, widgets):
+        # We look for every widget in the widgets and set the metadata.
+        for widget in all_children(widgets):
+            id = widget.get("id", None)
+
+            if id is not None:
+                new_metadata = self._get_metadata(widget)
+                old_metadata = self.metadata.get(id, None)
+
+                if old_metadata is not None:
+                    new_type = new_metadata["type"]
+                    old_type = old_metadata["type"]
+                    if old_type != new_type:
+                        raise WorkflowError(f"The id \"{id}\" has two different types:\n    {old_type}\n    {new_type}")
+
+                    new_default = new_metadata["default"]
+                    old_default = old_metadata["default"]
+                    if old_default != new_default:
+                        raise WorkflowError(f"The id \"{id}\" has two different defaults:\n    {json.dumps(old_default)}\n    {json.dumps(new_default)}")
+
+                self.metadata[id] = new_metadata
+                self.widget_ids.add(new_metadata["id"])
+
+
     def _update_metadata(self):
-        self.layout_ids = set()
+        self.widget_ids = set()
 
         if self.settings.node_metadata.is_loaded():
             self.metadata = {}
         else:
             self.metadata = None
 
-        if self.layout is not None and self.metadata is not None:
-            # We look for every widget in the layout and set the metadata.
-            for widget in all_children(self.layout):
-                id = widget.get("id", None)
-
-                if id is not None:
-                    new_metadata = self._get_metadata(widget)
-                    old_metadata = self.metadata.get(id, None)
-
-                    if old_metadata is not None:
-                        new_type = new_metadata["type"]
-                        old_type = old_metadata["type"]
-                        if old_type != new_type:
-                            raise WorkflowError(f"The id \"{id}\" has two different types:\n    {old_type}\n    {new_type}")
-
-                        new_default = new_metadata["default"]
-                        old_default = old_metadata["default"]
-                        if old_default != new_default:
-                            raise WorkflowError(f"The id \"{id}\" has two different defaults:\n    {json.dumps(old_default)}\n    {json.dumps(new_default)}")
-
-                    self.metadata[id] = new_metadata
-                    self.layout_ids.add(new_metadata["id"])
+        if self.metadata is not None:
+            self._find_metadata(self.global_widgets)
+            self._find_metadata(self.document_widgets)
 
 
     def _update_serialized(self):
@@ -152,7 +158,8 @@ class Workflow(Storage):
 
             if self.id == "":
                 self.graph = None
-                self.layout = None
+                self.global_widgets = []
+                self.document_widgets = []
 
             else:
                 workflow = self.settings.workflows.get(self.id)
@@ -165,7 +172,8 @@ class Workflow(Storage):
 
                 else:
                     self.graph = workflow.graph()
-                    self.layout = workflow.layout()
+                    self.global_widgets = workflow.global_widgets()
+                    self.document_widgets = workflow.document_widgets()
 
             self._update_metadata()
             return True
@@ -188,11 +196,13 @@ class Workflow(Storage):
                 assert workflow.id() == self.id
 
                 new_graph = workflow.graph()
-                new_layout = workflow.layout()
+                new_global_widgets = workflow.global_widgets()
+                new_document_widgets = workflow.document_widgets()
 
-                if self.graph != new_graph or self.layout != new_layout:
+                if self.graph != new_graph or self.global_widgets != new_global_widgets or self.document_widgets != new_document_widgets:
                     self.graph = new_graph
-                    self.layout = new_layout
+                    self.global_widgets = new_global_widgets
+                    self.document_widgets = new_document_widgets
                     self._update_metadata()
                     return True
 

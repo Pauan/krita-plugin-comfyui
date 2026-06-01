@@ -54,26 +54,78 @@ class WorkflowSelector(ComboBox):
                 self.setCurrentIndex(index)
 
 
+class Menu(QMenu):
+    def __init__(self, parent, widget):
+        super().__init__(parent)
+
+        self.widget = widget
+
+        widget_action = QWidgetAction(self)
+        widget_action.setDefaultWidget(self.widget)
+        widget_action.setMenuRole(QAction.MenuRole.NoRole)
+        self.addAction(widget_action)
+
+        self.aboutToShow.connect(self.on_show)
+
+
+    def on_show(self):
+        print("RESIZING", self.widget.sizeHint())
+        self.resize(self.sizeHint())
+
+
 class WorkflowSettings(QWidget):
-    def __init__(self, settings):
+    def __init__(self, extension, settings):
         super().__init__()
 
+        self.extension = extension
         self.settings = settings
 
         self.layout_manager = LayoutManager(self)
 
-        with self.layout_manager.column() as column:
-            column.set_padding(left=6, top=6, right=6, bottom=6)
+        self.setMaximumWidth(400)
 
-            column.widget(UiBoolean(
-                value=self.settings.with_selected_workflow(lambda x: x.value("live_mode_enabled", bool)),
-                reset_to_default=True,
-                visible_if=[],
-                enabled_if=[],
-                tooltip="Enable live mode, which automatically generates new images.",
-                label="Enable live mode.",
-                style="switch",
-            ))
+        with self.layout_manager.column() as root:
+            with root.row() as top:
+                top.set_padding(left=6, top=6, right=6, bottom=6)
+
+                top.widget(UiBoolean(
+                    value=self.settings.with_selected_workflow(lambda x: x.value("live_mode_enabled", bool)),
+                    reset_to_default=True,
+                    visible_if=[],
+                    enabled_if=[],
+                    tooltip="Enable live mode, which automatically generates new images.",
+                    label="Enable live mode.",
+                    style="switch",
+                ))
+
+                top.stretch()
+
+                top.spacer(16)
+
+                with top.tool_button(icon=Krita.icon("configure-thicker"), tooltip="Open settings") as button:
+                    button.clicked.connect(self.extension.show_settings)
+
+            with root.scroll() as scroll:
+                self.scroll = scroll
+
+                scroll.setFrameShape(QFrame.Shape.Panel)
+                scroll.setFrameShadow(QFrame.Shadow.Sunken)
+
+                widget = QWidget()
+                layout = LayoutManager(widget)
+
+                # Causes the children to shrink horizontally, to avoid a horizontal scrollbar
+                widget.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred))
+
+                with layout.column() as column:
+                    column.set_padding(left=4, right=5, top=4, bottom=4)
+
+                    with column.column(align=Qt.AlignmentFlag.AlignTop) as widgets:
+                        self.container = widgets
+
+                scroll.setWidget(widget)
+
+            root.stretch()
 
 
     # This causes it to not close the menu when clicking.
@@ -216,14 +268,8 @@ class WorkflowWidget(QWidget):
                     combo.activated.connect(self.set_workflow)
 
                 with row.tool_button(icon=Krita.icon("settings-button"), tooltip="Open settings") as button:
-                    self.workflow_menu = QMenu(self)
-
-                    self.workflow_settings = WorkflowSettings(self.extension.settings)
-
-                    widget_action = QWidgetAction(self.workflow_menu)
-                    widget_action.setDefaultWidget(self.workflow_settings)
-                    widget_action.setMenuRole(QAction.MenuRole.NoRole)
-                    self.workflow_menu.addAction(widget_action)
+                    self.workflow_settings = WorkflowSettings(self.extension, self.extension.settings)
+                    self.workflow_menu = Menu(self, self.workflow_settings)
 
                     button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
                     button.setMenu(self.workflow_menu)
@@ -435,13 +481,33 @@ class WorkflowWidget(QWidget):
         self.ui_layer_inputs = []
 
         self.widgets_container.clear()
+        self.workflow_settings.container.clear()
 
         if self.workflow.is_loaded():
-            if self.workflow.layout is not None:
-                for widget in self.workflow.layout:
+            if len(self.workflow.global_widgets) > 0:
+                storage = (
+                    self.extension.settings.settings.root.dict("workflows")
+                        .dict(self.selected_workflow.get())
+                        .dict("ui_values")
+                )
+
+                container = self.workflow_settings.container
+
+                for widget in self.workflow.global_widgets:
+                    self.add_widget(storage, container, widget, 0)
+
+                self.workflow_settings.scroll.setVisible(True)
+
+            else:
+                self.workflow_settings.scroll.setVisible(False)
+
+
+            if len(self.workflow.document_widgets) > 0:
+                for widget in self.workflow.document_widgets:
                     self.add_widget(self.workflow.root, self.widgets_container, widget, 0)
 
                 self.widgets_container.stretch()
+
 
         else:
             with self.widgets_container.column(stretch=1, align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter) as column:
@@ -541,7 +607,7 @@ class WorkflowWidget(QWidget):
             "seed/seed": [],
         }
 
-        for id in self.workflow.layout_ids:
+        for id in self.workflow.widget_ids:
             ui_values[id] = []
 
         # Collects all of the UI inputs and puts their values into a flat array, organized by ID.

@@ -5,7 +5,7 @@
   "icon": "krita_tool_gradient",
   "is_default": true,
 
-  "layout": [
+  "global_widgets": [
     {
       "type": "combo",
       "id": "model",
