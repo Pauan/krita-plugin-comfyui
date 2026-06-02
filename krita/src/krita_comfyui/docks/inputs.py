@@ -1,20 +1,17 @@
 from krita import DockWidget
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QListWidget,
     QListWidgetItem,
-    QMenu,
     QToolButton,
-    QWidgetAction,
     QWidget,
 )
 from shared import MIN_SEED, MAX_SEED
 from ..extension import ComfyUIExtension
 from ..server import GraphState
 from ..util.krita import get_extension
-from ..util.qt import LayoutManager
+from ..util.qt import Menu, LayoutManager
 from ..workflow.widget import WorkflowWidget
 from ..workflow.ui import UiBoolean, UiInt
 from ..workflow.graph import WorkflowGraph
@@ -152,6 +149,10 @@ class QueueWidget(QWidget):
             column.widget(self.queue_list)
 
 
+    def on_menu_show(self):
+        pass
+
+
     #def pause_jobs(self):
         #pass
 
@@ -198,13 +199,8 @@ class InputsWidget(QWidget):
                 with row.tool_button() as button:
                     self.run_button = button
 
-                    self.queue_menu = QMenu(self)
                     self.queue = QueueWidget(self.extension.settings.settings)
-
-                    widget_action = QWidgetAction(self.queue_menu)
-                    widget_action.setDefaultWidget(self.queue)
-                    widget_action.setMenuRole(QAction.MenuRole.NoRole)
-                    self.queue_menu.addAction(widget_action)
+                    self.queue_menu = Menu(self, self.queue)
 
                     for info in self.extension.client.current_queue():
                         self.queue.process_graph_info(self.extension.client, info)

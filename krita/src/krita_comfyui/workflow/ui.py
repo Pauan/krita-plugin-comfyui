@@ -318,6 +318,7 @@ class UiSeed(QWidget):
 
             self.seed = UiInt(
                 value=value,
+                is_default=False,
                 visible_if=[],
                 enabled_if=[enabled_input],
                 tooltip=f"Fixed seed between {MIN_SEED} and {MAX_SEED}",
@@ -411,7 +412,7 @@ class UiString(QLineEdit):
 
 
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, *, value, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines):
+    def __init__(self, *, value, is_default, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines):
         super().__init__()
 
         if min_lines is None:
@@ -419,6 +420,8 @@ class UiStringMultiline(QPlainTextEdit):
 
         if max_lines is None:
             max_lines = 6
+
+        self.is_default = is_default
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip)

@@ -242,8 +242,8 @@ class KritaSeed(ConstantNode):
         assert len(fixed) == len(seed)
 
         for fixed, seed in zip(fixed, seed):
-            if fixed:
-                seeds.append(self.normalize(seed))
+            if fixed["value"]:
+                seeds.append(self.normalize(seed["value"]))
                 is_fixed.append(True)
             else:
                 seeds.append(self.normalize(self.workflow.random_seed()))
