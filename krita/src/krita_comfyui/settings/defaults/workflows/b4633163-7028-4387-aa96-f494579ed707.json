@@ -7,6 +7,115 @@
 
   "global_widgets": [
     {
+      "type": "group",
+      "id": "defaults",
+      "label": "Defaults",
+      "default": true,
+      "children": [
+        {
+          "type": "combo",
+          "id": "model",
+          "is_default": true,
+          "link_to": {
+            "node_id": "AIO_Preprocessor",
+            "input": "preprocessor"
+          },
+          "visible_if": {
+            "id": "show_all",
+            "value": true
+          },
+          "default": "",
+          "tooltip": "Model used for upscaling."
+        },
+        {
+          "type": "combo",
+          "id": "model",
+          "is_default": true,
+          "link_to": {
+            "node_id": "AIO_Preprocessor",
+            "input": "preprocessor"
+          },
+          "visible_if": {
+            "id": "show_all",
+            "value": false
+          },
+          "default": "",
+          "tooltip": "Model used for upscaling.",
+          "options": [
+            { "label": "Canny", "value": "CannyEdgePreprocessor" },
+            { "separator": true },
+            { "label": "Lineart", "value": "LineArtPreprocessor" },
+            { "label": "Lineart (Standard)", "value": "LineartStandardPreprocessor" },
+            { "label": "Lineart (Any)", "value": "AnyLineArtPreprocessor_aux" },
+            { "label": "Lineart (Anime)", "value": "AnimeLineArtPreprocessor" },
+            { "label": "Lineart (Manga)", "value": "Manga2Anime_LineArt_Preprocessor" },
+            { "separator": true },
+            { "label": "Scribble", "value": "FakeScribblePreprocessor" },
+            { "label": "Scribble (HED)", "value": "HEDPreprocessor" },
+            { "label": "Scribble (PiDI)", "value": "PiDiNetPreprocessor" },
+            { "label": "Scribble (TEED)", "value": "TEEDPreprocessor" },
+            { "label": "Scribble (XDoG)", "value": "Scribble_XDoG_Preprocessor" },
+            { "separator": true },
+            { "label": "Pose (Human)", "value": "DWPreprocessor" },
+            { "label": "Pose (Animal)", "value": "AnimalPosePreprocessor" },
+            { "separator": true },
+            { "label": "Depth", "value": "DepthAnythingV2Preprocessor" },
+            { "label": "Normal Map", "value": "DSINE-NormalMapPreprocessor" }
+          ]
+        },
+        {
+          "type": "boolean",
+          "id": "invert",
+          "is_default": true,
+          "default": false,
+          "label": "Invert image",
+          "tooltip": "Whether to invert the image. Black becomes white and white becomes black."
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "advanced",
+      "label": "Advanced",
+      "default": false,
+      "children": [
+        {
+          "type": "boolean",
+          "id": "show_all",
+          "default": false,
+          "label": "Show all models",
+          "tooltip": "Shows all of the models."
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "float",
+              "id": "multiplier",
+              "min": 0.0,
+              "default": 1.0,
+              "step": 1.0,
+              "suffix": " multiplier",
+              "tooltip": "Resolution of the filtering process, relative to the original image size."
+            },
+            {
+              "type": "combo",
+              "id": "scale_method",
+              "link_to": {
+                "node_id": "ImageScale",
+                "input": "upscale_method"
+              },
+              "default": "bicubic",
+              "tooltip": "Algorithm used when resizing the image."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "document_widgets": [
+    {
       "type": "combo",
       "id": "model",
       "link_to": {
@@ -61,45 +170,6 @@
       "default": false,
       "label": "Invert image",
       "tooltip": "Whether to invert the image. Black becomes white and white becomes black."
-    },
-    {
-      "type": "group",
-      "id": "advanced",
-      "label": "Advanced",
-      "default": false,
-      "children": [
-        {
-          "type": "boolean",
-          "id": "show_all",
-          "default": false,
-          "label": "Show all models",
-          "tooltip": "Shows all of the models."
-        },
-        {
-          "type": "row",
-          "children": [
-            {
-              "type": "float",
-              "id": "multiplier",
-              "min": 0.0,
-              "default": 1.0,
-              "step": 1.0,
-              "suffix": " multiplier",
-              "tooltip": "Resolution of the filtering process, relative to the original image size."
-            },
-            {
-              "type": "combo",
-              "id": "scale_method",
-              "link_to": {
-                "node_id": "ImageScale",
-                "input": "upscale_method"
-              },
-              "default": "bicubic",
-              "tooltip": "Algorithm used when resizing the image."
-            }
-          ]
-        }
-      ]
     }
   ],
 
@@ -136,11 +206,11 @@
           0
         ],
         "width": [
-          "40",
+          "43",
           0
         ],
         "height": [
-          "40",
+          "43",
           1
         ],
         "crop": "disabled",
@@ -267,27 +337,15 @@
         "title": "Krita Output"
       }
     },
-    "40": {
-      "inputs": {
-        "image": [
-          "42",
-          0
-        ]
-      },
-      "class_type": "GetImageSize",
-      "_meta": {
-        "title": "Get Image Size"
-      }
-    },
     "41": {
       "inputs": {
         "expression": "float(min(a, b)) * c",
         "values.a": [
-          "40",
+          "43",
           0
         ],
         "values.b": [
-          "40",
+          "43",
           1
         ],
         "values.c": [
@@ -305,6 +363,13 @@
       "class_type": "krita_comfyui: KritaCanvasImage",
       "_meta": {
         "title": "Krita Canvas: Image"
+      }
+    },
+    "43": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvasSize",
+      "_meta": {
+        "title": "Krita Canvas: Size"
       }
     }
   }

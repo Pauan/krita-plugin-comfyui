@@ -30,15 +30,15 @@ class Upscale(Workflow):
             image=split_image.out(0),
         )
 
-        image_size = self.graph.node("GetImageSize", image=canvas.out(0))
+        canvas_size = self.graph.node("krita_comfyui: KritaCanvasSize")
 
         width = self.math_expression("a * b", {
-            "a": image_size.out(0),
+            "a": canvas_size.out(0),
             "b": multiplier.out(0),
         })
 
         height = self.math_expression("a * b", {
-            "a": image_size.out(1),
+            "a": canvas_size.out(1),
             "b": multiplier.out(0),
         })
 

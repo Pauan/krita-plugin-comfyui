@@ -17,6 +17,30 @@ from ..util import number_of_lines, lerp, normalize, clamp
 from .graph import WorkflowGraph
 
 
+def get_default(defaults, id, default):
+    try:
+        info = defaults[id]
+
+        match len(info):
+            case 0:
+                return default
+            case 1:
+                return info[0]
+            case _:
+                raise RuntimeError(f"Multiple defaults for {id}")
+
+    except KeyError:
+        return default
+
+
+def get_value(workflow, storage, defaults, id):
+    metadata = workflow.metadata[id]
+
+    id = metadata["id"]
+
+    return storage.value(id, metadata["cls"], default=get_default(defaults, id, metadata["default"]))
+
+
 class InputEqual:
     def __init__(self, input, value):
         self.input = input
@@ -24,14 +48,12 @@ class InputEqual:
 
 
     @staticmethod
-    def from_json(workflow, storage, json, name):
+    def from_json(workflow, storage, defaults, json, name):
         info = json.get(name, None)
 
         if info is not None:
-            metadata = workflow.metadata[info["id"]]
-
             return [InputEqual(
-                storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
+                get_value(workflow, storage, defaults, info["id"]),
                 info["value"],
             )]
 
@@ -103,8 +125,10 @@ class Visibility:
 
 
 class UiCombo(ComboBox):
-    def __init__(self, *, value, visible_if, enabled_if, tooltip, options):
+    def __init__(self, *, value, is_default, visible_if, enabled_if, tooltip, options):
         super().__init__()
+
+        self.is_default = is_default
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip)
@@ -115,13 +139,12 @@ class UiCombo(ComboBox):
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json(workflow, storage, defaults, json):
         return UiCombo(
-            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            value=get_value(workflow, storage, defaults, json["id"]),
+            is_default=json.get("is_default", False),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
             options=json.get("options", []),
         )
@@ -192,24 +215,25 @@ class UiCombo(ComboBox):
 
 class UiLayerId(UiCombo):
     @staticmethod
-    def from_json(workflow, storage, json, options):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json(workflow, storage, defaults, json, options):
         return UiLayerId(
-            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            value=get_value(workflow, storage, defaults, json["id"]),
+            is_default=json.get("is_default", False),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
             options=options,
         )
 
 
 class UiBoolean(QWidget):
-    def __init__(self, *, value, reset_to_default, visible_if, enabled_if, tooltip, label, style):
+    def __init__(self, *, value, is_default, reset_to_default, visible_if, enabled_if, tooltip, label, style):
         super().__init__()
 
         if style is None:
             style = "switch"
+
+        self.is_default = is_default
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip=None)
@@ -234,14 +258,13 @@ class UiBoolean(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json(workflow, storage, defaults, json):
         return UiBoolean(
-            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
+            value=get_value(workflow, storage, defaults, json["id"]),
+            is_default=json.get("is_default", False),
             reset_to_default=False,
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
             label=json.get("label", None),
             style=json.get("style", None),
@@ -262,8 +285,10 @@ class UiBoolean(QWidget):
 
 
 class UiSeed(QWidget):
-    def __init__(self, *, enabled, value, visible_if, enabled_if):
+    def __init__(self, *, enabled, value, is_default, visible_if, enabled_if):
         super().__init__()
+
+        self.is_default = is_default
 
         self.inputs = Inputs(None, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip=None)
@@ -279,6 +304,7 @@ class UiSeed(QWidget):
         with self.layout_manager.row() as row:
             self.enabled = UiBoolean(
                 value=enabled,
+                is_default=False,
                 reset_to_default=True,
                 visible_if=[],
                 enabled_if=[],
@@ -316,19 +342,22 @@ class UiSeed(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
+    def from_json(workflow, storage, defaults, json):
         return UiSeed(
-            enabled=storage.value("seed/fixed", bool, default=False),
-            value=storage.value("seed/seed", int, default=0),
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            enabled=storage.value("seed/fixed", bool, default=get_default(defaults, "seed/fixed", False)),
+            value=storage.value("seed/seed", int, default=get_default(defaults, "seed/seed", 0)),
+            is_default=json.get("is_default", False),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
         )
 
 
 
 class UiString(QLineEdit):
-    def __init__(self, *, value, visible_if, enabled_if, placeholder, tooltip):
+    def __init__(self, *, value, is_default, visible_if, enabled_if, placeholder, tooltip):
         super().__init__()
+
+        self.is_default = is_default
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip)
@@ -342,16 +371,15 @@ class UiString(QLineEdit):
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json(workflow, storage, defaults, json):
         multiline = json.get("multiline", False)
 
         if multiline:
             return UiStringMultiline(
-                value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
-                visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-                enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+                value=get_value(workflow, storage, defaults, json["id"]),
+                is_default=json.get("is_default", False),
+                visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+                enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
                 tooltip=json.get("tooltip", None),
                 placeholder=json.get("placeholder", None),
                 background_color=json.get("background_color", None),
@@ -361,9 +389,10 @@ class UiString(QLineEdit):
 
         else:
             return UiString(
-                value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
-                visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-                enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+                value=get_value(workflow, storage, defaults, json["id"]),
+                is_default=json.get("is_default", False),
+                visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+                enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
                 tooltip=json.get("tooltip", None),
                 placeholder=json.get("placeholder", None),
             )
@@ -497,6 +526,7 @@ class UiPrompt(UiStringMultiline):
     def __init__(
         self, *,
         value,
+        is_default,
         visible_if,
         enabled_if,
         background_color,
@@ -519,6 +549,7 @@ class UiPrompt(UiStringMultiline):
 
         super().__init__(
             value=value,
+            is_default=is_default,
             visible_if=visible_if,
             enabled_if=enabled_if,
             background_color=background_color,
@@ -546,14 +577,13 @@ class UiPrompt(UiStringMultiline):
 
 
     @staticmethod
-    def from_json(workflow, storage, json, settings):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json(workflow, storage, defaults, json, settings):
         return UiPrompt(
-            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
+            value=get_value(workflow, storage, defaults, json["id"]),
+            is_default=json.get("is_default", False),
             settings=settings,
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
             autocomplete=json.get("autocomplete", None),
             placeholder=json.get("placeholder", None),
@@ -682,7 +712,7 @@ class UiPrompt(UiStringMultiline):
 
 
 class UiGroup(QWidget):
-    def __init__(self, *, value, visible_if, enabled_if, label, indent):
+    def __init__(self, *, value, is_default, visible_if, enabled_if, label, indent):
         super().__init__()
 
         if label is None:
@@ -690,6 +720,8 @@ class UiGroup(QWidget):
 
         if indent is None:
             indent = True
+
+        self.is_default = is_default
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip=None)
@@ -731,13 +763,12 @@ class UiGroup(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json(workflow, storage, defaults, json):
         return UiGroup(
-            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            value=get_value(workflow, storage, defaults, json["id"]),
+            is_default=json.get("is_default", False),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
             label=json.get("label", None),
             indent=json.get("indent", None),
         )
@@ -778,14 +809,16 @@ class UiLabel(QLabel):
 
         self.setContentsMargins(0, 7, 0, 7)
 
+        self.is_default = False
+
         self.inputs = Inputs(value=None, visible_if=visible_if, enabled_if=[])
         self.inputs.apply_to_widget(self, tooltip)
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
+    def from_json(workflow, storage, defaults, json):
         return UiLabel(
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             label=json.get("label", None),
             tooltip=json.get("tooltip", None),
         )
@@ -794,6 +827,8 @@ class UiLabel(QLabel):
 class UiRow(QWidget):
     def __init__(self, *, visible_if):
         super().__init__()
+
+        self.is_default = False
 
         self.inputs = Inputs(value=None, visible_if=visible_if, enabled_if=[])
         self.inputs.apply_to_widget(self, tooltip=None)
@@ -805,14 +840,14 @@ class UiRow(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
+    def from_json(workflow, storage, defaults, json):
         return UiRow(
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
         )
 
 
 class UiFloat(QWidget):
-    def __init__(self, *, value, visible_if, enabled_if, slider, tooltip, min, max, step, decimals, multiplier, prefix, suffix):
+    def __init__(self, *, value, is_default, visible_if, enabled_if, slider, tooltip, min, max, step, decimals, multiplier, prefix, suffix):
         super().__init__()
 
         if min is None:
@@ -831,6 +866,8 @@ class UiFloat(QWidget):
 
         if slider is None:
             slider = False
+
+        self.is_default = is_default
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip)
@@ -890,13 +927,12 @@ class UiFloat(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json(workflow, storage, defaults, json):
         return UiFloat(
-            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            value=get_value(workflow, storage, defaults, json["id"]),
+            is_default=json.get("is_default", False),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
             slider=json.get("slider", None),
             min=json.get("min", None),
@@ -910,13 +946,12 @@ class UiFloat(QWidget):
 
 
     @staticmethod
-    def from_json_percentage(workflow, storage, json):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json_percentage(workflow, storage, defaults, json):
         return UiFloat(
-            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            value=get_value(workflow, storage, defaults, json["id"]),
+            is_default=json.get("is_default", False),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
             slider=json.get("slider", True),
             min=0.0,
@@ -978,7 +1013,7 @@ class UiFloat(QWidget):
 
 
 class UiInt(QWidget):
-    def __init__(self, *, value, visible_if, enabled_if, slider, tooltip, min, max, step, prefix, suffix):
+    def __init__(self, *, value, is_default, visible_if, enabled_if, slider, tooltip, min, max, step, prefix, suffix):
         super().__init__()
 
         if min is None:
@@ -996,6 +1031,8 @@ class UiInt(QWidget):
 
         if slider is None:
             slider = False
+
+        self.is_default = is_default
 
         self.inputs = Inputs(value, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip)
@@ -1053,13 +1090,12 @@ class UiInt(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, json):
-        metadata = workflow.metadata[json["id"]]
-
+    def from_json(workflow, storage, defaults, json):
         return UiInt(
-            value=storage.value(metadata["id"], metadata["cls"], default=metadata["default"]),
-            visible_if=InputEqual.from_json(workflow, storage, json, "visible_if"),
-            enabled_if=InputEqual.from_json(workflow, storage, json, "enabled_if"),
+            value=get_value(workflow, storage, defaults, json["id"]),
+            is_default=json.get("is_default", False),
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
             tooltip=json.get("tooltip", None),
             slider=json.get("slider", None),
             min=json.get("min", None),
@@ -1177,6 +1213,8 @@ class UiList(QWidget):
     def __init__(self, *, values, visible_if, enabled_if, label, trigger_refresh):
         super().__init__()
 
+        self.is_default = False
+
         self.inputs = Inputs(value=None, visible_if=visible_if, enabled_if=enabled_if)
         self.inputs.apply_to_widget(self, tooltip=None)
 
@@ -1190,6 +1228,19 @@ class UiList(QWidget):
 
         with self.layout_manager.column() as column:
             self.layout = column
+
+
+    @staticmethod
+    def from_json(workflow, storage, defaults, json, trigger_refresh):
+        return UiList(
+            values=storage.list(json["id"]),
+            label=json.get("label", None),
+
+            visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
+            enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
+
+            trigger_refresh=trigger_refresh,
+        )
 
 
     def move_child_up(self, index):

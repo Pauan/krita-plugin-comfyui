@@ -6,21 +6,31 @@
   "is_default": true,
   "global_widgets": [
     {
-      "type": "combo",
-      "id": "model",
-      "link_to": {
-        "node_id": "UpscaleModelLoader",
-        "input": "model_name"
-      },
-      "tooltip": "Model used for upscaling."
-    },
-    {
-      "type": "int",
-      "id": "multiplier",
-      "min": 1,
-      "default": 2,
-      "suffix": " multiplier",
-      "tooltip": "How big the upscaled image should be relative to the original."
+      "type": "group",
+      "id": "defaults",
+      "label": "Defaults",
+      "default": true,
+      "children": [
+        {
+          "type": "combo",
+          "id": "model",
+          "is_default": true,
+          "link_to": {
+            "node_id": "UpscaleModelLoader",
+            "input": "model_name"
+          },
+          "tooltip": "Model used for upscaling."
+        },
+        {
+          "type": "int",
+          "id": "multiplier",
+          "is_default": true,
+          "min": 1,
+          "default": 2,
+          "suffix": " multiplier",
+          "tooltip": "How big the upscaled image should be relative to the original."
+        }
+      ]
     },
     {
       "type": "group",
@@ -69,6 +79,25 @@
           ]
         }
       ]
+    }
+  ],
+  "document_widgets": [
+    {
+      "type": "combo",
+      "id": "model",
+      "link_to": {
+        "node_id": "UpscaleModelLoader",
+        "input": "model_name"
+      },
+      "tooltip": "Model used for upscaling."
+    },
+    {
+      "type": "int",
+      "id": "multiplier",
+      "min": 1,
+      "default": 2,
+      "suffix": " multiplier",
+      "tooltip": "How big the upscaled image should be relative to the original."
     }
   ],
   "graph": {
@@ -138,13 +167,8 @@
       }
     },
     "9": {
-      "class_type": "GetImageSize",
-      "inputs": {
-        "image": [
-          "5",
-          0
-        ]
-      }
+      "class_type": "krita_comfyui: KritaCanvasSize",
+      "inputs": {}
     },
     "10": {
       "class_type": "ComfyMathExpression",

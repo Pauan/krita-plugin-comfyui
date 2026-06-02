@@ -236,20 +236,22 @@ class KritaSeed(ConstantNode):
         seeds = []
         is_fixed = []
 
-        info = self.workflow.get_ui_values("seed/seed")
+        fixed = self.workflow.get_ui_values("seed/fixed")
+        seed = self.workflow.get_ui_values("seed/seed")
 
-        if len(info) == 0:
+        assert len(fixed) == len(seed)
+
+        for fixed, seed in zip(fixed, seed):
+            if fixed:
+                seeds.append(self.normalize(seed))
+                is_fixed.append(True)
+            else:
+                seeds.append(self.normalize(self.workflow.random_seed()))
+                is_fixed.append(False)
+
+        if len(seeds) == 0:
             seeds.append(self.normalize(self.workflow.random_seed()))
             is_fixed.append(False)
-
-        else:
-            for info in info:
-                if info["fixed"]:
-                    seeds.append(self.normalize(info["seed"]))
-                    is_fixed.append(True)
-                else:
-                    seeds.append(self.normalize(self.workflow.random_seed()))
-                    is_fixed.append(False)
 
         return ConstantOutputs([Link(seeds), Link(is_fixed)])
 

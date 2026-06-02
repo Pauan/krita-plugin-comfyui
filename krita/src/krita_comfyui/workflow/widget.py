@@ -70,6 +70,7 @@ class WorkflowSettings(QWidget):
 
                 top.widget(UiBoolean(
                     value=self.settings.with_selected_workflow(lambda x: x.value("live_mode_enabled", bool)),
+                    is_default=False,
                     reset_to_default=True,
                     visible_if=[],
                     enabled_if=[],
@@ -263,6 +264,7 @@ class WorkflowWidget(QWidget):
                     self.workflow_settings = WorkflowSettings(self.extension, self.extension.settings)
                     self.workflow_menu = Menu(self, self.workflow_settings)
 
+                    # This is needed because we have to delay the menu resizing when closing a group.
                     self.workflow_menu_timer = QTimer(self)
                     self.workflow_menu_timer.setSingleShot(True)
                     self.workflow_menu_timer.setInterval(100)
@@ -349,75 +351,75 @@ class WorkflowWidget(QWidget):
             return new_info
 
 
-    def add_widget(self, storage, parent, info, default_stretch, on_group_changed):
+    def add_widget(self, storage, parent, info, default_stretch, on_group_changed, defaults):
         info = self.get_node_metadata(info)
 
         match info["type"]:
             case "layer_id":
-                widget = UiLayerId.from_json(self.workflow, storage, info, self.layer_combo_options)
+                widget = UiLayerId.from_json(self.workflow, storage, defaults, info, self.layer_combo_options)
                 self.ui_widgets.append(widget)
                 self.ui_layer_inputs.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "combo":
-                widget = UiCombo.from_json(self.workflow, storage, info)
+                widget = UiCombo.from_json(self.workflow, storage, defaults, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "string":
-                widget = UiString.from_json(self.workflow, storage, info)
+                widget = UiString.from_json(self.workflow, storage, defaults, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "prompt":
-                widget = UiPrompt.from_json(self.workflow, storage, info, self.extension.settings)
+                widget = UiPrompt.from_json(self.workflow, storage, defaults, info, self.extension.settings)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "boolean":
-                widget = UiBoolean.from_json(self.workflow, storage, info)
+                widget = UiBoolean.from_json(self.workflow, storage, defaults, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "int":
-                widget = UiInt.from_json(self.workflow, storage, info)
+                widget = UiInt.from_json(self.workflow, storage, defaults, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "float":
-                widget = UiFloat.from_json(self.workflow, storage, info)
+                widget = UiFloat.from_json(self.workflow, storage, defaults, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "percentage":
-                widget = UiFloat.from_json_percentage(self.workflow, storage, info)
+                widget = UiFloat.from_json_percentage(self.workflow, storage, defaults, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "label":
                 assert not "enabled_if" in info
-                widget = UiLabel.from_json(self.workflow, storage, info)
+                widget = UiLabel.from_json(self.workflow, storage, defaults, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "group":
-                widget = UiGroup.from_json(self.workflow, storage, info)
+                widget = UiGroup.from_json(self.workflow, storage, defaults, info)
 
                 # TODO figure out a less hacky way of doing this
                 if on_group_changed is not None:
                     widget.inputs.listeners.append(widget.inputs.value.add_listener(on_group_changed))
 
                 for child in info["children"]:
-                    self.add_widget(storage, widget.layout, child, default_stretch, on_group_changed)
+                    self.add_widget(storage, widget.layout, child, default_stretch, on_group_changed, defaults)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -426,29 +428,23 @@ class WorkflowWidget(QWidget):
             case "row":
                 assert not "enabled_if" in info
 
-                widget = UiRow.from_json(self.workflow, storage, info)
+                widget = UiRow.from_json(self.workflow, storage, defaults, info)
 
                 for child in info["children"]:
-                    self.add_widget(storage, widget.layout, child, default_stretch, on_group_changed)
+                    self.add_widget(storage, widget.layout, child, default_stretch, on_group_changed, defaults)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "seed":
-                widget = UiSeed.from_json(self.workflow, storage, info)
+                widget = UiSeed.from_json(self.workflow, storage, defaults, info)
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
 
 
             case "list":
-                widget = UiList(
-                    values=storage.list(info["id"]),
-                    label=info.get("label", None),
-
-                    visible_if=InputEqual.from_json(self.workflow, storage, info, "visible_if"),
-                    enabled_if=InputEqual.from_json(self.workflow, storage, info, "enabled_if"),
-
+                widget = UiList.from_json(self.workflow, storage, defaults, info,
                     # When an item is added, removed, or moved, it clears out all the
                     # existing widgets and remakes them from scratch.
                     #
@@ -459,7 +455,7 @@ class WorkflowWidget(QWidget):
 
                 for storage, layout in widget.make_children():
                     for child in info["children"]:
-                        self.add_widget(storage, layout, child, default_stretch, on_group_changed)
+                        self.add_widget(storage, layout, child, default_stretch, on_group_changed, defaults)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -499,19 +495,23 @@ class WorkflowWidget(QWidget):
                     self.workflow_menu_timer.start()
 
                 for widget in self.workflow.global_widgets:
-                    self.add_widget(storage, container, widget, 0, on_group_changed)
+                    self.add_widget(storage, container, widget, 0, on_group_changed, {})
 
                 container.stretch()
 
                 self.workflow_settings.show_inputs()
 
+                workflow_defaults = self.get_workflow_defaults()
+
             else:
                 self.workflow_settings.hide_inputs()
+
+                workflow_defaults = {}
 
 
             if len(self.workflow.document_widgets) > 0:
                 for widget in self.workflow.document_widgets:
-                    self.add_widget(self.workflow.root, self.widgets_container, widget, 0, None)
+                    self.add_widget(self.workflow.root, self.widgets_container, widget, 0, None, workflow_defaults)
 
                 self.widgets_container.stretch()
 
@@ -609,8 +609,40 @@ class WorkflowWidget(QWidget):
             self.show_error(message=str(e), backtrace="".join(traceback.format_exception(e)))
 
 
+    def get_workflow_defaults(self):
+        defaults = {
+            "seed/fixed": [],
+            "seed/seed": [],
+        }
+
+        for widget in self.ui_widgets:
+            if widget.is_default:
+                inputs = widget.inputs
+
+                if inputs.is_valid():
+                    if isinstance(widget, UiSeed):
+                        defaults["seed/fixed"].append(widget.seed.inputs.is_valid())
+                        defaults["seed/seed"].append(widget.seed.inputs.value.get())
+
+                    else:
+                        input = inputs.value
+
+                        if input is not None:
+                            key = input.key()
+                            values = defaults.get(key, None)
+
+                            if values is None:
+                                values = []
+                                defaults[key] = values
+
+                            values.append(input.get())
+
+        return defaults
+
+
     def get_ui_values(self):
         ui_values = {
+            "seed/fixed": [],
             "seed/seed": [],
         }
 
@@ -619,56 +651,54 @@ class WorkflowWidget(QWidget):
 
         # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
         for widget in self.ui_widgets:
-            inputs = widget.inputs
+            if not widget.is_default:
+                inputs = widget.inputs
 
-            if inputs.is_valid():
-                if isinstance(widget, UiSeed):
-                    if widget.seed.inputs.is_valid():
-                        ui_values["seed/seed"].append({
-                            "fixed": True,
-                            "seed": widget.seed.inputs.value.get(),
+                if inputs.is_valid():
+                    if isinstance(widget, UiSeed):
+                        ui_values["seed/fixed"].append({
+                            "value": widget.seed.inputs.is_valid(),
                         })
+                        ui_values["seed/seed"].append({
+                            "value": widget.seed.inputs.value.get(),
+                        })
+
                     else:
-                        ui_values["seed/seed"].append({
-                            "fixed": False,
-                        })
+                        input = inputs.value
 
-                else:
-                    input = inputs.value
+                        if input is not None:
+                            info = {
+                                "value": input.get(),
+                                "is_default": input.get() == input.default(),
+                            }
 
-                    if input is not None:
-                        info = {
-                            "value": input.get(),
-                            "is_default": input.get() == input.default(),
-                        }
+                            if isinstance(widget, UiPrompt):
+                                parsed = self.prompt_parser.parse(input.get())
+                                info["positive"] = parsed.serialize_positive()
+                                info["negative"] = parsed.serialize_negative()
+                                info["loras"] = parsed.loras
 
-                        if isinstance(widget, UiPrompt):
-                            parsed = self.prompt_parser.parse(input.get())
-                            info["positive"] = parsed.serialize_positive()
-                            info["negative"] = parsed.serialize_negative()
-                            info["loras"] = parsed.loras
+                            elif isinstance(widget, UiLayerId):
+                                info["layer_name"] = ""
 
-                        elif isinstance(widget, UiLayerId):
-                            info["layer_name"] = ""
+                                option = widget.current_option()
 
-                            option = widget.current_option()
+                                if option is not None:
+                                    try:
+                                        info["layer_name"] = option["layer_name"]
+                                    except KeyError:
+                                        pass
 
-                            if option is not None:
-                                try:
-                                    info["layer_name"] = option["layer_name"]
-                                except KeyError:
-                                    pass
+                            elif isinstance(widget, UiCombo):
+                                info["label"] = ""
 
-                        elif isinstance(widget, UiCombo):
-                            info["label"] = ""
+                                option = widget.current_option()
 
-                            option = widget.current_option()
+                                if option is not None:
+                                    info["label"] = option["label"]
+                                    assert info["label"] == widget.currentText()
 
-                            if option is not None:
-                                info["label"] = option["label"]
-                                assert info["label"] == widget.currentText()
-
-                        ui_values[input.key()].append(info)
+                            ui_values[input.key()].append(info)
 
         return ui_values
 
