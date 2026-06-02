@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QWidget, QLineEdit, QTreeWidget, QTreeWidgetItem, QAbstractItemView, QHeaderView, QInputDialog, QMessageBox
 from ...util.qt import LayoutManager
 from ...workflow.ui import UiPrompt
+from shared import Perf
 
 
 @functools.total_ordering
@@ -22,10 +23,48 @@ class TreeItem(QTreeWidgetItem):
         return self.cmp < other.cmp
 
 
+    def filter(self, regex):
+        visible = False
+
+        length = self.childCount()
+
+        assert length > 0
+
+        for index in range(length):
+            if self.child(index).filter(regex):
+                visible = True
+
+        if visible:
+            self.setExpanded(True)
+
+        self.setHidden(not visible)
+        return visible
+
+
+    def show_all(self):
+        length = self.childCount()
+
+        assert length > 0
+
+        for index in range(length):
+            self.child(index).show_all()
+
+        self.setExpanded(False)
+        self.setHidden(False)
+
+
 class TreeLeaf(TreeItem):
     def __init__(self, parent, name, info):
         super().__init__(parent, False, name)
         self.info = info
+
+    def filter(self, regex):
+        visible = regex.search(self.info.key) is not None
+        self.setHidden(not visible)
+        return visible
+
+    def show_all(self):
+        self.setHidden(False)
 
 
 class Tree:
@@ -42,6 +81,15 @@ class Tree:
     def sort(self):
         self.tree.sortItems(0, Qt.SortOrder.AscendingOrder)
 
+
+    def filter(self, regex):
+        for index in range(self.tree.topLevelItemCount()):
+            self.tree.topLevelItem(index).filter(regex)
+
+
+    def show_all(self):
+        for index in range(self.tree.topLevelItemCount()):
+            self.tree.topLevelItem(index).show_all()
 
 
     def make_path(self, path):
@@ -172,6 +220,11 @@ class SettingsBundles(QWidget):
         self.update_tree()
 
 
+    @staticmethod
+    def process_bundle_name(name):
+        return re.sub(r"/{2,}", "/", re.sub(r"\s*/\s*", "/", name))
+
+
     def make_parents(self, path):
         parent = Folder(self.tree, path[0])
 
@@ -246,7 +299,7 @@ class SettingsBundles(QWidget):
                 QMessageBox.critical(self, "Invalid bundle name", "Bundle name cannot end with /")
 
             else:
-                return re.sub(r"/{2,}", "/", re.sub(r"\s*/\s*", "/", text))
+                return self.process_bundle_name(text)
 
 
     def rename_bundle(self, old_name, new_name):
@@ -288,13 +341,17 @@ class SettingsBundles(QWidget):
 
     # TODO make this more efficient by using QSortFilterProxyModel
     def search_bundles(self):
-        print("SEARCHING")
+        text = self.search_box.text().strip()
 
-        text = self.search_box.text()
+        if text == "":
+            self.tree.show_all()
 
-        compiled = re.compile(".*/.*".join([re.escape(x) for x in text.split("/")]), re.IGNORECASE)
+        else:
+            text = self.process_bundle_name(text)
 
-        print(compiled)
+            compiled = re.compile(".*/.*".join([re.escape(x) for x in text.split("/")]), re.IGNORECASE)
+
+            self.tree.filter(compiled)
 
 
     def update_tree(self):
@@ -321,4 +378,6 @@ class SettingsBundles(QWidget):
 
 
     def on_show(self):
-        self.update_tree()
+        #self.update_tree()
+
+        self.search_box.setFocus()

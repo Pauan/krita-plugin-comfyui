@@ -73,7 +73,7 @@ class ParserState:
                 value = function.group(2).strip()
 
                 if name == "bundle":
-                    bundle = self.bundles.get(value, default=None)
+                    bundle = self.bundles.get(value, None)
 
                     if bundle is None:
                         raise WorkflowError(f"Bundle {value} not found.")
@@ -81,7 +81,7 @@ class ParserState:
                     if value in seen_bundles:
                         raise WorkflowError(f"Infinite recursion when inserting bundle {value}")
 
-                    self.parse(bundle, weight, seen_bundles.union({ value }))
+                    self.parse(bundle["prompt"], weight, seen_bundles.union({ value }))
 
                 elif name == "lora":
                     self.loras.append({

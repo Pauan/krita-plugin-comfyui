@@ -409,6 +409,9 @@ class Layout:
     def set_current_index(self, index):
         self.qlayout.setCurrentIndex(index)
 
+    def current_widget(self):
+        return self.qlayout.currentWidget()
+
 
     def column(self, *, stretch=0, align=None):
         layout = make_column()

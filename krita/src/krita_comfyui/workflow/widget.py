@@ -238,7 +238,7 @@ class WorkflowWidget(QWidget):
         self.live_mode_state = LiveModeState(self, self.extension)
         self.live_mode_state.timer.timeout.connect(self.maybe_run_live_mode)
 
-        self.prompt_parser = PromptParser(self.extension.settings.bundles)
+        self.prompt_parser = PromptParser(self.extension.settings.bundles.root.get())
 
         self.layout = LayoutManager(self)
 
@@ -641,66 +641,67 @@ class WorkflowWidget(QWidget):
 
 
     def get_ui_values(self):
-        ui_values = {
-            "seed/fixed": [],
-            "seed/seed": [],
-        }
+        with self.catch_errors():
+            ui_values = {
+                "seed/fixed": [],
+                "seed/seed": [],
+            }
 
-        for id in self.workflow.widget_ids:
-            ui_values[id] = []
+            for id in self.workflow.widget_ids:
+                ui_values[id] = []
 
-        # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
-        for widget in self.ui_widgets:
-            if not widget.is_default:
-                inputs = widget.inputs
+            # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
+            for widget in self.ui_widgets:
+                if not widget.is_default:
+                    inputs = widget.inputs
 
-                if inputs.is_valid():
-                    if isinstance(widget, UiSeed):
-                        ui_values["seed/fixed"].append({
-                            "value": widget.seed.inputs.is_valid(),
-                        })
-                        ui_values["seed/seed"].append({
-                            "value": widget.seed.inputs.value.get(),
-                        })
+                    if inputs.is_valid():
+                        if isinstance(widget, UiSeed):
+                            ui_values["seed/fixed"].append({
+                                "value": widget.seed.inputs.is_valid(),
+                            })
+                            ui_values["seed/seed"].append({
+                                "value": widget.seed.inputs.value.get(),
+                            })
 
-                    else:
-                        input = inputs.value
+                        else:
+                            input = inputs.value
 
-                        if input is not None:
-                            info = {
-                                "value": input.get(),
-                                "is_default": input.get() == input.default(),
-                            }
+                            if input is not None:
+                                info = {
+                                    "value": input.get(),
+                                    "is_default": input.get() == input.default(),
+                                }
 
-                            if isinstance(widget, UiPrompt):
-                                parsed = self.prompt_parser.parse(input.get())
-                                info["positive"] = parsed.serialize_positive()
-                                info["negative"] = parsed.serialize_negative()
-                                info["loras"] = parsed.loras
+                                if isinstance(widget, UiPrompt):
+                                    parsed = self.prompt_parser.parse(input.get())
+                                    info["positive"] = parsed.serialize_positive()
+                                    info["negative"] = parsed.serialize_negative()
+                                    info["loras"] = parsed.loras
 
-                            elif isinstance(widget, UiLayerId):
-                                info["layer_name"] = ""
+                                elif isinstance(widget, UiLayerId):
+                                    info["layer_name"] = ""
 
-                                option = widget.current_option()
+                                    option = widget.current_option()
 
-                                if option is not None:
-                                    try:
-                                        info["layer_name"] = option["layer_name"]
-                                    except KeyError:
-                                        pass
+                                    if option is not None:
+                                        try:
+                                            info["layer_name"] = option["layer_name"]
+                                        except KeyError:
+                                            pass
 
-                            elif isinstance(widget, UiCombo):
-                                info["label"] = ""
+                                elif isinstance(widget, UiCombo):
+                                    info["label"] = ""
 
-                                option = widget.current_option()
+                                    option = widget.current_option()
 
-                                if option is not None:
-                                    info["label"] = option["label"]
-                                    assert info["label"] == widget.currentText()
+                                    if option is not None:
+                                        info["label"] = option["label"]
+                                        assert info["label"] == widget.currentText()
 
-                            ui_values[input.key()].append(info)
+                                ui_values[input.key()].append(info)
 
-        return ui_values
+            return ui_values
 
 
     def run_workflow(self):
@@ -722,7 +723,7 @@ class WorkflowWidget(QWidget):
                 should_notify=False,
             )
 
-            assert not self.workflow.document.modified
+            #assert not self.workflow.document.modified
 
 
     def is_live_mode_enabled(self):

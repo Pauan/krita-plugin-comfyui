@@ -107,8 +107,10 @@ class SettingsDialog(QDialog):
 
         self.setMinimumSize(size)
 
-        for widget in self.tab_widgets:
-            widget.on_show()
+        current = self.stack.current_widget()
+
+        if current is not None:
+            current.on_show()
 
         super().show()
 
@@ -128,6 +130,7 @@ class SettingsDialog(QDialog):
 
     def change_menu(self, index):
         self.stack.set_current_index(index)
+        self.stack.current_widget().on_show()
 
 
     def open_settings_folder(self):
