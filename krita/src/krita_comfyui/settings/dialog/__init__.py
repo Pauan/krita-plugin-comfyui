@@ -16,6 +16,9 @@ class SettingsPresets(QWidget):
 
         self.presets = presets
 
+    def on_changed(self):
+        pass
+
     def on_show(self):
         pass
 
@@ -25,6 +28,9 @@ class SettingsWorkflows(QWidget):
         super().__init__()
 
         self.workflows = workflows
+
+    def on_changed(self):
+        pass
 
     def on_show(self):
         pass
@@ -117,15 +123,23 @@ class SettingsDialog(QDialog):
 
     def cancel(self):
         assert self.snapshot is not None
+
         try:
             self.settings.restore_snapshot(self.snapshot)
         finally:
             self.snapshot = None
+
+        for widget in self.tab_widgets:
+            widget.on_changed()
+
         self.close()
 
 
     def restore_defaults(self):
         self.settings.restore_defaults()
+
+        for widget in self.tab_widgets:
+            widget.on_changed()
 
 
     def change_menu(self, index):

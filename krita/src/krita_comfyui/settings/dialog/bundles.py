@@ -359,6 +359,8 @@ class SettingsBundles(QWidget):
 
         root = self.bundles.root
 
+        selected_item = None
+
         for key in root.get().keys():
             path = key.split("/")
 
@@ -371,13 +373,22 @@ class SettingsBundles(QWidget):
             )
 
             if self.selected_bundle is not None and self.selected_bundle.key == key:
-                child.setSelected(True)
-                self.tree.tree.scrollToItem(child, QAbstractItemView.ScrollHint.PositionAtCenter)
+                selected_item = child
 
         self.tree.sort()
 
+        self.search_bundles()
+
+        if selected_item is None:
+            self.selected_bundle = None
+        else:
+            selected_item.setSelected(True)
+            self.tree.tree.scrollToItem(selected_item, QAbstractItemView.ScrollHint.EnsureVisible)
+
+
+    def on_changed(self):
+        self.update_tree()
+
 
     def on_show(self):
-        #self.update_tree()
-
         self.search_box.setFocus()
