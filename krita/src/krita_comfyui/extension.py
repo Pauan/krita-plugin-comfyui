@@ -29,7 +29,7 @@ class ComfyUIExtension(Extension):
         self.settings = Settings(self)
         self.settings.clear_log()
 
-        self.settings_dialog = SettingsDialog(self.settings)
+        self.settings_dialog = SettingsDialog(self, self.settings)
 
         self.client = ComfyUIClient(self.settings, url="127.0.0.1:8188", reconnect_delay=10000)
 

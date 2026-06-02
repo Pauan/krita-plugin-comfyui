@@ -386,6 +386,7 @@ class UiString(QLineEdit):
                 background_color=json.get("background_color", None),
                 min_lines=json.get("min_lines", None),
                 max_lines=json.get("max_lines", None),
+                auto_resize=True,
             )
 
         else:
@@ -412,7 +413,7 @@ class UiString(QLineEdit):
 
 
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, *, value, is_default, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines):
+    def __init__(self, *, value, is_default, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines, auto_resize):
         super().__init__()
 
         if min_lines is None:
@@ -428,6 +429,7 @@ class UiStringMultiline(QPlainTextEdit):
 
         self.min_lines = min_lines
         self.max_lines = max_lines
+        self.auto_resize = auto_resize
 
         self.textChanged.connect(self.on_changed)
 
@@ -441,12 +443,12 @@ class UiStringMultiline(QPlainTextEdit):
         else:
             background_color = f"background-color: {background_color};"
 
+        # margin-bottom: 2px;
         self.setStyleSheet(f"""
             QPlainTextEdit {{
                 margin-left: 2px;
                 margin-right: 2px;
                 margin-top: 2px;
-                margin-bottom: 2px;
                 {background_color}
             }}
         """)
@@ -473,8 +475,9 @@ class UiStringMultiline(QPlainTextEdit):
 
 
     def resize(self, text):
-        lines = max(self.min_lines, min(number_of_lines(text) + 1, self.max_lines))
-        self.setFixedHeight(self.get_pixel_height(lines))
+        if self.auto_resize:
+            lines = max(self.min_lines, min(number_of_lines(text) + 1, self.max_lines))
+            self.setFixedHeight(self.get_pixel_height(lines))
 
 
     def keyPressEvent(self, event):
@@ -537,6 +540,7 @@ class UiPrompt(UiStringMultiline):
         tooltip,
         min_lines,
         max_lines,
+        auto_resize,
         # New arguments
         settings,
         autocomplete,
@@ -560,6 +564,7 @@ class UiPrompt(UiStringMultiline):
             tooltip=tooltip,
             min_lines=min_lines,
             max_lines=max_lines,
+            auto_resize=auto_resize,
         )
 
         self.settings = settings
@@ -593,6 +598,7 @@ class UiPrompt(UiStringMultiline):
             background_color=json.get("background_color", None),
             min_lines=json.get("min_lines", None),
             max_lines=json.get("max_lines", None),
+            auto_resize=True,
         )
 
 
@@ -1287,6 +1293,6 @@ class UiList(QWidget):
             text = f"Add {self.label}"
             tooltip = f"Add new {self.label}."
 
-        with self.layout.tool_button(icon=Krita.icon("addlayer"), text=text, tooltip=tooltip) as button:
+        with self.layout.tool_button(icon=Krita.icon("list-add"), text=text, tooltip=tooltip) as button:
             button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
             button.clicked.connect(self.add_child)
