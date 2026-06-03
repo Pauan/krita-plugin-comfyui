@@ -146,7 +146,7 @@ class Workflow(Storage):
         else:
             serialized = self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {})
 
-        self.replace_serialized(serialized, notify_listeners=False)
+        self.replace_serialized(serialized, save=False, notify_listeners=False)
 
 
     def _update_workflow(self, id):

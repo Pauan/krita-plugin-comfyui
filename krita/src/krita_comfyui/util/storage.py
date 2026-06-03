@@ -508,11 +508,12 @@ class Storage:
                 self.save()
 
 
-    def replace_serialized(self, new_serialized: dict[str, JSON], *, notify_listeners: bool=True):
+    def replace_serialized(self, new_serialized: dict[str, JSON], *, save: bool=True, notify_listeners: bool=True):
         if self._serialized != new_serialized:
             self._serialized = new_serialized
 
-            self.save()
+            if save:
+                self.save()
 
             if notify_listeners:
                 for listeners in self._listeners.values():
@@ -528,8 +529,8 @@ class Storage:
         return json.loads(json.dumps(self._serialized))
 
 
-    def restore_snapshot(self, snapshot: dict[str, JSON], *, notify_listeners: bool=True) -> bool:
-        return self.replace_serialized(snapshot, notify_listeners=notify_listeners)
+    def restore_snapshot(self, snapshot: dict[str, JSON], *, save: bool=True, notify_listeners: bool=True) -> bool:
+        return self.replace_serialized(snapshot, save=save, notify_listeners=notify_listeners)
 
 
     def on_changed(self, path: tuple[str | int, ...]):
