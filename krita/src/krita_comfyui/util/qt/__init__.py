@@ -1,5 +1,6 @@
 import re
 import contextlib
+import traceback
 from PyQt6.QtCore import QObject, QThread, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
@@ -79,6 +80,94 @@ class Thread(QThread):
             yield
 
             self.wait()
+
+
+class MessageBox(QMessageBox):
+    def __init__(self, parent, *, text, icon=None, information=None, details=None, rich_text=False, buttons=[]):
+        super().__init__(parent)
+
+        if rich_text:
+            self.setTextFormat(Qt.TextFormat.RichText)
+        else:
+            self.setTextFormat(Qt.TextFormat.PlainText)
+
+        if icon is None:
+            self.setIcon(QMessageBox.Icon.NoIcon)
+        else:
+            self.setIcon(icon)
+
+        self.setSizeGripEnabled(True)
+        self.setWindowTitle("Krita ComfyUI Plugin")
+        self.setText(text)
+
+        if information is not None:
+            self.setInformativeText(information)
+
+        if details is not None:
+            self.setDetailedText(details)
+
+        self.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse |
+            Qt.TextInteractionFlag.LinksAccessibleByMouse |
+            Qt.TextInteractionFlag.LinksAccessibleByKeyboard
+        )
+
+        for button in buttons:
+            self.addButton(button)
+
+        self.exec()
+
+
+    @staticmethod
+    def question(parent, text):
+        reply = QMessageBox.question(parent, "Krita Plugin ComfyUI", text)
+        return reply == QMessageBox.StandardButton.Yes
+
+
+    @staticmethod
+    def info(parent, *, text, information=None, details=None, rich_text=False):
+        MessageBox(parent,
+            icon=QMessageBox.Icon.Information,
+            text=text,
+            information=information,
+            details=details,
+            rich_text=rich_text,
+            buttons=[QMessageBox.StandardButton.Ok],
+        )
+
+
+    @staticmethod
+    def error(parent, *, text, information=None, details=None, rich_text=False):
+        MessageBox(parent,
+            icon=QMessageBox.Icon.Critical,
+            text=text,
+            information=information,
+            details=details,
+            rich_text=rich_text,
+            buttons=[QMessageBox.StandardButton.Ok],
+        )
+
+
+    @staticmethod
+    def from_exception(parent, exception):
+        MessageBox(parent,
+            icon=QMessageBox.Icon.Critical,
+            text=str(exception),
+            details="".join(traceback.format_exception(exception)),
+            buttons=[QMessageBox.StandardButton.Ok],
+        )
+
+
+    # Resizes to fit the detail text better
+    # https://stackoverflow.com/a/9969700/449477
+    #def resizeEvent(self, event):
+        #result = super().resizeEvent(event)
+
+        #details_box = self.findChild(QTextEdit)
+        #if details_box is not None:
+            #details_box.setFixedSize(details_box.sizeHint())
+
+        #return result
 
 
 class ScrollArea(QScrollArea):
@@ -256,21 +345,6 @@ class DoubleSpinBox(QDoubleSpinBox):
         super().__init__(*args)
         self.block_wheel = BlockMouseWheel(self)
         self.installEventFilter(self.block_wheel)
-
-
-# Resizes to fit the detail text better
-# https://stackoverflow.com/a/9969700/449477
-class MessageBox(QMessageBox):
-    pass
-
-    #def resizeEvent(self, event):
-        #result = super().resizeEvent(event)
-
-        #details_box = self.findChild(QTextEdit)
-        #if details_box is not None:
-            #details_box.setFixedSize(details_box.sizeHint())
-
-        #return result
 
 
 class BlockSignals:

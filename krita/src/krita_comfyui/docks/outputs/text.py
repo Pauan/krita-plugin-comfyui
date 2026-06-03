@@ -1,11 +1,10 @@
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtWidgets import (
     QMenu,
-    QMessageBox,
     QSizePolicy,
     QWidget,
 )
-from ...util.qt import LayoutManager
+from ...util.qt import MessageBox, LayoutManager
 
 
 class TextWidget(QWidget):
@@ -99,13 +98,7 @@ class TextWidget(QWidget):
 
 
     def clear_text(self):
-        reply = QMessageBox.question(
-            self,
-            "Delete all",
-            "Are you sure you want to delete all output texts?",
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
+        if MessageBox.question(self, "Are you sure you want to delete all output texts?"):
             self.set_text(self.document.current(), [])
 
 

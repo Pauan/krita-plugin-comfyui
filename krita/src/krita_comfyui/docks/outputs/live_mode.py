@@ -4,10 +4,9 @@ from PyQt6.QtWidgets import (
     QLabel,
     QFrame,
     QMenu,
-    QMessageBox,
     QSizePolicy,
 )
-from ...util.qt import LayoutManager
+from ...util.qt import MessageBox, LayoutManager
 from ...util.krita import Image
 from .serialized import SerializedImages, SerializedImage
 
@@ -295,13 +294,7 @@ class LiveModeImage(QLabel):
 
 
     def delete_all(self):
-        reply = QMessageBox.question(
-            self,
-            "Delete live mode",
-            "Are you sure you want to delete the live mode image?",
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
+        if MessageBox.question(self, "Are you sure you want to delete the live mode image?"):
             with self.extension.disable_live_mode():
                 document = self.document.current()
 

@@ -2,8 +2,9 @@ import re
 import functools
 from dataclasses import dataclass
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QWidget, QLineEdit, QTreeWidget, QTreeWidgetItem, QAbstractItemView, QHeaderView, QInputDialog, QMessageBox
-from ...util.qt import LayoutManager
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QMenu, QToolButton, QWidget, QLineEdit, QTreeWidget, QTreeWidgetItem, QAbstractItemView, QHeaderView, QInputDialog
+from ...util.qt import MessageBox, LayoutManager
+from ...util.krita import Image
 from ...workflow.ui import UiPrompt
 from shared import Perf
 
@@ -117,6 +118,32 @@ class Folder(Tree):
         super().__init__(item)
 
 
+class LoadingDialog(QDialog):
+    def __init__(self, parent, extension):
+        super().__init__(parent)
+
+        self.extension = extension
+
+        self.layout_manager = LayoutManager(self)
+
+        self.setModal(True)
+
+        with self.layout_manager.column() as column:
+            column.set_padding(left=10, top=10, right=10, bottom=10)
+
+            column.label(text="Loading lora... please be patient.")
+
+            column.spacer(10)
+
+            with column.widget(QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)) as buttons:
+                buttons.rejected.connect(self.on_cancel)
+
+
+    def on_cancel(self):
+        self.extension.client.cancel_download_civitai()
+        self.reject()
+
+
 @dataclass
 class BundleInfo:
     key: str
@@ -157,13 +184,7 @@ class BundleName(QWidget):
 
 
     def delete_bundle(self):
-        reply = QMessageBox.question(
-            self,
-            f"Delete {self.text}",
-            "Are you sure you want to delete the bundle?",
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
+        if MessageBox.question(self, f"Are you sure you want to delete the \"{self.text}\" bundle?"):
             self.root.delete_bundle(self.text)
 
 
@@ -172,10 +193,14 @@ class SettingsBundles(QWidget):
         super().__init__()
 
         self.extension = extension
+        self.extension.client.civitai_finished.connect(self.on_civitai_finished)
+
         self.bundles = bundles
 
         self.widgets = []
         self.selected_bundle = None
+
+        self.loading_dialog = LoadingDialog(self, self.extension)
 
         self.layout_manager = LayoutManager(self)
 
@@ -184,8 +209,15 @@ class SettingsBundles(QWidget):
 
             with row.column() as column:
                 with column.row() as top:
-                    with top.tool_button(icon=Krita.icon("list-add"), tooltip="Make new bundle...") as button:
-                        button.clicked.connect(self.new_bundle)
+                    with top.tool_button(icon=Krita.icon("settings-button"), tooltip="Bundle menu...") as button:
+                        self.menu = QMenu(self)
+
+                        self.menu.addAction(Krita.icon("list-add"), "New bundle", self.new_bundle)
+                        self.menu.addSeparator()
+                        self.menu.addAction(Image.load_icon("civitai-color.svg"), "Download Civitai Lora", self.new_civitai_lora)
+
+                        button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+                        button.setMenu(self.menu)
 
                     with top.widget(QLineEdit()) as search:
                         self.search_timer = QTimer(self)
@@ -255,7 +287,7 @@ class SettingsBundles(QWidget):
                 settings=self.extension.settings,
                 visible_if=[],
                 enabled_if=[],
-                tooltip="Prompt for the bundle",
+                tooltip=None,
                 autocomplete=True,
                 placeholder="Prompt...",
                 background_color=None,
@@ -281,8 +313,8 @@ class SettingsBundles(QWidget):
 
     def bundle_name_dialog(self, initial):
         text, ok = QInputDialog.getText(self,
-            "Bundle name",
-            "Use / to put the bundle into a subfolder",
+            "Krita Plugin ComfyUI",
+            "Bundle name.\n\nUse / to put the bundle into a subfolder.\n",
             text=initial,
         )
 
@@ -290,13 +322,13 @@ class SettingsBundles(QWidget):
             text = text.strip()
 
             if text == "":
-                QMessageBox.critical(self, "Invalid bundle name", "Bundle name cannot be empty")
+                MessageBox.error(self, text="Invalid bundle name", information="Bundle name cannot be empty")
 
             elif text[0] == "/":
-                QMessageBox.critical(self, "Invalid bundle name", "Bundle name cannot start with /")
+                MessageBox.error(self, text="Invalid bundle name", information="Bundle name cannot start with /")
 
             elif text[-1] == "/":
-                QMessageBox.critical(self, "Invalid bundle name", "Bundle name cannot end with /")
+                MessageBox.error(self, text="Invalid bundle name", information="Bundle name cannot end with /")
 
             else:
                 return self.process_bundle_name(text)
@@ -326,17 +358,88 @@ class SettingsBundles(QWidget):
         self.update_tree()
 
 
-    def new_bundle(self):
-        name = self.bundle_name_dialog("")
+    def make_bundle(self, name, prompt):
+        if name in self.bundles.root.get():
+            MessageBox.error(self, text=f"Bundle \"{name}\" already exists.")
 
-        if name is not None:
+        else:
             self.bundles.root.value(name, dict, default={}).set({
-                "prompt": ""
+                "prompt": prompt
             })
 
             self.selected_bundle = BundleInfo(name, self.bundles.root.dict(name))
             self.update_bundle()
             self.update_tree()
+
+
+    def new_bundle(self):
+        name = self.bundle_name_dialog("")
+
+        if name is not None:
+            self.make_bundle(name, "")
+
+
+    def new_civitai_lora(self):
+        folder = self.extension.settings.settings.root.value("comfyui_lora_folder", str).get()
+
+        if folder == "":
+            MessageBox.error(self, text="You must set a ComfyUI Lora folder in the settings.")
+            return
+
+        api_key = self.extension.settings.settings.root.value("civitai_api_key", str).get()
+
+        if api_key == "":
+            MessageBox.error(self,
+                text="You must set a Civitai API key in the settings.",
+                information="You can create an API key at this URL:<br /><a href='https://civitai.com/user/account'>https://civitai.com/user/account</a>",
+                rich_text=True,
+            )
+            return
+
+        url, ok = QInputDialog.getText(self,
+            "Krita ComfyUI Plugin",
+            "Enter the Civitai URL for the Lora:\n",
+            text="",
+        )
+
+        if not ok:
+            return
+
+        parsed = re.search(r"^(.+)/models/([0-9]+)/([^\/?#]+)", url)
+
+        if parsed is None:
+            MessageBox.error(self, text=f"<p>Invalid URL:<br /><a href='{url}'>{url}</a></p><p>Example URL:<br />https://civitai.com/models/2540444/anima-highresaesthetic-boost?modelVersionId=2855073</p>", rich_text=True)
+            return
+
+        host = parsed.group(1)
+        id = int(parsed.group(2))
+        slug = parsed.group(3)
+
+        version_id = re.search(r"modelVersionId=([0-9]+)", url)
+        if version_id is not None:
+            version_id = int(version_id.group(1))
+
+        self.extension.client.download_civitai_lora(
+            api_key=api_key,
+            folder=folder,
+            host=host,
+            id=id,
+            slug=slug,
+            version_id=version_id,
+        )
+
+        self.loading_dialog.show()
+
+
+    def on_civitai_finished(self, info):
+        if info.error is None:
+            self.make_bundle(info.bundle_name(), info.to_prompt())
+            self.loading_dialog.close()
+            MessageBox.info(self, text="Lora finished loading!")
+
+        else:
+            self.loading_dialog.close()
+            MessageBox.from_exception(self, info.error)
 
 
     # TODO make this more efficient by using QSortFilterProxyModel

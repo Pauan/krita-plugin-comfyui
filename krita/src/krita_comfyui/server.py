@@ -1,9 +1,13 @@
+import os
 import json
 import uuid
 import time
 import traceback
-from dataclasses import dataclass
+import textwrap
+from dataclasses import dataclass, field
 from enum import Enum, auto
+from typing import ClassVar
+from pathlib import PurePath
 from shared import Perf
 from . import util
 from .settings import LogLevel
@@ -13,6 +17,127 @@ from .workflow.graph import WorkflowGraph
 from PyQt6.QtCore import QObject, QTimer, QUrl, QUrlQuery, QByteArray, pyqtSignal, pyqtSlot
 from PyQt6.QtWebSockets import QWebSocket
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply, QAbstractSocket
+
+
+@dataclass
+class CivitaiInfo:
+    # TODO I hate hardcoding this...
+    CIVITAI_CATEGORIES: ClassVar[tuple[str, ...]] = (
+        "action",
+        "animal",
+        "assets",
+        "background",
+        "base model",
+        "buildings",
+        "celebrity",
+        "character",
+        "clothing",
+        "concept",
+        "objects",
+        "poses",
+        "style",
+        "tool",
+        "vehicle",
+    )
+
+    api_key: str
+    root_folder: str
+    host: str
+    id: int
+    slug: str
+    version_id: int | None
+
+    name: str | None = None
+    username: str | None = None
+    category: str = "unknown"
+    tags: list[str] = field(default_factory=list)
+
+    model: str | None = None
+    version_name: str | None = None
+    trigger_words: list[str] = field(default_factory=list)
+    file_url: str | None = None
+    filename: str | None = None
+
+    error: Exception | None = None
+
+
+    def update(self, json):
+        if self.version_id is None:
+            self.version_id = json["modelVersions"][0]["id"]
+
+        self.name = json["name"]
+        self.username = json["creator"]["username"]
+
+        self.tags = json["tags"]
+
+        for tag in self.tags:
+            if tag in self.CIVITAI_CATEGORIES:
+                self.category = tag
+                break
+
+        for model in json["modelVersions"]:
+            if model["id"] == self.version_id:
+                self.model = model["baseModel"]
+                self.version_name = model["name"]
+                self.trigger_words = model.get("trainedWords", [])
+
+                for file in model["files"]:
+                    if file["primary"] and file["type"] == "Model" and file["metadata"]["format"] == "SafeTensor":
+                        self.file_url = file["downloadUrl"]
+                        self.filename = file["name"]
+                        assert self.file_url == model["downloadUrl"]
+                        break
+
+                break
+
+
+    def folder(self) -> str:
+        model = self.model.lower()
+        category = self.category.lower()
+        # TODO test this on Windows
+        return PurePath(self.root_folder) / model / category
+
+
+    def bundle_name(self) -> str:
+        model = self.model.lower()
+        category = self.category.lower()
+        filename = PurePath(self.filename).stem
+        return f"loras/{model}/{category}/{filename}"
+
+
+    def to_comment(self) -> str:
+        url = f"{self.host}/models/{self.id}?modelVersionId={self.version_id}"
+
+        tags = ", ".join(self.tags)
+
+        return textwrap.dedent(f"""\
+            # URL: {url}
+            # Slug: {self.slug}
+            # Name: {self.name}
+            # Username: {self.username}
+            # Category: {self.category}
+            # Tags: {tags}
+            # Version: {self.version_name}
+            # Model: {self.model}
+            # File URL: {self.file_url}
+            # Filename: {self.filename}""")
+
+
+    def to_prompt(self) -> str:
+        prompt = [self.to_comment()]
+
+        model = self.model.lower()
+        category = self.category.lower()
+        filename = f"{model}/{category}/{self.filename}"
+
+        prompt.append("")
+        prompt.append(f"<lora: {filename}>")
+
+        if len(self.trigger_words) > 0:
+            prompt.append("")
+            prompt.extend(self.trigger_words)
+
+        return "\n".join(prompt)
 
 
 class ComfyError:
@@ -511,6 +636,7 @@ class WebsocketClient(QObject):
 class ComfyUIClient(QObject):
     graph_changed = pyqtSignal(GraphInfo)
     connection_changed = pyqtSignal(bool)
+    civitai_finished = pyqtSignal(CivitaiInfo)
 
     # When calling a method, the method is run in the same thread as the caller.
     #
@@ -531,6 +657,8 @@ class ComfyUIClient(QObject):
 
         self.pending_danbooru_tags = None
         self.last_danbooru_id = None
+
+        self.pending_civitai = None
 
         self.http = QNetworkAccessManager(self)
         self.http.setAutoDeleteReplies(True)
@@ -570,7 +698,10 @@ class ComfyUIClient(QObject):
         request = QNetworkRequest(url)
 
         for key, value in headers:
-            request.setHeader(key, value)
+            if isinstance(key, str):
+                request.setRawHeader(QByteArray(key.encode("utf-8")), QByteArray(value.encode("utf-8")))
+            else:
+                request.setHeader(key, value)
 
         request.setAttribute(QNetworkRequest.Attribute.User, metadata)
 
@@ -793,19 +924,22 @@ class ComfyUIClient(QObject):
 
         # Standard HTTP error
         if status is None or (not (status >= 200 and status < 300)):
-            error = GraphError.from_string(reply.errorString())
+            error = reply.errorString()
 
         # Everything was fine!
         else:
             assert reply.error() == QNetworkReply.NetworkError.NoError
 
         if error is not None:
-            self.settings.log_str(f"HTTP Error: {error.format()}", level=LogLevel.ERROR)
+            self.settings.log_str(f"HTTP Error: {error}", level=LogLevel.ERROR)
 
         metadata = reply.request().attribute(QNetworkRequest.Attribute.User)
 
         match metadata["type"]:
             case "prompt":
+                if error is not None:
+                    error = GraphError.from_string(error)
+
                 info = json.loads(reply.readAll().data().decode("utf-8"))
                 comfy_error = ComfyError(info)
 
@@ -827,13 +961,16 @@ class ComfyUIClient(QObject):
                         self.graph_changed.emit(prompt.graph_info())
                         self.execute_queue()
 
+
             case "interrupt":
                 pass
+
 
             case "object_info":
                 if error is None:
                     node_metadata = json.loads(reply.readAll().data().decode("utf-8"))
                     self.settings.node_metadata.save(node_metadata)
+
 
             case "danbooru_tags":
                 if error is None:
@@ -842,6 +979,74 @@ class ComfyUIClient(QObject):
                 else:
                     self.last_danbooru_id = None
                     self.pending_danbooru_tags = None
+
+
+            case "download_civitai_lora":
+                pending = self.pending_civitai
+
+                if pending is not None:
+                    if error is None:
+                        try:
+                            pending.update(json.loads(reply.readAll().data().decode("utf-8")))
+                        except Exception as e:
+                            pending.error = e
+                    else:
+                        pending.error = Exception(error)
+
+                    if pending.error is None:
+                        self.settings.log_str(f"Downloading {pending.file_url}", level=LogLevel.DEBUG)
+
+                        self.http.get(self.request(
+                            url=pending.file_url,
+                            headers=[
+                                ("Authorization", f"Bearer {pending.api_key}"),
+                            ],
+                            metadata={
+                                "type": "download_civitai_file",
+                            },
+                        ))
+
+                    else:
+                        self.pending_civitai = None
+                        self.civitai_finished.emit(pending)
+
+
+            case "download_civitai_file":
+                pending = self.pending_civitai
+
+                self.pending_civitai = None
+
+                if pending is not None:
+                    try:
+                        if error is None:
+                            content_type = reply.header(QNetworkRequest.KnownHeaders.ContentTypeHeader)
+
+                            if content_type == "binary/octet-stream" or content_type == "application/octet-stream":
+                                # TODO stream the data in chunks instead of loading it all at once
+                                data = reply.readAll().data()
+
+                                folder = pending.folder()
+
+                                self.settings.log_str(f"Creating folder {folder}", level=LogLevel.DEBUG)
+
+                                os.makedirs(folder, exist_ok=True)
+
+                                self.settings.log_str(f"Saving file {pending.filename}", level=LogLevel.DEBUG)
+
+                                with open(folder / pending.filename, "xb") as file:
+                                    file.write(data)
+
+                            else:
+                                raise Exception(f"Could not download lora.\nYour Civitai API key might be incorrect.\n\n* URL: {pending.file_url}\n* Content-Type: {content_type}")
+
+                        else:
+                            raise Exception(error)
+
+                    except Exception as e:
+                        pending.error = e
+
+                    self.civitai_finished.emit(pending)
+
 
         reply.deleteLater()
 
@@ -968,6 +1173,33 @@ class ComfyUIClient(QObject):
                 "type": "danbooru_tags",
             },
         ))
+
+
+    def download_civitai_lora(self, api_key, folder, host, id, slug, version_id):
+        def run():
+            assert self.pending_civitai is None
+
+            self.pending_civitai = CivitaiInfo(
+                root_folder=folder,
+                host=host,
+                id=id,
+                slug=slug,
+                version_id=version_id,
+                api_key=api_key,
+            )
+
+            self.http.get(self.request(
+                url=f"https://civitai.red/api/v1/models/{id}",
+                metadata={
+                    "type": "download_civitai_lora",
+                },
+            ))
+
+        self.run_command.emit(run)
+
+
+    def cancel_download_civitai(self):
+        self.pending_civitai = None
 
 
     # Stop executing a specific graph

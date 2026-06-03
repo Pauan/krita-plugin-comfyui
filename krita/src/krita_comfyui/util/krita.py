@@ -337,6 +337,11 @@ class Image:
 
 
     @staticmethod
+    def load_icon(filename: str) -> QIcon:
+        return QIcon(Image.filename(filename))
+
+
+    @staticmethod
     def from_qicon(qicon: QIcon, width: int, height: int, mode: QIcon.Mode=QIcon.Mode.Normal, state: QIcon.State=QIcon.State.Off) -> "Image":
         qimage = qicon.pixmap(QSize(width, height), mode, state).toImage()
         qimage.convertTo(QImage.Format.Format_ARGB32)

@@ -7,11 +7,10 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
-    QMessageBox,
     QSizePolicy,
 )
 from ...util.krita import Image, Bounds
-from ...util.qt import BlockSignals
+from ...util.qt import MessageBox, BlockSignals
 from .serialized import SerializedImages
 
 
@@ -351,13 +350,7 @@ class ImageWidget(QListWidget):
 
 
     def delete_all(self):
-        reply = QMessageBox.question(
-            self,
-            "Delete all",
-            "Are you sure you want to delete all ComfyUI output images?",
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
+        if MessageBox.question(self, "Are you sure you want to delete all ComfyUI output images?"):
             old_bytes = self.total_bytes
 
             with BlockSignals(self):

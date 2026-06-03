@@ -29,8 +29,6 @@ class ComfyUIExtension(Extension):
         self.settings = Settings(self)
         self.settings.clear_log()
 
-        self.settings_dialog = SettingsDialog(self, self.settings)
-
         self.client = ComfyUIClient(self.settings, url="127.0.0.1:8188", reconnect_delay=10000)
 
         # We execute jobs in a separate thread so it doesn't freeze the UI.
@@ -40,6 +38,8 @@ class ComfyUIExtension(Extension):
         self.client_thread.move(self.client)
 
         self.client.graph_changed.connect(self.on_graph_changed)
+
+        self.settings_dialog = SettingsDialog(self, self.settings)
 
         notifier = parent.notifier()
         notifier.setActive(True)

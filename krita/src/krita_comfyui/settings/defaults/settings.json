@@ -5,6 +5,8 @@
   "logging_level": "debug",
   "selected_workflow": "",
   "live_mode_enabled": false,
+  "comfyui_lora_folder": "",
+  "civitai_api_key": "",
   "workflow_order": [
     "f4516100-d999-4d82-8ecd-50dd545bc1fe",
     "6b904c3a-0d4b-43d1-86d7-0474dcb8bf2d",

@@ -160,9 +160,14 @@ def build_comfyui():
     )
 
 
+def sync():
+    subprocess.run(["uv", "sync", "--quiet"], cwd=root, check=True)
+
+
 def main():
     Upscale(root).write()
 
     clean()
     build_comfyui()
     build_krita()
+    sync()

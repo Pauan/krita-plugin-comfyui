@@ -8,11 +8,10 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPlainTextEdit,
-    QMessageBox,
     QCompleter,
 )
 from shared import MIN_INTEGER, MAX_INTEGER, MIN_SEED, MAX_SEED
-from ..util.qt import BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
+from ..util.qt import MessageBox, BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
 from ..util import number_of_lines, lerp, normalize, clamp
 from .graph import WorkflowGraph
 
@@ -84,6 +83,8 @@ class Inputs:
 
     def format_tooltip(self, tooltip):
         if tooltip is None:
+            return ""
+        elif tooltip == "":
             return f"[{self.value.key()}]"
         else:
             return f"[{self.value.key()}]\n{tooltip}"
@@ -145,7 +146,7 @@ class UiCombo(ComboBox):
             is_default=json.get("is_default", False),
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-            tooltip=json.get("tooltip", None),
+            tooltip=json.get("tooltip", ""),
             options=json.get("options", []),
         )
 
@@ -221,7 +222,7 @@ class UiLayerId(UiCombo):
             is_default=json.get("is_default", False),
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-            tooltip=json.get("tooltip", None),
+            tooltip=json.get("tooltip", ""),
             options=options,
         )
 
@@ -265,7 +266,7 @@ class UiBoolean(QWidget):
             reset_to_default=False,
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-            tooltip=json.get("tooltip", None),
+            tooltip=json.get("tooltip", ""),
             label=json.get("label", None),
             style=json.get("style", None),
         )
@@ -381,7 +382,7 @@ class UiString(QLineEdit):
                 is_default=json.get("is_default", False),
                 visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
                 enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-                tooltip=json.get("tooltip", None),
+                tooltip=json.get("tooltip", ""),
                 placeholder=json.get("placeholder", None),
                 background_color=json.get("background_color", None),
                 min_lines=json.get("min_lines", None),
@@ -395,7 +396,7 @@ class UiString(QLineEdit):
                 is_default=json.get("is_default", False),
                 visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
                 enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-                tooltip=json.get("tooltip", None),
+                tooltip=json.get("tooltip", ""),
                 placeholder=json.get("placeholder", None),
             )
 
@@ -548,9 +549,6 @@ class UiPrompt(UiStringMultiline):
         if placeholder is None:
             placeholder = "Prompt..."
 
-        if tooltip is None:
-            tooltip = "Prompt"
-
         if autocomplete is None:
             autocomplete = True
 
@@ -592,7 +590,7 @@ class UiPrompt(UiStringMultiline):
             settings=settings,
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-            tooltip=json.get("tooltip", None),
+            tooltip=json.get("tooltip", "Prompt"),
             autocomplete=json.get("autocomplete", None),
             placeholder=json.get("placeholder", None),
             background_color=json.get("background_color", None),
@@ -829,7 +827,7 @@ class UiLabel(QLabel):
         return UiLabel(
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             label=json.get("label", None),
-            tooltip=json.get("tooltip", None),
+            tooltip=json.get("tooltip", ""),
         )
 
 
@@ -942,7 +940,7 @@ class UiFloat(QWidget):
             is_default=json.get("is_default", False),
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-            tooltip=json.get("tooltip", None),
+            tooltip=json.get("tooltip", ""),
             slider=json.get("slider", None),
             min=json.get("min", None),
             max=json.get("max", None),
@@ -961,7 +959,7 @@ class UiFloat(QWidget):
             is_default=json.get("is_default", False),
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-            tooltip=json.get("tooltip", None),
+            tooltip=json.get("tooltip", ""),
             slider=json.get("slider", True),
             min=0.0,
             max=1.0,
@@ -1105,7 +1103,7 @@ class UiInt(QWidget):
             is_default=json.get("is_default", False),
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             enabled_if=InputEqual.from_json(workflow, storage, defaults, json, "enabled_if"),
-            tooltip=json.get("tooltip", None),
+            tooltip=json.get("tooltip", ""),
             slider=json.get("slider", None),
             min=json.get("min", None),
             max=json.get("max", None),
@@ -1207,13 +1205,7 @@ class UiListChild(QFrame):
 
 
     def remove(self):
-        reply = QMessageBox.question(
-            self,
-            "Delete",
-            "Are you sure you want to delete?",
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
+        if MessageBox.question(self, "Are you sure you want to delete?"):
             self.list.remove_child(self.index)
 
 

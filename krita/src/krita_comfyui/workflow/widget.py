@@ -1,10 +1,8 @@
 import time
-import traceback
 import contextlib
 from krita import DockWidget
 from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
-    QMessageBox,
     QSizePolicy,
     QWidget,
     QFrame,
@@ -243,10 +241,6 @@ class WorkflowWidget(QWidget):
         self.layout = LayoutManager(self)
 
         self.workflow = Workflow(self.extension)
-
-        self.error = MessageBox(QMessageBox.Icon.Critical, "Workflow error", "", parent=self)
-        self.error.setSizeGripEnabled(True)
-        self.error.setTextFormat(Qt.TextFormat.PlainText)
 
         self.layer_combo_options = self.get_layer_combo_options()
         self.ui_widgets = []
@@ -590,15 +584,7 @@ class WorkflowWidget(QWidget):
 
     def show_error(self, message, backtrace=None):
         self.stop_live_mode()
-
-        self.error.setText(message)
-
-        if backtrace is None:
-            self.error.setDetailedText("")
-        else:
-            self.error.setDetailedText(backtrace)
-
-        self.error.exec()
+        MessageBox.error(text=message, details=backtrace)
 
 
     @contextlib.contextmanager
@@ -606,7 +592,8 @@ class WorkflowWidget(QWidget):
         try:
             yield
         except Exception as e:
-            self.show_error(message=str(e), backtrace="".join(traceback.format_exception(e)))
+            self.stop_live_mode()
+            MessageBox.from_exception(e)
 
 
     def get_workflow_defaults(self):
