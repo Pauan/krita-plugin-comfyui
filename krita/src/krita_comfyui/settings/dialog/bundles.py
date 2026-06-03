@@ -15,7 +15,7 @@ class TreeItem(QTreeWidgetItem):
         super().__init__(parent)
         self.setText(0, name)
         self.is_folder = is_folder
-        self.cmp = (0 if is_folder else 1, name)
+        self.cmp = (0 if is_folder else 1, name.casefold())
 
     def __eq__(self, other):
         return self.cmp == other.cmp
@@ -165,7 +165,7 @@ class BundleName(QWidget):
 
             row.spacer(6)
 
-            with row.label(text=text, tooltip="Bundle name") as label:
+            with row.label(text=text, tooltip="Bundle name", selectable=True) as label:
                 pass
 
             row.stretch()
@@ -207,7 +207,7 @@ class SettingsBundles(QWidget):
         with self.layout_manager.row() as row:
             row.set_padding(left=10, top=10, right=10, bottom=10)
 
-            with row.column() as column:
+            with row.column(stretch=1) as column:
                 with column.row() as top:
                     with top.tool_button(icon=Krita.icon("settings-button"), tooltip="Bundle menu...") as button:
                         self.menu = QMenu(self)

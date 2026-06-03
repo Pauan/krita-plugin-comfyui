@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
 )
 
-from ...util.qt import LayoutManager
+from ...util.qt import MessageBox, LayoutManager
 from .bundles import SettingsBundles
 
 
@@ -124,22 +124,24 @@ class SettingsDialog(QDialog):
     def cancel(self):
         assert self.snapshot is not None
 
-        try:
-            self.settings.restore_snapshot(self.snapshot)
-        finally:
-            self.snapshot = None
+        if MessageBox.question(self, "Cancel all changes?"):
+            try:
+                self.settings.restore_snapshot(self.snapshot)
+            finally:
+                self.snapshot = None
 
-        for widget in self.tab_widgets:
-            widget.on_changed()
+            for widget in self.tab_widgets:
+                widget.on_changed()
 
-        self.close()
+            self.close()
 
 
     def restore_defaults(self):
-        self.settings.restore_defaults()
+        if MessageBox.question(self, "Are you sure you want to restore all defaults?\n\nThis will delete all your bundles, presets, and workflows!\n\nThis cannot be undone!"):
+            self.settings.restore_defaults()
 
-        for widget in self.tab_widgets:
-            widget.on_changed()
+            for widget in self.tab_widgets:
+                widget.on_changed()
 
 
     def change_menu(self, index):

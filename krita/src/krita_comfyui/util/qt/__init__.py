@@ -2,7 +2,7 @@ import re
 import contextlib
 import traceback
 from PyQt6.QtCore import QObject, QThread, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QGuiApplication
 from PyQt6.QtWidgets import (
     QWidget,
     QMenu,
@@ -52,6 +52,22 @@ class BlockMouseWheel(QObject):
             if modifiers == Qt.KeyboardModifier.NoModifier:
                 event.ignore()
                 return True
+
+        return super().eventFilter(obj, event)
+
+
+# This causes the up / down keys to be ignored and proxied to another widget.
+class BlockKeyUpDown(QObject):
+    def __init__(self, parent, proxy):
+        super().__init__(parent)
+        self.proxy = proxy
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.KeyPress:
+            match event.key():
+                case Qt.Key.Key_Up | Qt.Key.Key_Down:
+                    QGuiApplication.sendEvent(self.proxy, event)
+                    return True
 
         return super().eventFilter(obj, event)
 

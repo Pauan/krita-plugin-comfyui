@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QCompleter,
 )
 from shared import MIN_INTEGER, MAX_INTEGER, MIN_SEED, MAX_SEED
-from ..util.qt import MessageBox, BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel
+from ..util.qt import MessageBox, BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel, BlockKeyUpDown
 from ..util import number_of_lines, lerp, normalize, clamp
 from .graph import WorkflowGraph
 
@@ -483,9 +483,9 @@ class UiStringMultiline(QPlainTextEdit):
 
     def keyPressEvent(self, event):
         match event.key():
-            # This allows the completer to handle these keys.
-            case Qt.Key.Key_Tab | Qt.Key.Key_Escape:
-                event.ignore()
+            # This prevents it from tabbing to the next widget.
+            case Qt.Key.Key_Tab:
+                event.accept()
                 return
 
         super().keyPressEvent(event)
@@ -509,6 +509,10 @@ class UiStringMultiline(QPlainTextEdit):
 class DanbooruCompleter(QCompleter):
     def __init__(self, parent, model):
         super().__init__(parent)
+
+        self.filter = BlockKeyUpDown(self, parent)
+
+        self.popup().installEventFilter(self.filter)
 
         filtered_model = QSortFilterProxyModel(self)
         filtered_model.setDynamicSortFilter(False)
@@ -643,10 +647,14 @@ class UiPrompt(UiStringMultiline):
             self.completer.setCompletionPrefix("")
 
 
-    def show_completer(self):
+    def show_completer(self, start):
         popup_width = self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width()
 
-        rect = self.cursorRect()
+        cursor = self.textCursor()
+        cursor.setPosition(start)
+
+        rect = self.cursorRect(cursor)
+        rect.translate(0, 6)
         rect.setWidth(min(300, popup_width))
         self.completer.complete(rect)
 
@@ -699,12 +707,10 @@ class UiPrompt(UiStringMultiline):
                     self.completer.setCompletionPrefix(prefix)
                     self.completer.popup().setCurrentIndex(self.completer.completionModel().index(0, 0))
 
-                self.show_completer()
+                self.show_completer(start)
 
 
-    def on_changed(self):
-        super().on_changed()
-
+    def maybe_show_completer(self):
         if self.completer is not None:
             text = self.inputs.value.get()
 
@@ -716,6 +722,37 @@ class UiPrompt(UiStringMultiline):
                 self.timer.stop()
             else:
                 self.timer.start()
+
+
+    def on_changed(self):
+        super().on_changed()
+        self.maybe_show_completer()
+
+
+    def keyPressEvent(self, event):
+        match event.key():
+            case Qt.Key.Key_Up | Qt.Key.Key_Down | Qt.Key.Key_Left | Qt.Key.Key_Right:
+                if self.completer is not None:
+                    self.hide_completer()
+
+            # This allows the completer to handle these keys.
+            case Qt.Key.Key_Escape:
+                event.ignore()
+                return
+
+            case Qt.Key.Key_Tab:
+                # If the completer is visible, let it handle Tab.
+                if self.completer.popup().isVisible():
+                    event.ignore()
+                    return
+
+                # If the completer is invisible, show the completer.
+                else:
+                    self.maybe_show_completer()
+                    event.accept()
+                    return
+
+        super().keyPressEvent(event)
 
 
 class UiGroup(QWidget):

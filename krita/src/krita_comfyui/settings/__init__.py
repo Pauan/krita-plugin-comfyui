@@ -5,7 +5,7 @@ from json import dump, dumps, load, loads
 from pathlib import Path
 from PyQt6.QtCore import QObject, QStringListModel, pyqtSignal, pyqtSlot
 from shared import timestamp_local, Perf
-from ..util.qt import MessageBox, BlockSignals, Thread
+from ..util.qt import BlockSignals, Thread
 from ..util.storage import Storage
 
 
@@ -628,14 +628,13 @@ class Settings(QObject):
 
 
     def restore_defaults(self):
-        if MessageBox.question(self, "Are you sure you want to restore all defaults?\n\nThis will delete all your bundles, presets, and workflows!\n\nThis cannot be undone!"):
-            snapshot = self.snapshot()
+        snapshot = self.snapshot()
 
-            try:
-                self.settings.replace_serialized({})
-                self.bundles.replace_serialized({})
-                self.presets.replace_serialized({})
-                self.workflows.replace_serialized({})
-            except:
-                self.restore_snapshot(snapshot)
-                raise
+        try:
+            self.settings.replace_serialized({})
+            self.bundles.replace_serialized({})
+            self.presets.replace_serialized({})
+            self.workflows.replace_serialized({})
+        except:
+            self.restore_snapshot(snapshot)
+            raise
