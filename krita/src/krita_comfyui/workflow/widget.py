@@ -584,7 +584,7 @@ class WorkflowWidget(QWidget):
 
     def show_error(self, message, backtrace=None):
         self.stop_live_mode()
-        MessageBox.error(text=message, details=backtrace)
+        MessageBox.error(self, text=message, details=backtrace)
 
 
     @contextlib.contextmanager
@@ -593,7 +593,7 @@ class WorkflowWidget(QWidget):
             yield
         except Exception as e:
             self.stop_live_mode()
-            MessageBox.from_exception(e)
+            MessageBox.from_exception(self, e)
 
 
     def get_workflow_defaults(self):
@@ -628,89 +628,102 @@ class WorkflowWidget(QWidget):
 
 
     def get_ui_values(self):
-        with self.catch_errors():
-            ui_values = {
-                "seed/fixed": [],
-                "seed/seed": [],
-            }
+        ui_values = {
+            "seed/fixed": [],
+            "seed/seed": [],
+        }
 
-            for id in self.workflow.widget_ids:
-                ui_values[id] = []
+        for id in self.workflow.widget_ids:
+            ui_values[id] = []
 
-            # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
-            for widget in self.ui_widgets:
-                if not widget.is_default:
-                    inputs = widget.inputs
+        normalize_weights = self.extension.settings.settings.root.value("normalize_danbooru_weights", bool).get()
 
-                    if inputs.is_valid():
-                        if isinstance(widget, UiSeed):
-                            ui_values["seed/fixed"].append({
-                                "value": widget.seed.inputs.is_valid(),
-                            })
-                            ui_values["seed/seed"].append({
-                                "value": widget.seed.inputs.value.get(),
-                            })
+        # Collects all of the UI inputs and puts their values into a flat array, organized by ID.
+        for widget in self.ui_widgets:
+            if not widget.is_default:
+                inputs = widget.inputs
 
-                        else:
-                            input = inputs.value
+                if inputs.is_valid():
+                    if isinstance(widget, UiSeed):
+                        ui_values["seed/fixed"].append({
+                            "value": widget.seed.inputs.is_valid(),
+                        })
+                        ui_values["seed/seed"].append({
+                            "value": widget.seed.inputs.value.get(),
+                        })
 
-                            if input is not None:
-                                info = {
-                                    "value": input.get(),
-                                    "is_default": input.get() == input.default(),
-                                }
+                    else:
+                        input = inputs.value
 
-                                if isinstance(widget, UiPrompt):
-                                    parsed = self.prompt_parser.parse(input.get())
-                                    info["positive"] = parsed.serialize_positive()
-                                    info["negative"] = parsed.serialize_negative()
-                                    info["loras"] = parsed.loras
+                        if input is not None:
+                            info = {
+                                "value": input.get(),
+                                "is_default": input.get() == input.default(),
+                            }
 
-                                elif isinstance(widget, UiLayerId):
-                                    info["layer_name"] = ""
+                            if isinstance(widget, UiPrompt):
+                                danbooru_tags = self.extension.settings.danbooru_tags.tags
 
-                                    option = widget.current_option()
+                                parsed = self.prompt_parser.parse(input.get())
 
-                                    if option is not None:
-                                        try:
-                                            info["layer_name"] = option["layer_name"]
-                                        except KeyError:
-                                            pass
+                                if normalize_weights:
+                                    parsed.normalize_weights(parsed.positive, danbooru_tags)
+                                    parsed.normalize_weights(parsed.negative, danbooru_tags)
 
-                                elif isinstance(widget, UiCombo):
-                                    info["label"] = ""
+                                parsed.convert_to_anima(parsed.positive, danbooru_tags)
+                                parsed.convert_to_anima(parsed.negative, danbooru_tags)
 
-                                    option = widget.current_option()
+                                info["positive"] = parsed.serialize(parsed.positive)
+                                info["negative"] = parsed.serialize(parsed.negative)
+                                info["loras"] = parsed.loras
 
-                                    if option is not None:
-                                        info["label"] = option["label"]
-                                        assert info["label"] == widget.currentText()
+                            elif isinstance(widget, UiLayerId):
+                                info["layer_name"] = ""
 
-                                ui_values[input.key()].append(info)
+                                option = widget.current_option()
 
-            return ui_values
+                                if option is not None:
+                                    try:
+                                        info["layer_name"] = option["layer_name"]
+                                    except KeyError:
+                                        pass
+
+                            elif isinstance(widget, UiCombo):
+                                info["label"] = ""
+
+                                option = widget.current_option()
+
+                                if option is not None:
+                                    info["label"] = option["label"]
+                                    assert info["label"] == widget.currentText()
+
+                            ui_values[input.key()].append(info)
+
+        return ui_values
 
 
     def run_workflow(self):
         self.extension.job_started.emit()
 
-        with Perf("run_workflow"):
-            self.workflow.run_graph(
-                ui_values=self.get_ui_values(),
-                is_live_mode=False,
-                should_notify=True,
-            )
+        with self.catch_errors():
+            with Perf("run_workflow"):
+                self.workflow.run_graph(
+                    ui_values=self.get_ui_values(),
+                    is_live_mode=False,
+                    should_notify=True,
+                )
 
 
     def run_live_workflow(self):
-        with Perf("run_live_workflow"):
-            self.workflow.run_graph(
-                ui_values=self.get_ui_values(),
-                is_live_mode=True,
-                should_notify=False,
-            )
+        with self.catch_errors():
+            with Perf("run_live_workflow"):
+                self.workflow.run_graph(
+                    ui_values=self.get_ui_values(),
+                    is_live_mode=True,
+                    should_notify=False,
+                )
 
-            #assert not self.workflow.document.modified
+                #assert not self.workflow.document.modified
 
 
     def is_live_mode_enabled(self):
@@ -739,11 +752,13 @@ class WorkflowWidget(QWidget):
                 self.live_mode_changed.emit()
 
 
-    def maybe_run_live_mode(self, *, force_modified=False):
+    def maybe_run_live_mode(self, *, force_modified=False, notify_job_started=True):
         is_changed = self.live_mode_state.check_changed(self.workflow.document, force_modified=force_modified)
 
         if is_changed:
-            self.extension.job_started.emit()
+            if notify_job_started:
+                self.extension.job_started.emit()
+
             self.run_live_workflow()
 
 

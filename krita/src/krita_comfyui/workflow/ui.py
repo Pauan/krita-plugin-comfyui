@@ -1,5 +1,5 @@
-from krita import SliderSpinBox, DoubleSliderSpinBox
 import math
+from krita import SliderSpinBox, DoubleSliderSpinBox
 from PyQt6.QtCore import QSize, Qt, QTimer, QSortFilterProxyModel, QRegularExpression
 from PyQt6.QtGui import QAction, QTextCursor, QTextOption, QFontMetricsF
 from PyQt6.QtWidgets import (
@@ -530,6 +530,37 @@ class DanbooruCompleter(QCompleter):
 
     def splitPath(self, path):
         self.model().setFilterRegularExpression(rf"^[^➜]*{QRegularExpression.escape(path)}")
+        return []
+
+
+class BundlesCompleter(QCompleter):
+    def __init__(self, parent, model):
+        super().__init__(parent)
+
+        self.filter = BlockKeyUpDown(self, parent)
+
+        self.popup().installEventFilter(self.filter)
+
+        filtered_model = QSortFilterProxyModel(self)
+        filtered_model.setDynamicSortFilter(False)
+        filtered_model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        filtered_model.setSourceModel(model)
+
+        self.setModel(filtered_model)
+        #self.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        #self.setFilterMode(Qt.MatchFlag.MatchContains)
+        self.setModelSorting(QCompleter.ModelSorting.UnsortedModel)
+        self.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        self.setMaxVisibleItems(6)
+        self.setWrapAround(False)
+        self.setWidget(parent)
+
+    def splitPath(self, path):
+        self.model().setFilterRegularExpression(r".*/.*".join([
+            QRegularExpression.escape(x.strip())
+            for x
+            in path.split("/")
+        ]))
         return []
 
 

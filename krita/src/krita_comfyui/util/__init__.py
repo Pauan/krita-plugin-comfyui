@@ -28,3 +28,17 @@ def lerp(percent: float, min: float, max: float) -> float:
 # Inverse lerp, finds the percentage from the value
 def normalize(value: float, min: float, max: float) -> float:
     return (value - min) / (max - min)
+
+
+def average(values):
+    return sum(values) / len(values)
+
+
+def normalize_mean(values, average, min, max, scale):
+    if min == max:
+        return [1.0 for x in values]
+
+    else:
+        stddev = max - min
+
+        return [(((average - x) / stddev) + 1.0) ** scale for x in values]

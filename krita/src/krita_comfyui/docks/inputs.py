@@ -128,6 +128,18 @@ class QueueWidget(QWidget):
         self.layout = LayoutManager(self)
 
         with self.layout.column() as column:
+            widget = UiBoolean(
+                value=self.settings.root.value("run_worfklow_continuously", bool),
+                is_default=False,
+                reset_to_default=True,
+                visible_if=[],
+                enabled_if=[],
+                tooltip="If true it will keep running the workflow forever",
+                label="Run continuously",
+                style="switch",
+            )
+            column.widget(widget)
+
             with column.row(align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop) as row:
                 row.label(text="Job Queue")
 

@@ -1,6 +1,7 @@
 import re
 import json
 from .const import WorkflowError
+from ..util import average, normalize_mean
 
 
 class Prompt:
@@ -9,51 +10,32 @@ class Prompt:
         self.weight = weight
 
 
-    def cleanup_prompt(self):
-        prompt = self.prompt
+    def danbooru_tag(self, danbooru_tags):
+        tag = danbooru_tags.get(self.prompt, None)
 
-        # Replace tabs with a space
-        prompt = re.sub(r'\t+', r' ', prompt)
+        if tag is not None:
+            while True:
+                alias = tag.get("alias_for", None)
 
-        # Replace _ with a space
-        #prompt = re.sub(r'_', r' ', prompt)
+                if alias is not None:
+                    tag = danbooru_tags[alias]
+                else:
+                    break
 
-        # Replace newlines with a comma
-        prompt = re.sub(r'[\n\r]+', r', ', prompt)
+            return tag
 
-        # Removes commas and spaces at the start and end
-        prompt = re.sub(r'(?:^[, ]+)|(?:[, ]+$)', r'', prompt)
 
-        # Removes repeated commas
-        prompt = re.sub(r',[, ]+', r', ', prompt)
-
-        # Removes spaces before a comma
-        prompt = re.sub(r' +(?=,)', r'', prompt)
-
-        # Adds a space after commas
-        prompt = re.sub(r',(?! )', r', ', prompt)
-
-        # Removes repeated spaces
-        prompt = re.sub(r' {2,}', r' ', prompt)
-
-        # Replaces ( with \\(
-        #prompt = re.sub(r'(?<!\\)\(', r'\\(', prompt)
-
-        # Replaces ) with \\)
-        #prompt = re.sub(r'(?<!\\)\)', r'\\)', prompt)
-
-        return prompt
+    def anima(self):
+        return self.prompt.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
 
 
     def serialize(self):
         assert self.weight != 0.0
 
-        prompt = self.cleanup_prompt()
-
         if self.weight == 1.0:
-            return prompt
+            return self.prompt
         else:
-            return f"({prompt}:{self.weight})"
+            return f"({self.prompt}:{self.weight})"
 
 
 class ParserState:
@@ -94,10 +76,12 @@ class ParserState:
                     raise WorkflowError(f"Unknown function {prompt}")
 
             else:
-                if weight > 0.0:
-                    self.positive.append(Prompt(prompt, weight))
-                elif weight < 0.0:
-                    self.negative.append(Prompt(prompt, -weight))
+                for prompt in re.split(r'[\s,]*[\n\r,]+[\s,]*', prompt):
+                    if prompt != "":
+                        if weight > 0.0:
+                            self.positive.append(Prompt(prompt, weight))
+                        elif weight < 0.0:
+                            self.negative.append(Prompt(prompt, -weight))
 
 
     def parse_line(self, line, global_weight, seen_bundles):
@@ -150,11 +134,41 @@ class Parsed:
         self.loras = loras
 
 
-    def serialize_positive(self):
-        return ", ".join([prompt.serialize() for prompt in self.positive])
+    def convert_to_anima(self, prompts, danbooru_tags):
+        for prompt in prompts:
+            tag = prompt.danbooru_tag(danbooru_tags)
 
-    def serialize_negative(self):
-        return ", ".join([prompt.serialize() for prompt in self.negative])
+            if tag is not None:
+                # https://danbooru.donmai.us/wiki_pages/api%3Atags
+                match tag["category"]:
+                    # Artist
+                    case 1:
+                        prompt.prompt = "@" + prompt.anima()
+                    case _:
+                        prompt.prompt = prompt.anima()
+
+
+    def normalize_weights(self, prompts, danbooru_tags):
+        danbooru_prompts = []
+
+        post_counts = []
+
+        for prompt in prompts:
+            tag = prompt.danbooru_tag(danbooru_tags)
+
+            if tag is not None:
+                danbooru_prompts.append(prompt)
+                post_counts.append(tag["post_count"])
+
+        if len(post_counts) > 0:
+            normalized = normalize_mean(post_counts, average(post_counts), min(post_counts), max(post_counts), 1.0)
+
+            for weight, prompt in zip(normalized, danbooru_prompts):
+                prompt.weight = prompt.weight * weight
+
+
+    def serialize(self, prompts):
+        return ",\n".join([prompt.serialize() for prompt in prompts])
 
 
 class PromptParser:

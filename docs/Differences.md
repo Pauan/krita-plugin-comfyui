@@ -17,6 +17,10 @@ This is a mostly comprehensive list of all the differences with [krita-ai-diffus
 
 * Easily downloading and using loras from Civitai.
 
+* Converts Danbooru tags based on the model used (Anima, Illustrious, etc.)
+
+* Normalizes Danbooru weights to prevent popular tags from drowning out unpopular tags (idea is similar to https://imaginarium.rocks/prompt-workshop/)
+
 ## Bug fixes
 
 * You can now access the Inputs and Outputs even when the ComfyUI server is dead.
