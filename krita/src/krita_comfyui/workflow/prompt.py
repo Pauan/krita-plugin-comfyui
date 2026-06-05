@@ -111,6 +111,9 @@ class ParserState:
         # Clean up the text so it doesn't have any tabs
         text = re.sub(r'\t+', r' ', text)
 
+        # Remove /* ... */ comments
+        text = re.sub(r'/\*[\s\S]*\*/', "", text)
+
         for line in text.splitlines():
             # TODO handle \\// and \\# properly
 
