@@ -25,6 +25,35 @@
           "children": [
             {
               "type": "combo",
+              "id": "text_encoder",
+              "link_to": {
+                "node_id": "CLIPLoader",
+                "input": "clip_name"
+              }
+            },
+            {
+              "type": "combo",
+              "id": "text_encoder_type",
+              "link_to": {
+                "node_id": "CLIPLoader",
+                "input": "type"
+              }
+            }
+          ]
+        },
+        {
+          "type": "combo",
+          "id": "vae",
+          "link_to": {
+            "node_id": "VAELoader",
+            "input": "vae_name"
+          }
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "combo",
               "id": "sampler_name",
               "link_to": {
                 "node_id": "KSampler",
@@ -95,6 +124,35 @@
           "link_to": {
             "node_id": "UNETLoader",
             "input": "unet_name"
+          }
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "combo",
+              "id": "live_mode_text_encoder",
+              "link_to": {
+                "node_id": "CLIPLoader",
+                "input": "clip_name"
+              }
+            },
+            {
+              "type": "combo",
+              "id": "live_mode_text_encoder_type",
+              "link_to": {
+                "node_id": "CLIPLoader",
+                "input": "type"
+              }
+            }
+          ]
+        },
+        {
+          "type": "combo",
+          "id": "live_mode_vae",
+          "link_to": {
+            "node_id": "VAELoader",
+            "input": "vae_name"
           }
         },
         {
@@ -1247,8 +1305,14 @@
     },
     "286": {
       "inputs": {
-        "clip_name": "qwen_3_06b_base.safetensors",
-        "type": "qwen_image",
+        "clip_name": [
+          "416",
+          0
+        ],
+        "type": [
+          "424",
+          0
+        ],
         "device": "default"
       },
       "class_type": "CLIPLoader",
@@ -1258,7 +1322,10 @@
     },
     "287": {
       "inputs": {
-        "vae_name": "qwen_image_vae.safetensors"
+        "vae_name": [
+          "417",
+          0
+        ]
       },
       "class_type": "VAELoader",
       "_meta": {
@@ -2590,6 +2657,120 @@
         ],
         "on_true": [
           "414",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "416": {
+      "inputs": {
+        "switch": [
+          "399",
+          0
+        ],
+        "on_false": [
+          "418",
+          0
+        ],
+        "on_true": [
+          "419",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "417": {
+      "inputs": {
+        "switch": [
+          "399",
+          0
+        ],
+        "on_false": [
+          "420",
+          0
+        ],
+        "on_true": [
+          "421",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "418": {
+      "inputs": {
+        "id": "text_encoder"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "419": {
+      "inputs": {
+        "id": "live_mode_text_encoder"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "420": {
+      "inputs": {
+        "id": "vae"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "421": {
+      "inputs": {
+        "id": "live_mode_vae"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "422": {
+      "inputs": {
+        "id": "text_encoder_type"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "423": {
+      "inputs": {
+        "id": "live_mode_text_encoder_type"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "424": {
+      "inputs": {
+        "switch": [
+          "399",
+          0
+        ],
+        "on_false": [
+          "422",
+          0
+        ],
+        "on_true": [
+          "423",
           0
         ]
       },

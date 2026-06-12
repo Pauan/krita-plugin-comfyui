@@ -61,9 +61,9 @@ def round_to_multiple(value: int, multiple: int) -> int:
     extra = value % multiple
 
     if extra == 0:
-        return value
+        return max(value, multiple)
     else:
-        return value + (multiple - extra)
+        return max(value + (multiple - extra), multiple)
 
 
 def divide_duration(duration: int, amount: int) -> tuple[int, int]:
@@ -148,7 +148,11 @@ def detail_size(width: int, height: int, resize_type: ResizeType, round_up: int,
         old = float(width * height)
         new = resize_type["megapixels"] * 1024.0 * 1024.0
 
-        if new > old:
+        if old <= 0.0:
+            width = 0
+            height = 0
+
+        elif new > old:
             scale_by = math.sqrt(new / old)
 
             if integer_multiple:

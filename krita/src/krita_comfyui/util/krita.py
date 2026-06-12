@@ -104,9 +104,9 @@ class Axis:
         length = self.length()
         rounded = round_to_multiple(length, multiple)
         half = math.ceil(float(rounded - length) * 0.5)
-        min = self.min - half
-        max = min + rounded
-        return Axis(min, max)
+        left = self.min - half
+        right = left + rounded
+        return Axis(left, right)
 
 
     # Shifts the axis to be within the parent's bounds.

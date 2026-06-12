@@ -522,6 +522,22 @@ class WorkflowWidget(QWidget):
     def get_layer_combo_options(self):
         options = []
 
+        document = self.document.current()
+
+        if document is not None:
+            root_layer = document.root_layer()
+
+            if root_layer is not None:
+                options.append({
+                    "icon": "config-canvas-only",
+                    "label": "Canvas",
+                    "value": root_layer.id,
+                    "layer_name": "Canvas",
+                })
+
+                if len(self.document.layers) > 0:
+                    options.append({ "separator": True })
+
         for layer in self.document.layers:
             if layer is None:
                 options.append({ "separator": True })
