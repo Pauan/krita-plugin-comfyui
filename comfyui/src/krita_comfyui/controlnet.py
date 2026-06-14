@@ -44,13 +44,8 @@ class MakeControlNet(io.ComfyNode):
                 # https://github.com/Comfy-Org/ComfyUI/blob/c9589f29b21fc5f73b6eb9d5c98d29a68cf8c392/nodes.py#L818
                 io.Combo.Input("model", options=folder_paths.get_filename_list("controlnet")),
 
-                io.DynamicCombo.Input("type", options=[
-                    io.DynamicCombo.Option("Anima LLLite", []),
-                    io.DynamicCombo.Option("Union", [
-                        # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_controlnet.py#L15
-                        io.Combo.Input("union_type", default="auto", options=["auto"] + list(UNION_CONTROLNET_TYPES.keys())),
-                    ]),
-                ]),
+                # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/comfy_extras/nodes_controlnet.py#L15
+                io.Combo.Input("type", default="Anima", options=["Anima", "Z-Image"] + list(UNION_CONTROLNET_TYPES.keys())),
 
                 # https://github.com/Comfy-Org/ComfyUI/blob/dabfe73dc0e954554fe9632216149964bb9b295f/nodes.py#L888-L890
                 io.Float.Input("strength", default=1.0, min=0.0, max=10.0, step=0.01),
@@ -117,7 +112,7 @@ class ApplyControlNets(io.ComfyNode):
     @staticmethod
     def union(graph, positive, negative, vae, control_net, image):
         model = graph.node("ControlNetLoader", control_net_name=control_net["model"]).out(0)
-        model = graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]["union_type"]).out(0)
+        model = graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]).out(0)
 
         apply = graph.node("ControlNetApplyAdvanced",
             positive=positive,
@@ -133,6 +128,22 @@ class ApplyControlNets(io.ComfyNode):
         positive = apply.out(0)
         negative = apply.out(1)
         return (positive, negative)
+
+
+    @staticmethod
+    def z_image(graph, model, vae, control_net, image):
+        model_patch = graph.node("ModelPatchLoader",
+            name=control_net["model"],
+        ).out(0)
+
+        return graph.node("ZImageFunControlnet",
+            model=model,
+            model_patch=model_patch,
+            vae=vae,
+            strength=control_net["strength"],
+            image=image,
+            mask=control_net["mask"],
+        ).out(0)
 
 
     @classmethod
@@ -154,15 +165,15 @@ class ApplyControlNets(io.ComfyNode):
                     image = control_net["image"]
                     images.append(image)
 
-                    match control_net["type"]["type"]:
-                        case "Anima LLLite":
+                    match control_net["type"]:
+                        case "Anima":
                             model = cls.anima(graph, model, control_net, image)
 
-                        case "Union":
-                            (positive, negative) = cls.union(graph, positive, negative, vae, control_net, image)
+                        case "Z-Image":
+                            model = cls.z_image(graph, model, vae, control_net, image)
 
-                        case x:
-                            raise RuntimeError(f"Unknown type {x}")
+                        case _:
+                            (positive, negative) = cls.union(graph, positive, negative, vae, control_net, image)
 
             models.append(model)
             positives.append(positive)

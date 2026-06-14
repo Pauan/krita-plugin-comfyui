@@ -333,7 +333,7 @@ class DetailSize(ConstantNode):
         "image": InputValue(allow_links=True),
         "mask": InputValue(allow_links=True, optional=True),
         "model": InputValue(allow_links=True),
-        "type": InputDynamicCombo(),
+        "type": InputValue(),
         "strength": InputValue(),
         "start_percent": InputValue(),
         "end_percent": InputValue(),
@@ -380,7 +380,7 @@ class ApplyControlNets(ConstantNode):
 
     def union(self, positive, negative, vae, control_net, image):
         model = self.graph.node("ControlNetLoader", control_net_name=control_net["model"]).out(0)
-        model = self.graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]["union_type"]).out(0)
+        model = self.graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]).out(0)
 
         apply = self.graph.node("ControlNetApplyAdvanced",
             positive=positive,
@@ -396,6 +396,21 @@ class ApplyControlNets(ConstantNode):
         positive = apply.out(0)
         negative = apply.out(1)
         return (positive, negative)
+
+
+    def z_image(self, model, vae, control_net, image):
+        model_patch = self.graph.node("ModelPatchLoader",
+            name=control_net["model"],
+        ).out(0)
+
+        return self.graph.node("ZImageFunControlnet",
+            model=model,
+            model_patch=model_patch,
+            vae=vae,
+            strength=control_net["strength"],
+            image=image,
+            mask=control_net["mask"],
+        ).out(0)
 
 
     def run(self, model, positive, negative, vae, control_nets):
@@ -414,15 +429,15 @@ class ApplyControlNets(ConstantNode):
                     image = control_net["image"]
                     images.append(image)
 
-                    match control_net["type"]["type"]:
-                        case "Anima LLLite":
+                    match control_net["type"]:
+                        case "Anima":
                             model = self.anima(model, control_net, image)
 
-                        case "Union":
-                            (positive, negative) = self.union(positive, negative, vae, control_net, image)
+                        case "Z-Image":
+                            model = self.z_image(model, vae, control_net, image)
 
-                        case x:
-                            self.error(f"Unknown type {x}")
+                        case _:
+                            (positive, negative) = self.union(positive, negative, vae, control_net, image)
 
             models.append(model)
             positives.append(positive)

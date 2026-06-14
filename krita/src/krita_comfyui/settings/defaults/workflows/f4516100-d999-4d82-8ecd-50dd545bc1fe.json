@@ -378,16 +378,33 @@
               ]
             },
             {
-              "type": "combo",
-              "id": "controlnet_model",
-              "link_to": {
-                "node_id": "krita_comfyui: MakeControlNet",
-                "input": "model"
-              },
-              "enabled_if": {
-                "id": "controlnet_enabled",
-                "value": true
-              }
+              "type": "row",
+              "children": [
+                {
+                  "type": "combo",
+                  "id": "controlnet_model",
+                  "link_to": {
+                    "node_id": "krita_comfyui: MakeControlNet",
+                    "input": "model"
+                  },
+                  "enabled_if": {
+                    "id": "controlnet_enabled",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "combo",
+                  "id": "controlnet_type",
+                  "link_to": {
+                    "node_id": "krita_comfyui: MakeControlNet",
+                    "input": "type"
+                  },
+                  "enabled_if": {
+                    "id": "controlnet_enabled",
+                    "value": true
+                  }
+                }
+              ]
             },
             {
               "type": "percentage",
@@ -1185,7 +1202,10 @@
           "53",
           0
         ],
-        "type": "Anima LLLite",
+        "type": [
+          "426",
+          0
+        ],
         "strength": [
           "62",
           0
@@ -2777,6 +2797,15 @@
       "class_type": "ComfySwitchNode",
       "_meta": {
         "title": "Switch"
+      }
+    },
+    "426": {
+      "inputs": {
+        "id": "controlnet_type"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
       }
     }
   }
