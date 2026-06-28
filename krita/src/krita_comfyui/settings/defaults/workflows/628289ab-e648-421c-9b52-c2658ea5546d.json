@@ -200,8 +200,8 @@
           1
         ],
         "length": [
-          "41",
-          0
+          "48",
+          1
         ],
         "batch_size": 1,
         "positive": [
@@ -666,6 +666,19 @@
       "class_type": "SplitImageWithAlpha",
       "_meta": {
         "title": "Split Image with Alpha"
+      }
+    },
+    "48": {
+      "inputs": {
+        "expression": "a + 1",
+        "values.a": [
+          "41",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
       }
     }
   }

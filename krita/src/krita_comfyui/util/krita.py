@@ -497,6 +497,16 @@ class Layer:
             self._node.setLocked(value)
 
 
+    @property
+    def is_animated(self) -> bool:
+        return self._node.animated()
+
+    @is_animated.setter
+    def is_animated(self, value: bool):
+        if value and not self._node.animated():
+            self._node.enableAnimation()
+
+
     def merge_down(self):
         self._node.mergeDown()
         self._node = None
@@ -724,6 +734,10 @@ class Document:
             return self._document == other._document
         else:
             return NotImplemented
+
+
+    def wait_for_done(self):
+        self._document.waitForDone()
 
 
     def disable_modification(self) -> HideModifications:

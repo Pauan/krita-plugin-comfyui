@@ -477,19 +477,33 @@ class SerializedImages:
         parent = active_layer.parent
 
         for serialized in images:
-            document.set_animation_frame(serialized.metadata["frame"])
+            if serialized.metadata["batch_mode"] == "animation frames":
+                active_layer.is_animated = True
 
-            # The write_image method does not blend with the existing layer, it completely overwrites the pixels.
-            # So in order to blend properly, we create a new layer and then merge it with the active layer.
-            layer = Layer.fromImage(
-                document,
-                serialized.metadata["name"],
-                serialized.image,
-                serialized.metadata["x"] - bounds.x,
-                serialized.metadata["y"] - bounds.y,
-            )
-            parent.insert_child(layer, active_layer)
-            layer.merge_down()
+                document.set_animation_frame(serialized.metadata["frame"])
+
+                Krita.action("add_blank_frame").trigger()
+
+                document.wait_for_done()
+
+                active_layer.write_image(
+                    serialized.image,
+                    serialized.metadata["x"] - bounds.x,
+                    serialized.metadata["y"] - bounds.y,
+                )
+
+            else:
+                # The write_image method does not blend with the existing layer, it completely overwrites the pixels.
+                # So in order to blend properly, we create a new layer and then merge it with the active layer.
+                layer = Layer.fromImage(
+                    document,
+                    serialized.metadata["name"],
+                    serialized.image,
+                    serialized.metadata["x"] - bounds.x,
+                    serialized.metadata["y"] - bounds.y,
+                )
+                parent.insert_child(layer, active_layer)
+                layer.merge_down()
 
         return bounds
 
