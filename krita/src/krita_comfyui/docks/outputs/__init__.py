@@ -138,11 +138,22 @@ class ComfyUIOutputWidget(DockWidget):
                         image["duration"] = info.duration
                         image["timestamp"] = info.timestamp
 
+                        batch_mode = image["batch_mode"]
                         order = image["order"]
-                        batch = images.get(order, None)
+
+                        batch = images.get((order, batch_mode), None)
                         if batch is None:
                             batch = []
-                            images[order] = batch
+                            images[(order, batch_mode)] = batch
+
+                        if batch_mode == "animation frames":
+                            image["frame"] = len(batch)
+                        else:
+                            image["frame"] = 0
+
+                        print(batch_mode)
+                        print(image["frame"])
+
                         batch.append(image)
 
                 if "krita_comfyui_text" in output:
@@ -152,7 +163,7 @@ class ComfyUIOutputWidget(DockWidget):
             texts.sort(key=lambda x: (x["order"], x["name"].casefold()))
 
             # The image group is sorted by the order.
-            images = [batch for order, batch in sorted(images.items(), key=lambda x: x[0])]
+            images = [batch for _, batch in sorted(images.items(), key=lambda x: x[0])]
 
             for document in Document.all():
                 if document.root_layer().id == info.document_id:

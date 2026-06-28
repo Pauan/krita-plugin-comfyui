@@ -109,6 +109,27 @@ class Link:
         return (all_true, all_false)
 
 
+    # Checks if all of the values are 0.0 or 1.0
+    def check_percentage(self):
+        all_zero = True
+        all_one = True
+
+        for value in self.values:
+            if isinstance(value, float):
+                if value == 0.0:
+                    all_one = False
+                elif value == 1.0:
+                    all_zero = False
+                else:
+                    all_zero = False
+                    all_one = False
+            else:
+                all_zero = False
+                all_one = False
+
+        return (all_zero, all_one)
+
+
     # Converts the Link into a graph node.
     #
     # This is cached, so calling it multiple times gives the same node.

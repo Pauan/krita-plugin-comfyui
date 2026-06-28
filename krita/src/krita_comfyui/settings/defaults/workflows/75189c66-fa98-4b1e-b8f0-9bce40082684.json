@@ -1,0 +1,2538 @@
+{
+  "version": 1,
+  "name": "Flux Edit",
+  "id": "75189c66-fa98-4b1e-b8f0-9bce40082684",
+  "icon": "config-canvas-only",
+  "is_default": true,
+
+  "global_widgets": [
+    {
+      "type": "group",
+      "id": "model_group",
+      "label": "Model",
+      "default": true,
+      "children": [
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "combo",
+              "id": "sampler_name",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "sampler_name"
+              },
+              "stretch": 1,
+              "default": "euler"
+            },
+            {
+              "type": "int",
+              "id": "steps",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "steps"
+              },
+              "default": 4,
+              "suffix": " steps"
+            }
+          ]
+        },
+        {
+          "type": "float",
+          "id": "prompt_weight",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "cfg"
+          },
+          "suffix": " prompt weight",
+          "default": 1.0
+        },
+        {
+          "type": "prompt",
+          "id": "default_prompt",
+          "tooltip": "Default prompt",
+          "placeholder": "Default prompt..."
+        },
+        {
+          "type": "int",
+          "id": "batch_size",
+          "link_to": {
+            "node_id": "krita_comfyui: img2img",
+            "input": "batch_size"
+          },
+          "suffix": " batch size",
+          "default": 1
+        }
+      ]
+    },
+
+    {
+      "type": "group",
+      "id": "live_mode_group",
+      "label": "Model (live mode)",
+      "children": [
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "combo",
+              "id": "live_mode_sampler_name",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "sampler_name"
+              },
+              "stretch": 1,
+              "default": "euler"
+            },
+            {
+              "type": "int",
+              "id": "live_mode_steps",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "steps"
+              },
+              "default": 4,
+              "suffix": " steps"
+            }
+          ]
+        },
+        {
+          "type": "float",
+          "id": "live_mode_prompt_weight",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "cfg"
+          },
+          "suffix": " prompt weight",
+          "default": 1.0
+        },
+        {
+          "type": "prompt",
+          "id": "live_mode_default_prompt",
+          "tooltip": "Default prompt",
+          "placeholder": "Default prompt..."
+        }
+      ]
+    },
+
+    {
+      "type": "group",
+      "id": "inpainting_group",
+      "label": "Inpainting",
+      "children": [
+        {
+          "type": "int",
+          "id": "feather",
+          "link_to": {
+            "node_id": "krita_comfyui: KritaSelectionFeather",
+            "input": "amount"
+          },
+          "suffix": "px feathering",
+          "default": 16
+        },
+
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "boolean",
+              "id": "detail_enabled",
+              "tooltip": "Enable detailing when inpainting.",
+              "default": true
+            },
+            {
+              "type": "float",
+              "id": "detail_megapixels",
+              "stretch": 1,
+              "link_to": {
+                "node_id": "krita_comfyui: DetailSize",
+                "input": [
+                  "resize_type",
+                  "scale total pixels",
+                  "megapixels"
+                ]
+              },
+              "enabled_if": {
+                "id": "detail_enabled",
+                "value": true
+              },
+              "suffix": " megapixels"
+            }
+          ]
+        },
+        {
+          "type": "boolean",
+          "id": "detail_always",
+          "label": "Always detail",
+          "tooltip": "If false then it will only detail when inpainting.",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "debug_group",
+      "label": "Debug",
+      "children": [
+        {
+          "type": "boolean",
+          "id": "debug_text",
+          "label": "Debug text",
+          "default": false
+        },
+        {
+          "type": "boolean",
+          "id": "debug_images",
+          "label": "Debug images",
+          "default": false
+        }
+      ]
+    }
+  ],
+
+  "document_widgets": [
+    {
+      "type": "percentage",
+      "id": "image_strength",
+      "link_to": {
+        "node_id": "krita_comfyui: img2img",
+        "input": "strength"
+      },
+      "step": 0.05,
+      "prefix": "Image Strength: "
+    },
+    {
+      "type": "prompt",
+      "id": "prompt"
+    },
+    {
+      "type": "group",
+      "id": "mask_regions_group",
+      "label": "Mask Regions",
+      "default": false,
+      "indent": false,
+      "children": [
+        {
+          "type": "list",
+          "id": "mask_regions_list",
+          "label": "region",
+          "children": [
+            {
+              "type": "row",
+              "children": [
+                {
+                  "type": "boolean",
+                  "id": "mask_regions_enabled",
+                  "tooltip": "Whether the mask regions is enabled."
+                },
+                {
+                  "type": "layer_id",
+                  "id": "mask_regions_layer",
+                  "tooltip": "Mask Regions Layer Group",
+                  "stretch": 1,
+                  "enabled_if": {
+                    "id": "mask_regions_enabled",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "prompt",
+              "id": "mask_regions_prompt",
+              "tooltip": "Region prompt",
+              "placeholder": "Region prompt...",
+              "enabled_if": {
+                "id": "mask_regions_enabled",
+                "value": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "controlnet_group",
+      "label": "Control Nets",
+      "default": false,
+      "indent": false,
+      "children": [
+        {
+          "type": "list",
+          "id": "controlnet_list",
+          "label": "control net",
+          "children": [
+            {
+              "type": "row",
+              "children": [
+                {
+                  "type": "boolean",
+                  "id": "controlnet_enabled",
+                  "tooltip": "Whether the control net is enabled."
+                },
+                {
+                  "type": "layer_id",
+                  "id": "controlnet_layer",
+                  "tooltip": "Control Net Layer",
+                  "stretch": 1,
+                  "enabled_if": {
+                    "id": "controlnet_enabled",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "row",
+              "children": [
+                {
+                  "type": "combo",
+                  "id": "controlnet_model",
+                  "link_to": {
+                    "node_id": "krita_comfyui: MakeControlNet",
+                    "input": "model"
+                  },
+                  "enabled_if": {
+                    "id": "controlnet_enabled",
+                    "value": true
+                  }
+                },
+                {
+                  "type": "combo",
+                  "id": "controlnet_type",
+                  "link_to": {
+                    "node_id": "krita_comfyui: MakeControlNet",
+                    "input": "type"
+                  },
+                  "enabled_if": {
+                    "id": "controlnet_enabled",
+                    "value": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "percentage",
+              "id": "controlnet_start",
+              "link_to": {
+                "node_id": "krita_comfyui: MakeControlNet",
+                "input": "start_percent"
+              },
+              "step": 0.05,
+              "prefix": "Start: ",
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              }
+            },
+            {
+              "type": "percentage",
+              "id": "controlnet_end",
+              "link_to": {
+                "node_id": "krita_comfyui: MakeControlNet",
+                "input": "end_percent"
+              },
+              "step": 0.05,
+              "prefix": "End: ",
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              }
+            },
+            {
+              "type": "percentage",
+              "id": "controlnet_strength",
+              "link_to": {
+                "node_id": "krita_comfyui: MakeControlNet",
+                "input": "strength"
+              },
+              "step": 0.05,
+              "prefix": "Strength: ",
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              }
+            },
+            {
+              "type": "boolean",
+              "id": "controlnet_invert",
+              "label": "Invert image",
+              "tooltip": "Black becomes white, white becomes black.",
+              "enabled_if": {
+                "id": "controlnet_enabled",
+                "value": true
+              },
+              "default": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "seed",
+      "label": "Seed",
+      "children": [
+        {
+          "type": "seed"
+        }
+      ]
+    }
+  ],
+
+  "graph": {
+    "53": {
+      "inputs": {
+        "id": "controlnet_model"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "62": {
+      "inputs": {
+        "id": "controlnet_strength"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "63": {
+      "inputs": {
+        "id": "controlnet_start"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "64": {
+      "inputs": {
+        "id": "controlnet_end"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "65": {
+      "inputs": {
+        "switch": [
+          "275",
+          0
+        ],
+        "on_false": [
+          "272",
+          0
+        ],
+        "on_true": [
+          "279",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "70": {
+      "inputs": {
+        "id": "prompt_weight"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "81": {
+      "inputs": {
+        "id": "sampler_name"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "83": {
+      "inputs": {
+        "id": "steps"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "88": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaSeed",
+      "_meta": {
+        "title": "Krita Seed"
+      }
+    },
+    "89": {
+      "inputs": {
+        "x": 0,
+        "y": 0,
+        "operation": "multiply",
+        "destination": [
+          "364",
+          1
+        ],
+        "source": [
+          "339",
+          0
+        ]
+      },
+      "class_type": "MaskComposite",
+      "_meta": {
+        "title": "MaskComposite"
+      }
+    },
+    "107": {
+      "inputs": {
+        "id": "mask_regions_layer"
+      },
+      "class_type": "krita_comfyui: KritaUiLayerId",
+      "_meta": {
+        "title": "Krita UI Layer Id"
+      }
+    },
+    "109": {
+      "inputs": {
+        "id": "controlnet_layer"
+      },
+      "class_type": "krita_comfyui: KritaUiLayerId",
+      "_meta": {
+        "title": "Krita UI Layer Id"
+      }
+    },
+    "119": {
+      "inputs": {
+        "id": "detail_megapixels"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "126": {
+      "inputs": {
+        "image": [
+          "364",
+          0
+        ]
+      },
+      "class_type": "SplitImageWithAlpha",
+      "_meta": {
+        "title": "Split Image with Alpha"
+      }
+    },
+    "128": {
+      "inputs": {
+        "id": "batch_size"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "136": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaSelection",
+      "_meta": {
+        "title": "Krita Selection"
+      }
+    },
+    "138": {
+      "inputs": {
+        "round_up": 8,
+        "selection": [
+          "258",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaSelectionBounds",
+      "_meta": {
+        "title": "Krita Selection: Bounds"
+      }
+    },
+    "139": {
+      "inputs": {
+        "amount": [
+          "140",
+          0
+        ],
+        "mode": "outside",
+        "selection": [
+          "136",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaSelectionFeather",
+      "_meta": {
+        "title": "Krita Selection: Feather"
+      }
+    },
+    "140": {
+      "inputs": {
+        "id": "feather"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "142": {
+      "inputs": {
+        "id": "debug_images"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "161": {
+      "inputs": {
+        "id": "mask_regions_enabled"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "162": {
+      "inputs": {
+        "id": "controlnet_enabled"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "165": {
+      "inputs": {
+        "input1": [
+          "277",
+          0
+        ],
+        "input2": [
+          "142",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "166": {
+      "inputs": {
+        "input1": [
+          "136",
+          1
+        ],
+        "input2": [
+          "142",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "178": {
+      "inputs": {
+        "prompt": [
+          "356",
+          0
+        ],
+        "strength": 1,
+        "isolated": false,
+        "add_to_global": true,
+        "mask": [
+          "377",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionMask",
+      "_meta": {
+        "title": "Region Mask"
+      }
+    },
+    "182": {
+      "inputs": {
+        "prompt": [
+          "356",
+          1
+        ],
+        "strength": 1,
+        "isolated": false,
+        "add_to_global": true,
+        "mask": [
+          "377",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionMask",
+      "_meta": {
+        "title": "Region Mask"
+      }
+    },
+    "187": {
+      "inputs": {
+        "global_prompt": [
+          "348",
+          0
+        ],
+        "global_strength": 0.01,
+        "global_inverse_strength": 0,
+        "add_to_regions": true,
+        "combine_prompts": "String Concatenate",
+        "clip": [
+          "362",
+          1
+        ],
+        "regions": [
+          "271",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionsEncode",
+      "_meta": {
+        "title": "CLIP Regions Encode"
+      }
+    },
+    "190": {
+      "inputs": {
+        "global_prompt": [
+          "349",
+          0
+        ],
+        "global_strength": 0.01,
+        "global_inverse_strength": 0,
+        "add_to_regions": true,
+        "combine_prompts": "String Concatenate",
+        "clip": [
+          "362",
+          1
+        ],
+        "regions": [
+          "270",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionsEncode",
+      "_meta": {
+        "title": "CLIP Regions Encode"
+      }
+    },
+    "207": {
+      "inputs": {
+        "samples": [
+          "439",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE Decode"
+      }
+    },
+    "216": {
+      "inputs": {
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "width": [
+          "138",
+          2
+        ],
+        "height": [
+          "138",
+          3
+        ]
+      },
+      "class_type": "PrimitiveBoundingBox",
+      "_meta": {
+        "title": "Bounding Box"
+      }
+    },
+    "224": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "138",
+          2
+        ],
+        "resize_type.height": [
+          "138",
+          3
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "207",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "250": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "187",
+          0
+        ],
+        "on_true": [
+          "387",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "251": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "190",
+          0
+        ],
+        "on_true": [
+          "387",
+          1
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "253": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "385",
+          0
+        ],
+        "on_true": [
+          "387",
+          2
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "258": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "136",
+          0
+        ],
+        "on_true": [
+          "139",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "259": {
+      "inputs": {
+        "switch": [
+          "301",
+          0
+        ],
+        "on_false": [
+          "260",
+          0
+        ],
+        "on_true": [
+          "119",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "260": {
+      "inputs": {
+        "value": 0
+      },
+      "class_type": "PrimitiveFloat",
+      "_meta": {
+        "title": "Float"
+      }
+    },
+    "269": {
+      "inputs": {
+        "prompt": "",
+        "strength": 0,
+        "isolated": false,
+        "add_to_global": true
+      },
+      "class_type": "krita_comfyui: RegionMask",
+      "_meta": {
+        "title": "Region Mask"
+      }
+    },
+    "270": {
+      "inputs": {
+        "switch": [
+          "277",
+          0
+        ],
+        "on_false": [
+          "269",
+          0
+        ],
+        "on_true": [
+          "182",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "271": {
+      "inputs": {
+        "switch": [
+          "277",
+          0
+        ],
+        "on_false": [
+          "269",
+          0
+        ],
+        "on_true": [
+          "178",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "272": {
+      "inputs": {},
+      "class_type": "krita_comfyui: EmptyControlNet",
+      "_meta": {
+        "title": "Empty Control Net"
+      }
+    },
+    "274": {
+      "inputs": {
+        "image": [
+          "224",
+          0
+        ],
+        "alpha": [
+          "380",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: AddAlphaToImage",
+      "_meta": {
+        "title": "Add Alpha To Image"
+      }
+    },
+    "275": {
+      "inputs": {
+        "input": [
+          "162",
+          0
+        ],
+        "default": [
+          "276",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Default",
+      "_meta": {
+        "title": "Default"
+      }
+    },
+    "276": {
+      "inputs": {
+        "value": false
+      },
+      "class_type": "PrimitiveBoolean",
+      "_meta": {
+        "title": "Boolean"
+      }
+    },
+    "277": {
+      "inputs": {
+        "input": [
+          "161",
+          0
+        ],
+        "default": [
+          "278",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: Default",
+      "_meta": {
+        "title": "Default"
+      }
+    },
+    "278": {
+      "inputs": {
+        "value": false
+      },
+      "class_type": "PrimitiveBoolean",
+      "_meta": {
+        "title": "Boolean"
+      }
+    },
+    "279": {
+      "inputs": {
+        "model": [
+          "53",
+          0
+        ],
+        "type": [
+          "426",
+          0
+        ],
+        "strength": [
+          "62",
+          0
+        ],
+        "start_percent": [
+          "63",
+          0
+        ],
+        "end_percent": [
+          "64",
+          0
+        ],
+        "image": [
+          "378",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: MakeControlNet",
+      "_meta": {
+        "title": "Make Control Net"
+      }
+    },
+    "280": {
+      "inputs": {
+        "color": "#ffffff",
+        "image": [
+          "332",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: ReplaceTransparency",
+      "_meta": {
+        "title": "Image Replace Transparency"
+      }
+    },
+    "281": {
+      "inputs": {
+        "id": "controlnet_invert"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "282": {
+      "inputs": {
+        "switch": [
+          "281",
+          0
+        ],
+        "on_false": [
+          "280",
+          0
+        ],
+        "on_true": [
+          "283",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "283": {
+      "inputs": {
+        "image": [
+          "280",
+          0
+        ]
+      },
+      "class_type": "ImageInvert",
+      "_meta": {
+        "title": "Invert Image"
+      }
+    },
+    "284": {
+      "inputs": {
+        "model": [
+          "362",
+          0
+        ],
+        "positive": [
+          "453",
+          0
+        ],
+        "negative": [
+          "455",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ],
+        "control_nets": [
+          "65",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: ApplyControlNets",
+      "_meta": {
+        "title": "Apply Control Nets"
+      }
+    },
+    "285": {
+      "inputs": {
+        "unet_name": "flux/flux-2-klein-9b-fp8.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "Load Diffusion Model"
+      }
+    },
+    "286": {
+      "inputs": {
+        "clip_name": "flux-2-klein-9b.safetensors",
+        "type": "qwen_image",
+        "device": "default"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "Load CLIP"
+      }
+    },
+    "287": {
+      "inputs": {
+        "vae_name": "flux-2-klein-9b.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "Load VAE"
+      }
+    },
+    "291": {
+      "inputs": {
+        "id": "debug_text"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "292": {
+      "inputs": {
+        "input1": [
+          "277",
+          0
+        ],
+        "input2": [
+          "291",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "295": {
+      "inputs": {
+        "input1": [
+          "136",
+          1
+        ],
+        "input2": [
+          "291",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "298": {
+      "inputs": {
+        "fstring": "width: {a}\nheight: {b}",
+        "a": [
+          "374",
+          0
+        ],
+        "b": [
+          "374",
+          1
+        ]
+      },
+      "class_type": "FormattedString",
+      "_meta": {
+        "title": "Formatted String"
+      }
+    },
+    "301": {
+      "inputs": {
+        "input1": [
+          "302",
+          0
+        ],
+        "input2": [
+          "306",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "302": {
+      "inputs": {
+        "id": "detail_enabled"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "306": {
+      "inputs": {
+        "input1": [
+          "307",
+          0
+        ],
+        "input2": [
+          "136",
+          1
+        ]
+      },
+      "class_type": "Basic data handling: Boolean Or",
+      "_meta": {
+        "title": "or"
+      }
+    },
+    "307": {
+      "inputs": {
+        "id": "detail_always"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "310": {
+      "inputs": {
+        "name": "[%timestamp%]",
+        "order": 0,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "images": [
+          "274",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "311": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Prompt Positive",
+        "order": 3,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "348",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "312": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Seed",
+        "order": 2,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "383",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "315": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Prompt Negative",
+        "order": 4,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "349",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "316": {
+      "inputs": {
+        "enabled": [
+          "142",
+          0
+        ],
+        "name": "Canvas",
+        "order": 1,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "images": [
+          "364",
+          0
+        ],
+        "masks": [
+          "364",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "317": {
+      "inputs": {
+        "enabled": [
+          "165",
+          0
+        ],
+        "name": [
+          "320",
+          0
+        ],
+        "order": 3,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "masks": [
+          "337",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "320": {
+      "inputs": {
+        "string_a": "Region",
+        "string_b": [
+          "337",
+          2
+        ],
+        "delimiter": " "
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "321": {
+      "inputs": {
+        "enabled": [
+          "292",
+          0
+        ],
+        "name": "Regions Positive",
+        "order": 6,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "322",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "322": {
+      "inputs": {
+        "string_a": [
+          "337",
+          2
+        ],
+        "string_b": [
+          "356",
+          0
+        ],
+        "delimiter": ": "
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "323": {
+      "inputs": {
+        "enabled": [
+          "292",
+          0
+        ],
+        "name": "Regions Negative",
+        "order": 7,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "324",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "324": {
+      "inputs": {
+        "string_a": [
+          "337",
+          2
+        ],
+        "string_b": [
+          "356",
+          1
+        ],
+        "delimiter": ": "
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "325": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Generate Size",
+        "order": 0,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "298",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "326": {
+      "inputs": {
+        "enabled": [
+          "330",
+          0
+        ],
+        "name": "ControlNet [%index%]",
+        "order": 4,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "images": [
+          "282",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "327": {
+      "inputs": {
+        "enabled": [
+          "166",
+          0
+        ],
+        "name": "Selection",
+        "order": 2,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "masks": [
+          "384",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "328": {
+      "inputs": {
+        "enabled": [
+          "295",
+          0
+        ],
+        "name": "Selection",
+        "order": 1,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "330": {
+      "inputs": {
+        "input1": [
+          "275",
+          0
+        ],
+        "input2": [
+          "142",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "332": {
+      "inputs": {
+        "mode": "flatten",
+        "layer_id": [
+          "109",
+          0
+        ],
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaLayers",
+      "_meta": {
+        "title": "Krita Layers"
+      }
+    },
+    "337": {
+      "inputs": {
+        "mode": "flatten",
+        "layer_id": [
+          "107",
+          0
+        ],
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaLayers",
+      "_meta": {
+        "title": "Krita Layers"
+      }
+    },
+    "339": {
+      "inputs": {
+        "selection": [
+          "258",
+          0
+        ],
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaSelectionMask",
+      "_meta": {
+        "title": "Krita Selection: Mask"
+      }
+    },
+    "346": {
+      "inputs": {
+        "id": "default_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "347": {
+      "inputs": {
+        "id": "prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "348": {
+      "inputs": {
+        "string_a": [
+          "347",
+          0
+        ],
+        "string_b": [
+          "401",
+          0
+        ],
+        "delimiter": ", "
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "349": {
+      "inputs": {
+        "string_a": [
+          "347",
+          1
+        ],
+        "string_b": [
+          "404",
+          0
+        ],
+        "delimiter": ", "
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "356": {
+      "inputs": {
+        "id": "mask_regions_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "359": {
+      "inputs": {
+        "enabled": [
+          "291",
+          0
+        ],
+        "name": "Loras",
+        "order": 5,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "text": [
+          "361",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "361": {
+      "inputs": {
+        "inputs.input0": [
+          "347",
+          2
+        ],
+        "inputs.input1": [
+          "405",
+          0
+        ],
+        "inputs.input2": [
+          "356",
+          2
+        ]
+      },
+      "class_type": "CreateList",
+      "_meta": {
+        "title": "Create List"
+      }
+    },
+    "362": {
+      "inputs": {
+        "model": [
+          "285",
+          0
+        ],
+        "clip": [
+          "286",
+          0
+        ],
+        "loras": [
+          "361",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: ApplyLoras",
+      "_meta": {
+        "title": "Apply Loras"
+      }
+    },
+    "364": {
+      "inputs": {
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaCanvasImage",
+      "_meta": {
+        "title": "Krita Canvas: Image"
+      }
+    },
+    "368": {
+      "inputs": {
+        "switch": false,
+        "on_false": [
+          "250",
+          0
+        ],
+        "on_true": [
+          "187",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "369": {
+      "inputs": {
+        "switch": false,
+        "on_false": [
+          "251",
+          0
+        ],
+        "on_true": [
+          "190",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "374": {
+      "inputs": {
+        "width": [
+          "138",
+          2
+        ],
+        "height": [
+          "138",
+          3
+        ],
+        "resize_type": "scale total pixels",
+        "resize_type.megapixels": [
+          "259",
+          0
+        ],
+        "round_up": 8,
+        "integer_multiple": false
+      },
+      "class_type": "krita_comfyui: DetailSize",
+      "_meta": {
+        "title": "Detail Size"
+      }
+    },
+    "375": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "384",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "376": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "126",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "377": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "337",
+          1
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "378": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "282",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
+      }
+    },
+    "380": {
+      "inputs": {
+        "switch": false,
+        "on_false": [
+          "384",
+          0
+        ],
+        "on_true": [
+          "339",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "383": {
+      "inputs": {
+        "expression": "a - 9007199254740991",
+        "values.a": [
+          "88",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Convert into [MIN_SEED, MAX_SEED] range"
+      }
+    },
+    "384": {
+      "inputs": {
+        "switch": [
+          "136",
+          1
+        ],
+        "on_false": [
+          "364",
+          1
+        ],
+        "on_true": [
+          "89",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "385": {
+      "inputs": {
+        "pixels": [
+          "391",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ]
+      },
+      "class_type": "VAEEncode",
+      "_meta": {
+        "title": "VAE Encode"
+      }
+    },
+    "387": {
+      "inputs": {
+        "noise_mask": true,
+        "positive": [
+          "187",
+          0
+        ],
+        "negative": [
+          "190",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ],
+        "pixels": [
+          "391",
+          0
+        ],
+        "mask": [
+          "390",
+          0
+        ]
+      },
+      "class_type": "InpaintModelConditioning",
+      "_meta": {
+        "title": "InpaintModelConditioning"
+      }
+    },
+    "390": {
+      "inputs": {
+        "switch": [
+          "374",
+          2
+        ],
+        "on_false": [
+          "384",
+          0
+        ],
+        "on_true": [
+          "375",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "391": {
+      "inputs": {
+        "switch": [
+          "374",
+          2
+        ],
+        "on_false": [
+          "126",
+          0
+        ],
+        "on_true": [
+          "376",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "393": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaLiveMode",
+      "_meta": {
+        "title": "Krita Live Mode"
+      }
+    },
+    "394": {
+      "inputs": {
+        "value": 1
+      },
+      "class_type": "PrimitiveInt",
+      "_meta": {
+        "title": "Int"
+      }
+    },
+    "396": {
+      "inputs": {
+        "switch": [
+          "393",
+          0
+        ],
+        "on_false": [
+          "128",
+          0
+        ],
+        "on_true": [
+          "394",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "400": {
+      "inputs": {
+        "id": "live_mode_default_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "401": {
+      "inputs": {
+        "switch": [
+          "402",
+          0
+        ],
+        "on_false": [
+          "346",
+          0
+        ],
+        "on_true": [
+          "400",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "402": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaLiveMode",
+      "_meta": {
+        "title": "Krita Live Mode"
+      }
+    },
+    "404": {
+      "inputs": {
+        "switch": [
+          "402",
+          0
+        ],
+        "on_false": [
+          "346",
+          1
+        ],
+        "on_true": [
+          "400",
+          1
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "405": {
+      "inputs": {
+        "switch": [
+          "402",
+          0
+        ],
+        "on_false": [
+          "346",
+          2
+        ],
+        "on_true": [
+          "400",
+          2
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "408": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaLiveMode",
+      "_meta": {
+        "title": "Krita Live Mode"
+      }
+    },
+    "410": {
+      "inputs": {
+        "id": "live_mode_sampler_name"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "411": {
+      "inputs": {
+        "switch": [
+          "408",
+          0
+        ],
+        "on_false": [
+          "81",
+          0
+        ],
+        "on_true": [
+          "410",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "412": {
+      "inputs": {
+        "id": "live_mode_prompt_weight"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "413": {
+      "inputs": {
+        "switch": [
+          "408",
+          0
+        ],
+        "on_false": [
+          "70",
+          0
+        ],
+        "on_true": [
+          "412",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "414": {
+      "inputs": {
+        "id": "live_mode_steps"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "415": {
+      "inputs": {
+        "switch": [
+          "408",
+          0
+        ],
+        "on_false": [
+          "83",
+          0
+        ],
+        "on_true": [
+          "414",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "426": {
+      "inputs": {
+        "id": "controlnet_type"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "439": {
+      "inputs": {
+        "noise": [
+          "440",
+          0
+        ],
+        "guider": [
+          "441",
+          0
+        ],
+        "sampler": [
+          "442",
+          0
+        ],
+        "sigmas": [
+          "443",
+          0
+        ],
+        "latent_image": [
+          "452",
+          0
+        ]
+      },
+      "class_type": "SamplerCustomAdvanced",
+      "_meta": {
+        "title": "SamplerCustomAdvanced"
+      }
+    },
+    "440": {
+      "inputs": {
+        "noise_seed": [
+          "88",
+          0
+        ]
+      },
+      "class_type": "RandomNoise",
+      "_meta": {
+        "title": "RandomNoise"
+      }
+    },
+    "441": {
+      "inputs": {
+        "cfg": [
+          "413",
+          0
+        ],
+        "model": [
+          "284",
+          0
+        ],
+        "positive": [
+          "284",
+          1
+        ],
+        "negative": [
+          "284",
+          2
+        ]
+      },
+      "class_type": "CFGGuider",
+      "_meta": {
+        "title": "CFGGuider"
+      }
+    },
+    "442": {
+      "inputs": {
+        "sampler_name": [
+          "411",
+          0
+        ]
+      },
+      "class_type": "KSamplerSelect",
+      "_meta": {
+        "title": "KSamplerSelect"
+      }
+    },
+    "443": {
+      "inputs": {
+        "steps": [
+          "415",
+          0
+        ],
+        "width": [
+          "374",
+          0
+        ],
+        "height": [
+          "374",
+          1
+        ]
+      },
+      "class_type": "Flux2Scheduler",
+      "_meta": {
+        "title": "Flux2Scheduler"
+      }
+    },
+    "446": {
+      "inputs": {
+        "conditioning": [
+          "368",
+          0
+        ],
+        "latent": [
+          "253",
+          0
+        ]
+      },
+      "class_type": "ReferenceLatent",
+      "_meta": {
+        "title": "ReferenceLatent"
+      }
+    },
+    "452": {
+      "inputs": {
+        "width": [
+          "374",
+          0
+        ],
+        "height": [
+          "374",
+          1
+        ],
+        "batch_size": [
+          "396",
+          0
+        ]
+      },
+      "class_type": "EmptyFlux2LatentImage",
+      "_meta": {
+        "title": "Empty Flux 2 Latent"
+      }
+    },
+    "453": {
+      "inputs": {
+        "conditioning_to_strength": [
+          "454",
+          0
+        ],
+        "conditioning_to": [
+          "446",
+          0
+        ],
+        "conditioning_from": [
+          "368",
+          0
+        ]
+      },
+      "class_type": "ConditioningAverage",
+      "_meta": {
+        "title": "ConditioningAverage"
+      }
+    },
+    "454": {
+      "inputs": {
+        "id": "image_strength"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "455": {
+      "inputs": {
+        "conditioning_to_strength": [
+          "454",
+          0
+        ],
+        "conditioning_to": [
+          "456",
+          0
+        ],
+        "conditioning_from": [
+          "369",
+          0
+        ]
+      },
+      "class_type": "ConditioningAverage",
+      "_meta": {
+        "title": "ConditioningAverage"
+      }
+    },
+    "456": {
+      "inputs": {
+        "conditioning": [
+          "369",
+          0
+        ],
+        "latent": [
+          "253",
+          0
+        ]
+      },
+      "class_type": "ReferenceLatent",
+      "_meta": {
+        "title": "ReferenceLatent"
+      }
+    }
+  }
+}

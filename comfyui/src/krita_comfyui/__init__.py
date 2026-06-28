@@ -14,6 +14,7 @@ class KritaComfyui(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         return [
             # util
+            nodes.CombineConditionings,
             nodes.LoadImageBase64,
             nodes.LoadMaskBase64,
             nodes.ThrowError,
@@ -41,6 +42,7 @@ class KritaComfyui(ComfyExtension):
             nodes.ReplaceTransparency,
 
             # krita/input
+            nodes.KritaAnimationFrames,
             nodes.KritaCanvasImage,
             nodes.KritaCanvasSize,
             nodes.KritaLayers,

@@ -67,6 +67,34 @@ class CreateList(ConstantNode):
         ])
 
 
+class ConditioningAverage(ConstantNode):
+    def run(self):
+        strength = self.evaluate_input("conditioning_to_strength")
+
+        all_zero, all_one = strength.check_percentage()
+
+        if all_zero and not all_one:
+            return ConstantOutputs([
+                self.evaluate_input("conditioning_from"),
+            ])
+
+        elif all_one and not all_zero:
+            return ConstantOutputs([
+                self.evaluate_input("conditioning_to"),
+            ])
+
+        else:
+            output = self.graph.node("ConditioningAverage",
+                conditioning_to_strength=strength.to_node(self.graph),
+                conditioning_to=self.evaluate_input("conditioning_to").to_node(self.graph),
+                conditioning_from=self.evaluate_input("conditioning_from").to_node(self.graph),
+            ).out(0)
+
+            return ConstantOutputs([
+                Link([output]),
+            ])
+
+
 MAX_EXPONENT = 4000
 
 def _variadic_sum(*args):
@@ -396,6 +424,9 @@ CONST_NODES = {
     "ComfyNotNode": NotNode,
     "ComfyAndNode": AndNode,
     "ComfyOrNode": OrNode,
+
+    # https://github.com/Comfy-Org/ComfyUI/blob/7cb784e0f48784bb6ed588912e186e5ee1e9ee68/nodes.py#L94
+    "ConditioningAverage": ConditioningAverage,
 
     # https://github.com/Comfy-Org/ComfyUI/blob/72e3f6081ccf8853baede1308f16e0e9ebcc09dc/comfy_extras/nodes_string.py#L447-L459
     "StringFormat": StringFormat,

@@ -1,0 +1,672 @@
+{
+  "version": 1,
+  "name": "Wan",
+  "id": "628289ab-e648-421c-9b52-c2658ea5546d",
+  "icon": "layer-animated",
+  "is_default": true,
+
+  "global_widgets": [
+    {
+      "type": "group",
+      "id": "model_group",
+      "label": "Defaults",
+      "default": true,
+      "children": [
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "combo",
+              "id": "sampler_name",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "sampler_name"
+              },
+              "stretch": 1,
+              "default": "euler"
+            },
+            {
+              "type": "combo",
+              "id": "scheduler",
+              "link_to": {
+                "node_id": "KSampler",
+                "input": "scheduler"
+              },
+              "stretch": 1,
+              "default": "simple"
+            }
+          ]
+        },
+        {
+          "type": "int",
+          "id": "steps",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "steps"
+          },
+          "default": 20,
+          "suffix": " steps"
+        },
+        {
+          "type": "float",
+          "id": "cfg",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "cfg"
+          },
+          "suffix": " prompt weight",
+          "default": 3.5
+        },
+        {
+          "type": "prompt",
+          "id": "default_prompt",
+          "tooltip": "Default prompt",
+          "placeholder": "Default prompt...",
+          "default": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走 * -1.0"
+        }
+      ]
+    },
+
+    {
+      "type": "group",
+      "id": "turbo_group",
+      "label": "Defaults (Turbo)",
+      "children": [
+        {
+          "type": "boolean",
+          "id": "turbo_enabled",
+          "label": "Turbo enabled"
+        },
+        {
+          "type": "int",
+          "id": "turbo_steps",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "steps"
+          },
+          "default": 4,
+          "suffix": " steps"
+        },
+        {
+          "type": "float",
+          "id": "turbo_cfg",
+          "link_to": {
+            "node_id": "KSampler",
+            "input": "cfg"
+          },
+          "suffix": " prompt weight",
+          "default": 1.0
+        }
+      ]
+    }
+  ],
+
+  "document_widgets": [
+    {
+      "type": "prompt",
+      "id": "prompt"
+    },
+    {
+      "type": "group",
+      "id": "seed",
+      "label": "Seed",
+      "children": [
+        {
+          "type": "seed"
+        }
+      ]
+    }
+  ],
+
+  "graph": {
+    "1": {
+      "inputs": {
+        "unet_name": "wan/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+        "weight_dtype": "fp8_e4m3fn_fast"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "Load Diffusion Model"
+      }
+    },
+    "2": {
+      "inputs": {
+        "unet_name": "wan/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+        "weight_dtype": "fp8_e4m3fn_fast"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "Load Diffusion Model"
+      }
+    },
+    "8": {
+      "inputs": {
+        "id": "turbo_enabled"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "10": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvasImage",
+      "_meta": {
+        "title": "Krita Canvas: Image"
+      }
+    },
+    "11": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaSeed",
+      "_meta": {
+        "title": "Krita Seed"
+      }
+    },
+    "14": {
+      "inputs": {
+        "clip_name": "wan/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "type": "wan",
+        "device": "default"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "Load CLIP"
+      }
+    },
+    "15": {
+      "inputs": {
+        "vae_name": "wan/wan_2.1_vae.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "Load VAE"
+      }
+    },
+    "16": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvasSize",
+      "_meta": {
+        "title": "Krita Canvas: Size"
+      }
+    },
+    "18": {
+      "inputs": {
+        "width": [
+          "16",
+          0
+        ],
+        "height": [
+          "16",
+          1
+        ],
+        "length": [
+          "41",
+          0
+        ],
+        "batch_size": 1,
+        "positive": [
+          "22",
+          0
+        ],
+        "negative": [
+          "23",
+          0
+        ],
+        "vae": [
+          "15",
+          0
+        ],
+        "start_image": [
+          "47",
+          0
+        ]
+      },
+      "class_type": "WanImageToVideo",
+      "_meta": {
+        "title": "WanImageToVideo"
+      }
+    },
+    "19": {
+      "inputs": {
+        "lora_name": "wan/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+        "strength_model": 1,
+        "model": [
+          "1",
+          0
+        ]
+      },
+      "class_type": "LoraLoaderModelOnly",
+      "_meta": {
+        "title": "Load LoRA"
+      }
+    },
+    "20": {
+      "inputs": {
+        "lora_name": "wan/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+        "strength_model": 1,
+        "model": [
+          "2",
+          0
+        ]
+      },
+      "class_type": "LoraLoaderModelOnly",
+      "_meta": {
+        "title": "Load LoRA"
+      }
+    },
+    "21": {
+      "inputs": {
+        "id": "prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "22": {
+      "inputs": {
+        "text": [
+          "43",
+          0
+        ],
+        "clip": [
+          "14",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP Text Encode (Prompt)"
+      }
+    },
+    "23": {
+      "inputs": {
+        "text": [
+          "44",
+          0
+        ],
+        "clip": [
+          "14",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP Text Encode (Prompt)"
+      }
+    },
+    "24": {
+      "inputs": {
+        "switch": [
+          "8",
+          0
+        ],
+        "on_false": [
+          "1",
+          0
+        ],
+        "on_true": [
+          "19",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "25": {
+      "inputs": {
+        "switch": [
+          "8",
+          0
+        ],
+        "on_false": [
+          "2",
+          0
+        ],
+        "on_true": [
+          "20",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "26": {
+      "inputs": {
+        "shift": 5,
+        "model": [
+          "24",
+          0
+        ]
+      },
+      "class_type": "ModelSamplingSD3",
+      "_meta": {
+        "title": "ModelSamplingSD3"
+      }
+    },
+    "27": {
+      "inputs": {
+        "shift": 5,
+        "model": [
+          "25",
+          0
+        ]
+      },
+      "class_type": "ModelSamplingSD3",
+      "_meta": {
+        "title": "ModelSamplingSD3"
+      }
+    },
+    "28": {
+      "inputs": {
+        "add_noise": "enable",
+        "noise_seed": [
+          "11",
+          0
+        ],
+        "steps": [
+          "32",
+          0
+        ],
+        "cfg": [
+          "35",
+          0
+        ],
+        "sampler_name": [
+          "45",
+          0
+        ],
+        "scheduler": [
+          "46",
+          0
+        ],
+        "start_at_step": 0,
+        "end_at_step": [
+          "33",
+          1
+        ],
+        "return_with_leftover_noise": "enable",
+        "model": [
+          "26",
+          0
+        ],
+        "positive": [
+          "18",
+          0
+        ],
+        "negative": [
+          "18",
+          1
+        ],
+        "latent_image": [
+          "18",
+          2
+        ]
+      },
+      "class_type": "KSamplerAdvanced",
+      "_meta": {
+        "title": "KSampler (Advanced)"
+      }
+    },
+    "29": {
+      "inputs": {
+        "add_noise": "disable",
+        "noise_seed": 0,
+        "steps": [
+          "32",
+          0
+        ],
+        "cfg": [
+          "35",
+          0
+        ],
+        "sampler_name": [
+          "45",
+          0
+        ],
+        "scheduler": [
+          "46",
+          0
+        ],
+        "start_at_step": [
+          "33",
+          1
+        ],
+        "end_at_step": [
+          "32",
+          0
+        ],
+        "return_with_leftover_noise": "disable",
+        "model": [
+          "27",
+          0
+        ],
+        "positive": [
+          "18",
+          0
+        ],
+        "negative": [
+          "18",
+          1
+        ],
+        "latent_image": [
+          "28",
+          0
+        ]
+      },
+      "class_type": "KSamplerAdvanced",
+      "_meta": {
+        "title": "KSampler (Advanced)"
+      }
+    },
+    "30": {
+      "inputs": {
+        "id": "steps"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "31": {
+      "inputs": {
+        "id": "turbo_steps"
+      },
+      "class_type": "krita_comfyui: KritaUiInt",
+      "_meta": {
+        "title": "Krita UI Int"
+      }
+    },
+    "32": {
+      "inputs": {
+        "switch": [
+          "8",
+          0
+        ],
+        "on_false": [
+          "30",
+          0
+        ],
+        "on_true": [
+          "31",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "33": {
+      "inputs": {
+        "expression": "a // 2",
+        "values.a": [
+          "32",
+          0
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "34": {
+      "inputs": {
+        "id": "cfg"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "35": {
+      "inputs": {
+        "switch": [
+          "8",
+          0
+        ],
+        "on_false": [
+          "34",
+          0
+        ],
+        "on_true": [
+          "37",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "37": {
+      "inputs": {
+        "id": "turbo_cfg"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "38": {
+      "inputs": {
+        "samples": [
+          "29",
+          0
+        ],
+        "vae": [
+          "15",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE Decode"
+      }
+    },
+    "40": {
+      "inputs": {
+        "name": "ComfyUI [%index%]",
+        "order": 0,
+        "x": 0,
+        "y": 0,
+        "batch_mode": "animation frames",
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "images": [
+          "38",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "41": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaAnimationFrames",
+      "_meta": {
+        "title": "Krita Animation: Frames"
+      }
+    },
+    "42": {
+      "inputs": {
+        "id": "default_prompt"
+      },
+      "class_type": "krita_comfyui: KritaUiPrompt",
+      "_meta": {
+        "title": "Krita UI Prompt"
+      }
+    },
+    "43": {
+      "inputs": {
+        "string_a": [
+          "21",
+          0
+        ],
+        "string_b": [
+          "42",
+          0
+        ],
+        "delimiter": ""
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "44": {
+      "inputs": {
+        "string_a": [
+          "21",
+          1
+        ],
+        "string_b": [
+          "42",
+          1
+        ],
+        "delimiter": ""
+      },
+      "class_type": "StringConcatenate",
+      "_meta": {
+        "title": "Text Concatenate"
+      }
+    },
+    "45": {
+      "inputs": {
+        "id": "sampler_name"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "46": {
+      "inputs": {
+        "id": "scheduler"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "47": {
+      "inputs": {
+        "image": [
+          "10",
+          0
+        ]
+      },
+      "class_type": "SplitImageWithAlpha",
+      "_meta": {
+        "title": "Split Image with Alpha"
+      }
+    }
+  }
+}

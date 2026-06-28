@@ -222,6 +222,12 @@ class KritaLayers(ConstantNode):
         return (images, masks, names)
 
 
+@function()
+class KritaAnimationFrames(ConstantNode):
+    def run(self):
+        return self.workflow.document.get_animation_length()
+
+
 class KritaSeed(ConstantNode):
     @staticmethod
     def normalize(seed):
@@ -455,6 +461,7 @@ CONST_NODES = {
     "krita_comfyui: KritaUiString": krita_ui("string", ["value", "is_default"]),
     "krita_comfyui: KritaUiPrompt": KritaUiPrompt,
 
+    "krita_comfyui: KritaAnimationFrames": KritaAnimationFrames,
     "krita_comfyui: KritaCanvasImage": KritaCanvasImage,
     "krita_comfyui: KritaCanvasSize": KritaCanvasSize,
     "krita_comfyui: KritaLayers": KritaLayers,

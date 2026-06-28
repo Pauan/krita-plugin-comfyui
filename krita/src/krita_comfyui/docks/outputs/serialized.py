@@ -53,6 +53,8 @@ class SerializedImage:
     # Migrates from old image metadata to the new metadata format.
     @staticmethod
     def migrate_metadata(metadata):
+        metadata["batch_mode"] = metadata.get("batch_mode", "separate images")
+        metadata["frame"] = metadata.get("frame", 0)
         metadata["canvas_resize"] = metadata.get("canvas_resize", DEFAULT_CANVAS_RESIZE)
         metadata["resize_other_layers"] = metadata.get("resize_other_layers", DEFAULT_RESIZE_OTHER_LAYERS)
         metadata["resize_algorithm"] = metadata.get("resize_algorithm", DEFAULT_RESIZE_ALGORITHM)
@@ -92,6 +94,8 @@ class SerializedImage:
     def save_new_image(document, uuid, info):
         metadata = {
             "format": "rgba",
+            "batch_mode": info["batch_mode"],
+            "frame": info["frame"],
             "width": info["width"],
             "height": info["height"],
             "x": info["x"],
@@ -473,6 +477,8 @@ class SerializedImages:
         parent = active_layer.parent
 
         for serialized in images:
+            document.set_animation_frame(serialized.metadata["frame"])
+
             # The write_image method does not blend with the existing layer, it completely overwrites the pixels.
             # So in order to blend properly, we create a new layer and then merge it with the active layer.
             layer = Layer.fromImage(

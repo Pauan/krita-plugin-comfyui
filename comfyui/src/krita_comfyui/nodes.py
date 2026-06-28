@@ -1,4 +1,5 @@
 import textwrap
+import functools
 from comfy_api.latest import io
 from comfy_execution.graph_utils import GraphBuilder
 from shared import timestamp_local, zip_lists, serialize_any, detail_size
@@ -25,6 +26,29 @@ class Lora(io.ComfyTypeIO):
 @io.comfytype(io_type="KRITA_SELECTION")
 class Selection(io.ComfyTypeIO):
     pass
+
+
+class CombineConditionings(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: CombineConditionings",
+            display_name="Combine Conditionings",
+            category="krita/util",
+            description="Combines multiple conditionings.",
+            inputs=[
+                io.Conditioning.Input("conditionings"),
+            ],
+            outputs=[
+                io.Conditioning.Output(),
+            ],
+            is_input_list=True,
+        )
+
+    @classmethod
+    def execute(cls, conditionings) -> io.NodeOutput:
+        # https://github.com/Comfy-Org/ComfyUI/blob/7cb784e0f48784bb6ed588912e186e5ee1e9ee68/nodes.py#L92
+        return io.NodeOutput(functools.reduce(lambda x, y: x + y, conditionings))
 
 
 class ApplyLoras(io.ComfyNode):
@@ -354,6 +378,25 @@ class KritaSeed(io.ComfyNode):
         raise RuntimeError("Workflow must be run from Krita.")
 
 
+class KritaAnimationFrames(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaAnimationFrames",
+            display_name="Krita Animation: Frames",
+            category="krita/input",
+            description="Retrieves the number of animation frames from Krita.",
+            inputs=[],
+            outputs=[
+                io.Int.Output(display_name="frames"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
 class KritaSelection(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -615,6 +658,13 @@ class KritaOutput(io.ComfyNode):
                 io.Int.Input("x", default=0, tooltip="X position relative to the canvas."),
                 io.Int.Input("y", default=0, tooltip="Y position relative to the canvas."),
 
+                io.Combo.Input("batch_mode",
+                    options=["separate images", "animation frames"],
+                    default="separate images",
+                    tooltip="How to handle multiple output images.",
+                    advanced=True,
+                ),
+
                 *cls.resize_inputs(),
             ],
             outputs=[],
@@ -634,6 +684,7 @@ class KritaOutput(io.ComfyNode):
         y,
         order,
         name,
+        batch_mode,
         canvas_resize,
         resize_other_layers,
         resize_algorithm,
@@ -652,6 +703,7 @@ class KritaOutput(io.ComfyNode):
             y,
             order,
             name,
+            batch_mode,
             canvas_resize,
             resize_other_layers,
             resize_algorithm,
@@ -661,6 +713,7 @@ class KritaOutput(io.ComfyNode):
             y,
             order,
             name,
+            batch_mode,
             canvas_resize,
             resize_other_layers,
             resize_algorithm,
@@ -677,6 +730,7 @@ class KritaOutput(io.ComfyNode):
                     "x": x,
                     "y": y,
                     "name": replace_name(name, image_index),
+                    "batch_mode": batch_mode,
                     "order": order,
                     "canvas_resize": canvas_resize,
                     "resize_other_layers": resize_other_layers,

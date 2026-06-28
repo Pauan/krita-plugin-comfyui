@@ -796,6 +796,15 @@ class Document:
             return Selection(selection)
 
 
+    def get_animation_length(self):
+        return self._document.animationLength()
+
+
+    def set_animation_frame(self, frame: int):
+        if self._document.currentTime() != frame:
+            self._document.setCurrentTime(frame)
+
+
     def refresh(self):
         self._document.refreshProjection()
 

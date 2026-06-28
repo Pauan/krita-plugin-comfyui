@@ -67,7 +67,7 @@ def decode_image(text, width, height):
     assert image.mode == "RGBA"
 
     mask = np.array(image.getchannel("A")).astype(np.float32) / 255.0
-    mask = torch.from_numpy(mask)
+    mask = torch.from_numpy(mask)[None,]
 
     # @TODO is this a good idea ?
     #if image.mode != "RGB":
