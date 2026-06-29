@@ -315,28 +315,6 @@
         "title": "Krita UI Boolean"
       }
     },
-    "37": {
-      "inputs": {
-        "name": [
-          "4",
-          1
-        ],
-        "order": 0,
-        "x": 0,
-        "y": 0,
-        "canvas_resize": "do nothing",
-        "resize_other_layers": false,
-        "resize_algorithm": "Bicubic",
-        "images": [
-          "11",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaOutput",
-      "_meta": {
-        "title": "Krita Output"
-      }
-    },
     "41": {
       "inputs": {
         "expression": "float(min(a, b)) * c",
@@ -370,6 +348,29 @@
       "class_type": "krita_comfyui: KritaCanvasSize",
       "_meta": {
         "title": "Krita Canvas: Size"
+      }
+    },
+    "44": {
+      "inputs": {
+        "name": [
+          "4",
+          1
+        ],
+        "order": 0,
+        "x": 0,
+        "y": 0,
+        "batch_mode": "separate images",
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "images": [
+          "11",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
       }
     }
   }

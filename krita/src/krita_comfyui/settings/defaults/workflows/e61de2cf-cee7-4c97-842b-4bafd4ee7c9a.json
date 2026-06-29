@@ -24,6 +24,7 @@
           "6",
           1
         ],
+        "batch_mode": "separate images",
         "canvas_resize": "enlarge",
         "resize_other_layers": true,
         "resize_algorithm": "Bicubic",
@@ -92,8 +93,9 @@
         "order": 0,
         "x": 0,
         "y": 0,
+        "batch_mode": "separate images",
         "canvas_resize": "do nothing",
-        "resize_other_layers": false,
+        "resize_other_layers": "Bicubic",
         "resize_algorithm": "Bicubic",
         "images": [
           "8",
@@ -140,6 +142,7 @@
           "6",
           1
         ],
+        "batch_mode": "separate images",
         "canvas_resize": "crop",
         "resize_other_layers": true,
         "resize_algorithm": "Bicubic",
@@ -185,6 +188,7 @@
         "order": 4,
         "x": 0,
         "y": 0,
+        "batch_mode": "separate images",
         "canvas_resize": "enlarge",
         "resize_other_layers": true,
         "resize_algorithm": "Bicubic",
@@ -210,8 +214,9 @@
           "6",
           1
         ],
+        "batch_mode": "separate images",
         "canvas_resize": "crop",
-        "resize_other_layers": false,
+        "resize_other_layers": "Bicubic",
         "resize_algorithm": "Bicubic",
         "images": [
           "8",
@@ -229,8 +234,9 @@
         "order": 5,
         "x": 0,
         "y": 0,
+        "batch_mode": "separate images",
         "canvas_resize": "enlarge",
-        "resize_other_layers": false,
+        "resize_other_layers": "Bicubic",
         "resize_algorithm": "Bicubic",
         "images": [
           "3",

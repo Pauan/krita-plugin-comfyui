@@ -38,13 +38,14 @@ class Workflow:
             return self.graph.node("krita_comfyui: KritaCanvasImage", crop=crop)
 
 
-    def krita_output(self, *, images, name, order, x, y, canvas_resize, resize_other_layers, resize_algorithm):
+    def krita_output(self, *, images, name, order, x, y, batch_mode, canvas_resize, resize_other_layers, resize_algorithm):
         return self.graph.node("krita_comfyui: KritaOutput",
             images=images,
             name=name,
             order=order,
             x=x,
             y=y,
+            batch_mode=batch_mode,
             canvas_resize=canvas_resize,
             resize_other_layers=resize_other_layers,
             resize_algorithm=resize_algorithm,

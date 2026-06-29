@@ -76,6 +76,7 @@ class Upscale(Workflow):
             order=0,
             x=0,
             y=0,
+            batch_mode="separate images",
             canvas_resize="enlarge",
             resize_other_layers=resize_layers.out(0),
             resize_algorithm=resize_layers_algorithm.out(0),

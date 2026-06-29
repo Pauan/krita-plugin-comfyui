@@ -107,6 +107,11 @@
       "id": "prompt"
     },
     {
+      "type": "boolean",
+      "id": "seamless_loop",
+      "label": "Seamless loop"
+    },
+    {
       "type": "group",
       "id": "seed",
       "label": "Seed",
@@ -395,16 +400,16 @@
           0
         ],
         "positive": [
-          "18",
+          "50",
           0
         ],
         "negative": [
-          "18",
-          1
+          "52",
+          0
         ],
         "latent_image": [
-          "18",
-          2
+          "53",
+          0
         ]
       },
       "class_type": "KSamplerAdvanced",
@@ -679,6 +684,116 @@
       "class_type": "ComfyMathExpression",
       "_meta": {
         "title": "Math Expression"
+      }
+    },
+    "49": {
+      "inputs": {
+        "width": [
+          "16",
+          0
+        ],
+        "height": [
+          "16",
+          1
+        ],
+        "length": [
+          "48",
+          1
+        ],
+        "batch_size": 1,
+        "positive": [
+          "22",
+          0
+        ],
+        "negative": [
+          "23",
+          0
+        ],
+        "vae": [
+          "15",
+          0
+        ],
+        "start_image": [
+          "47",
+          0
+        ],
+        "end_image": [
+          "47",
+          0
+        ]
+      },
+      "class_type": "WanFirstLastFrameToVideo",
+      "_meta": {
+        "title": "WanFirstLastFrameToVideo"
+      }
+    },
+    "50": {
+      "inputs": {
+        "switch": [
+          "51",
+          0
+        ],
+        "on_false": [
+          "18",
+          0
+        ],
+        "on_true": [
+          "49",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "51": {
+      "inputs": {
+        "id": "seamless_loop"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "52": {
+      "inputs": {
+        "switch": [
+          "51",
+          0
+        ],
+        "on_false": [
+          "18",
+          1
+        ],
+        "on_true": [
+          "49",
+          1
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "53": {
+      "inputs": {
+        "switch": [
+          "51",
+          0
+        ],
+        "on_false": [
+          "18",
+          2
+        ],
+        "on_true": [
+          "49",
+          2
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
       }
     }
   }
