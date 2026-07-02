@@ -2,6 +2,14 @@
 
 Krita plugin that seamlessly integrates with ComfyUI for AI image generation.
 
+Demo videos:
+
+[Realism](https://github.com/Pauan/krita-plugin-comfyui/raw/refs/heads/master/examples/Demo%20realism.mp4)
+
+[Art](https://github.com/Pauan/krita-plugin-comfyui/raw/refs/heads/master/examples/Demo%20art.mp4)
+
+[img2video](https://github.com/Pauan/krita-plugin-comfyui/raw/refs/heads/master/examples/Demo%20video.mp4)
+
 
 # How to install as a developer
 
