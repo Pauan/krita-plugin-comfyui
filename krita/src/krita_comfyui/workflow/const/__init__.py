@@ -91,6 +91,10 @@ class Link:
         self.values = [f(value) for value in self.values]
 
 
+    def map(self, f):
+        return Link([f(value) for value in self.values])
+
+
     # Checks if all of the values are true or false.
     def check_booleans(self):
         all_true = True

@@ -115,9 +115,9 @@ class KritaDebug(ConstantNode):
 
             if text is None:
                 text = Link([])
-
-            # We need to do this so that way it's possible to debug loras from a Krita Ui Prompt.
-            text.transform(self.serialize_any)
+            else:
+                # We need to do this so that way it's possible to debug loras from a Krita Ui Prompt.
+                text = text.map(self.serialize_any)
 
             for key, value in self.inputs.items():
                 if key == "enabled":
