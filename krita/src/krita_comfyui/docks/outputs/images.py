@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
     QMenu,
     QSizePolicy,
+    QFileDialog,
 )
 from ...util.krita import Image, Bounds
 from ...util.qt import MessageBox, BlockSignals
@@ -45,6 +46,7 @@ class ImageWidget(QListWidget):
         self.image_menus.append(self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer))
         self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Selected layer", self.apply_existing_layer))
         self.image_menus.append(self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document))
+        self.image_menus.append(self.menu.addAction(Krita.icon("document-save"), "Save image", self.save_image))
         self.menu.addSeparator()
         self.image_menus.append(self.menu.addAction(Krita.icon("edit-clear"), "Delete selected", self.delete_selected))
         self.all_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete all", self.delete_all))
@@ -301,6 +303,18 @@ class ImageWidget(QListWidget):
         if document is not None:
             selected_images = self.apply_selected_images(document)
             SerializedImages.apply_new_document(document, selected_images)
+
+
+    def save_image(self):
+        document = self.document.current()
+
+        if document is not None:
+            save_folder = Krita.readSetting("File Dialogs", "SaveAs", "")
+
+            directory = QFileDialog.getExistingDirectory(self, "Save Directory", save_folder, QFileDialog.Option.ShowDirsOnly)
+
+            selected_images = self.apply_selected_images(document)
+            SerializedImages.save_images(document, directory, selected_images)
 
 
     def delete_selected(self):

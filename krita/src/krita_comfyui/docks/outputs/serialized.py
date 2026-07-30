@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 from shared import format_duration
+from krita import InfoObject
 from ...util.krita import Document, Image, Layer, Bounds
 
 
@@ -462,6 +463,43 @@ class SerializedImages:
             #activeLayer = document.active_layer()
             #parent = activeLayer.parent
             #parent.insert_child(layer, activeLayer)
+
+        return bounds
+
+
+    @classmethod
+    def save_images(cls, document, directory, images):
+        # This ensures that the canvas bounds will be properly reset to normal.
+        document.remove_preview_layer()
+
+        bounds = cls.resize_image_bounds(document, images)
+
+        resolution = document.pixels_per_inch()
+
+        for serialized in images:
+            filename = directory + "/" + serialized.metadata["name"] + ".png"
+
+            serialized.image.save(filename, "PNG", 0)
+
+            #layer = Layer.fromImage(
+                #document,
+                #serialized.metadata["name"],
+                #serialized.image,
+                #serialized.metadata["x"] - bounds.x,
+                #serialized.metadata["y"] - bounds.y,
+            #)
+
+            #options = InfoObject()
+            #options.setProperty("alpha", False)
+            #options.setProperty("compression", 9)
+            #options.setProperty("forceSRGB", True)
+            #options.setProperty("saveSRGBProfile", False)
+
+            #layer.export(filename, resolution, resolution, options, bounds)
+
+            #layer.remove()
+
+            print(f"Saved {filename}")
 
         return bounds
 

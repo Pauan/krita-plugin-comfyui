@@ -392,6 +392,10 @@ class Image:
         return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
 
 
+    def has_alpha_pixels(self):
+        return not Mask(self._qimage.createAlphaMask()).is_solid(0xFF)
+
+
     def check_format(self):
         assert self._qimage.format() == QImage.Format.Format_ARGB32
 
@@ -410,6 +414,15 @@ class Image:
         quality = Qt.TransformationMode.SmoothTransformation
         scaled = self._qimage.scaled(width, height, mode, quality)
         return Image(scaled)
+
+
+    def save(self, filename: str, format: str, quality: int):
+        if self.has_alpha_pixels():
+            image = self._qimage
+        else:
+            image = self._qimage.convertToFormat(QImage.Format.Format_RGB32)
+
+        image.save(filename, format, quality)
 
 
     def draw_image(self, image: Self, bounds: Bounds):
