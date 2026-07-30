@@ -1,5 +1,6 @@
 import re
 import json
+import random
 from .const import WorkflowError
 from ..util import average, normalize_mean
 
@@ -98,10 +99,15 @@ class ParserState:
 
         weight = weight * global_weight
 
-        # If there are multiple functions in a line, split them into separate prompts
-        for prompt in re.split(r'(<[a-z\-]+:[^>]*>)[, ]*', prompt):
+        if prompt != "":
+            # Splits | alternates and picks one of them
+            prompt = random.choice(re.split(r' *\| *', prompt))
+
             if prompt != "":
-                self.parse_function(prompt, weight, seen_bundles)
+                # If there are multiple functions in a line, split them into separate prompts
+                for prompt in re.split(r'(<[a-z\-]+:[^>]*>)[, ]*', prompt):
+                    if prompt != "":
+                        self.parse_function(prompt, weight, seen_bundles)
 
 
     def parse(self, text, global_weight, seen_bundles):
