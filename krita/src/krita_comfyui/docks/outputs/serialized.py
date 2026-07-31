@@ -481,24 +481,6 @@ class SerializedImages:
 
             serialized.image.save(filename, "PNG", 0)
 
-            #layer = Layer.fromImage(
-                #document,
-                #serialized.metadata["name"],
-                #serialized.image,
-                #serialized.metadata["x"] - bounds.x,
-                #serialized.metadata["y"] - bounds.y,
-            #)
-
-            #options = InfoObject()
-            #options.setProperty("alpha", False)
-            #options.setProperty("compression", 9)
-            #options.setProperty("forceSRGB", True)
-            #options.setProperty("saveSRGBProfile", False)
-
-            #layer.export(filename, resolution, resolution, options, bounds)
-
-            #layer.remove()
-
             print(f"Saved {filename}")
 
         return bounds

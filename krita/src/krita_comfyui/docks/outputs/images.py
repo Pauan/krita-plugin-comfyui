@@ -313,6 +313,8 @@ class ImageWidget(QListWidget):
 
             directory = QFileDialog.getExistingDirectory(self, "Save Directory", save_folder, QFileDialog.Option.ShowDirsOnly)
 
+            Krita.writeSetting("File Dialogs", "SaveAs", directory)
+
             selected_images = self.apply_selected_images(document)
             SerializedImages.save_images(document, directory, selected_images)
 
