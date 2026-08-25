@@ -2102,7 +2102,7 @@
           "259",
           0
         ],
-        "round_up": 8,
+        "round_up": 16,
         "integer_multiple": false
       },
       "class_type": "krita_comfyui: DetailSize",
