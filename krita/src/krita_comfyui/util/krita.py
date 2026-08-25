@@ -89,10 +89,9 @@ class LayerType(Enum):
         )
 
 
-class Axis:
-    def __init__(self, min: int, max: int):
-        self.min = min
-        self.max = max
+class Axis(NamedTuple):
+    min: int
+    max: int
 
 
     def length(self) -> int:
@@ -192,24 +191,41 @@ class Bounds(NamedTuple):
         return Bounds(left, top, right - left, bottom - top)
 
 
+    def is_within_bounds(self, parent: Self) -> bool:
+        if self.x < parent.x:
+            return False
+
+        if self.y < parent.y:
+            return False
+
+        if self.width < 0:
+            return False
+
+        if self.height < 0:
+            return False
+
+        if (self.x + self.width) > (parent.x + parent.width):
+            return False
+
+        if (self.y + self.height) > (parent.y + parent.height):
+            return False
+
+        return True
+
+
     def check_within_bounds(self, parent: Self) -> Self:
-        assert self.x >= parent.x
-        assert self.y >= parent.y
-        assert self.width >= 0
-        assert self.height >= 0
-        assert (self.x + self.width) <= (parent.x + parent.width)
-        assert (self.y + self.height) <= (parent.y + parent.height)
+        assert self.is_within_bounds(parent)
         return self
 
 
     def round_up(self, parent: Self, multiple: int) -> "Bounds":
         assert multiple >= 1
 
-        bounds = self.clamp_to_parent(parent)
+        bounds = self.check_within_bounds(parent)
 
         if multiple > 1:
-            x_axis = self.x_axis().round_to_multiple(multiple).shift_within_parent(parent.x_axis())
-            y_axis = self.y_axis().round_to_multiple(multiple).shift_within_parent(parent.y_axis())
+            x_axis = bounds.x_axis().round_to_multiple(multiple).shift_within_parent(parent.x_axis())
+            y_axis = bounds.y_axis().round_to_multiple(multiple).shift_within_parent(parent.y_axis())
             bounds = Bounds(x_axis.min, y_axis.min, x_axis.length(), y_axis.length()).check_within_bounds(parent)
 
         return bounds
@@ -219,12 +235,13 @@ class Bounds(NamedTuple):
         parent_right = parent.x + parent.width
         parent_bottom = parent.y + parent.height
 
-        x = clamp(self.x, parent.x, parent_right)
-        y = clamp(self.y, parent.y, parent_bottom)
-        width = clamp(self.width, 0, parent_right - x)
-        height = clamp(self.height, 0, parent_bottom - y)
+        left = clamp(self.x, parent.x, parent_right)
+        top = clamp(self.y, parent.y, parent_bottom)
 
-        return Bounds(x, y, width, height).check_within_bounds(parent)
+        right = clamp(self.x + self.width, parent.x, parent_right)
+        bottom = clamp(self.y + self.height, parent.y, parent_bottom)
+
+        return Bounds(left, top, right - left, bottom - top).check_within_bounds(parent)
 
 
     def area(self) -> int:
@@ -638,6 +655,9 @@ class Selection:
 
     def subtract(self, other: Self):
         self._selection.subtract(other._selection)
+
+    def intersect(self, other: Self):
+        self._selection.intersect(other._selection)
 
     def invert(self):
         self._selection.invert()

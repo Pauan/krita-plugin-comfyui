@@ -66,7 +66,19 @@ class KritaSelectionBorder(ConstantNode):
 )
 class KritaSelectionBounds(ConstantNode):
     def run(self, selection, round_up):
-        bounds = selection.bounds().round_up(self.workflow.bounds(), round_up)
+        document_bounds = self.workflow.bounds()
+
+        bounds = selection.bounds()
+
+        # Crops the selection to be within the document bounds
+        if not bounds.is_within_bounds(document_bounds):
+            selection = selection.copy()
+            # TODO this is expensive
+            selection.intersect(Selection.solid(document_bounds, 0xFF))
+            bounds = selection.bounds()
+
+        bounds = bounds.round_up(document_bounds, round_up)
+
         return (
             bounds.x,
             bounds.y,
