@@ -1,0 +1,248 @@
+{
+  "version": 1,
+  "name": "Color Balance",
+  "id": "03c0e684-a214-47e4-825e-539faf623ec5",
+  "icon": "config-color-manage",
+  "is_default": true,
+  "global_widgets": [],
+  "document_widgets": [
+    {
+      "type": "boolean",
+      "id": "auto",
+      "label": "Auto color balance",
+      "default": true
+    },
+    {
+      "type": "group",
+      "id": "group_preset",
+      "label": "Preset",
+      "visible_if": {
+        "id": "auto",
+        "value": false
+      },
+      "children": [
+        {
+          "type": "combo",
+          "id": "preset",
+          "link_to": {
+            "node_id": "EasyColorCorrection",
+            "input": "preset"
+          },
+          "tooltip": "Preset to use for color balancing."
+        },
+        {
+          "type": "boolean",
+          "id": "ai_analysis",
+          "label": "AI analysis",
+          "default": true
+        },
+        {
+          "type": "boolean",
+          "id": "face_detection",
+          "label": "Face detection",
+          "default": true
+        }
+      ]
+    }
+  ],
+  "graph": {
+    "1": {
+      "inputs": {
+        "mode": "Auto",
+        "reference_strength": 0.3,
+        "extract_palette": false,
+        "lock_input_image": false,
+        "ai_analysis": false,
+        "adjust_for_skin_tone": false,
+        "white_balance_strength": 0,
+        "enhancement_strength": 0.2,
+        "pop_factor": 0.7,
+        "effect_strength": 0.6,
+        "warmth": 0,
+        "vibrancy": 0,
+        "contrast": 0,
+        "brightness": 0,
+        "tint": 0,
+        "preset": "Natural Portrait",
+        "variation": 0,
+        "lift": 0,
+        "gamma": 0,
+        "gain": 0,
+        "noise": 0,
+        "skin_tone_adjustment": 0,
+        "sky_adjustment": 0,
+        "foliage_adjustment": 0,
+        "selective_hue_shift": 0,
+        "selective_saturation": 0,
+        "selective_strength": 1,
+        "colorize_strength": 0.8,
+        "skin_warmth": 0.3,
+        "sky_saturation": 0.6,
+        "vegetation_green": 0.5,
+        "sepia_tone": 0,
+        "colorize_mode": "deep_learning",
+        "force_colorize": false,
+        "use_gpu": true,
+        "image": [
+          "11",
+          0
+        ]
+      },
+      "class_type": "EasyColorCorrection",
+      "_meta": {
+        "title": "Color Corrector"
+      }
+    },
+    "2": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvasImage",
+      "_meta": {
+        "title": "Krita Canvas: Image"
+      }
+    },
+    "3": {
+      "inputs": {
+        "name": "Color Balanced",
+        "order": 0,
+        "x": 0,
+        "y": 0,
+        "batch_mode": "separate images",
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "images": [
+          "4",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaOutput",
+      "_meta": {
+        "title": "Krita Output"
+      }
+    },
+    "4": {
+      "inputs": {
+        "switch": [
+          "7",
+          0
+        ],
+        "on_false": [
+          "5",
+          0
+        ],
+        "on_true": [
+          "1",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "5": {
+      "inputs": {
+        "mode": "Preset",
+        "reference_strength": 0.3,
+        "extract_palette": false,
+        "lock_input_image": false,
+        "ai_analysis": [
+          "8",
+          0
+        ],
+        "adjust_for_skin_tone": [
+          "9",
+          0
+        ],
+        "white_balance_strength": 0,
+        "enhancement_strength": 0.2,
+        "pop_factor": 0.7,
+        "effect_strength": 0.6,
+        "warmth": 0,
+        "vibrancy": 0,
+        "contrast": 0,
+        "brightness": 0,
+        "tint": 0,
+        "preset": [
+          "6",
+          0
+        ],
+        "variation": 0,
+        "lift": 0,
+        "gamma": 0,
+        "gain": 0,
+        "noise": 0,
+        "skin_tone_adjustment": 0,
+        "sky_adjustment": 0,
+        "foliage_adjustment": 0,
+        "selective_hue_shift": 0,
+        "selective_saturation": 0,
+        "selective_strength": 1,
+        "colorize_strength": 0.8,
+        "skin_warmth": 0.3,
+        "sky_saturation": 0.6,
+        "vegetation_green": 0.5,
+        "sepia_tone": 0,
+        "colorize_mode": "deep_learning",
+        "force_colorize": false,
+        "use_gpu": true,
+        "image": [
+          "11",
+          0
+        ]
+      },
+      "class_type": "EasyColorCorrection",
+      "_meta": {
+        "title": "Color Corrector"
+      }
+    },
+    "6": {
+      "inputs": {
+        "id": "preset"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "7": {
+      "inputs": {
+        "id": "auto"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "8": {
+      "inputs": {
+        "id": "ai_analysis"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "9": {
+      "inputs": {
+        "id": "face_detection"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "11": {
+      "inputs": {
+        "image": [
+          "2",
+          0
+        ]
+      },
+      "class_type": "SplitImageWithAlpha",
+      "_meta": {
+        "title": "Split Image with Alpha"
+      }
+    }
+  }
+}

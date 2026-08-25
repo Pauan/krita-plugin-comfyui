@@ -905,7 +905,7 @@
         "resize_type.crop": "disabled",
         "scale_method": "bicubic",
         "input": [
-          "207",
+          "440",
           0
         ]
       },
@@ -2807,6 +2807,58 @@
       "class_type": "krita_comfyui: KritaOutput",
       "_meta": {
         "title": "Krita Output"
+      }
+    },
+    "440": {
+      "inputs": {
+        "correction_strength": 0.8,
+        "method": "luminance_zones",
+        "auto_preserve": false,
+        "lock_input_image": false,
+        "edge_feather": 5,
+        "original_image": [
+          "391",
+          0
+        ],
+        "processed_image": [
+          "207",
+          0
+        ],
+        "vae": [
+          "287",
+          0
+        ],
+        "mask": [
+          "390",
+          0
+        ]
+      },
+      "class_type": "VAEColorCorrector",
+      "_meta": {
+        "title": "VAE Color Corrector"
+      }
+    },
+    "441": {
+      "inputs": {
+        "enabled": [
+          "142",
+          0
+        ],
+        "name": "Pre-Color Corrected",
+        "order": 5,
+        "x": 0,
+        "y": 0,
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "images": [
+          "207",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
       }
     }
   }
