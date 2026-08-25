@@ -2815,7 +2815,7 @@
         "method": "luminance_zones",
         "auto_preserve": false,
         "lock_input_image": false,
-        "edge_feather": 5,
+        "edge_feather": 0,
         "original_image": [
           "391",
           0
@@ -2826,10 +2826,6 @@
         ],
         "vae": [
           "287",
-          0
-        ],
-        "mask": [
-          "390",
           0
         ]
       },
@@ -2846,19 +2842,64 @@
         ],
         "name": "Pre-Color Corrected",
         "order": 5,
-        "x": 0,
-        "y": 0,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
         "canvas_resize": "do nothing",
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "images": [
-          "207",
+          "446",
           0
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
       "_meta": {
         "title": "Krita Debug"
+      }
+    },
+    "446": {
+      "inputs": {
+        "image": [
+          "448",
+          0
+        ],
+        "alpha": [
+          "380",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: AddAlphaToImage",
+      "_meta": {
+        "title": "Add Alpha To Image"
+      }
+    },
+    "448": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "138",
+          2
+        ],
+        "resize_type.height": [
+          "138",
+          3
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "207",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
       }
     }
   }

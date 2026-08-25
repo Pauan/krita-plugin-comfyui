@@ -949,6 +949,7 @@ class KritaDebug(io.ComfyNode):
                     canvas_resize=graph_list(graph, [image["canvas_resize"] for image in images]),
                     resize_other_layers=graph_list(graph, [image["resize_other_layers"] for image in images]),
                     resize_algorithm=graph_list(graph, [image["resize_algorithm"] for image in images]),
+                    batch_mode="separate images",
                 )
 
             masks = output["masks"]
@@ -965,6 +966,7 @@ class KritaDebug(io.ComfyNode):
                     canvas_resize=graph_list(graph, [mask["canvas_resize"] for mask in masks]),
                     resize_other_layers=graph_list(graph, [mask["resize_other_layers"] for mask in masks]),
                     resize_algorithm=graph_list(graph, [mask["resize_algorithm"] for mask in masks]),
+                    batch_mode="separate images",
                 )
 
             texts = output["texts"]
