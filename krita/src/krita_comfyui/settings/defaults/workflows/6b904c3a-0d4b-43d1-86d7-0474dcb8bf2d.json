@@ -136,15 +136,6 @@
       "inputs": {}
     },
     "6": {
-      "class_type": "SplitImageWithAlpha",
-      "inputs": {
-        "image": [
-          "5",
-          0
-        ]
-      }
-    },
-    "7": {
       "class_type": "UpscaleModelLoader",
       "inputs": {
         "model_name": [
@@ -153,30 +144,44 @@
         ]
       }
     },
-    "8": {
+    "7": {
       "class_type": "ImageUpscaleWithModel",
       "inputs": {
         "upscale_model": [
-          "7",
+          "6",
           0
         ],
         "image": [
-          "6",
+          "5",
           0
         ]
       }
     },
-    "9": {
+    "8": {
       "class_type": "krita_comfyui: KritaCanvasSize",
       "inputs": {}
+    },
+    "9": {
+      "class_type": "ComfyMathExpression",
+      "inputs": {
+        "expression": "a * b",
+        "values.a": [
+          "8",
+          0
+        ],
+        "values.b": [
+          "3",
+          0
+        ]
+      }
     },
     "10": {
       "class_type": "ComfyMathExpression",
       "inputs": {
         "expression": "a * b",
         "values.a": [
-          "9",
-          0
+          "8",
+          1
         ],
         "values.b": [
           "3",
@@ -185,15 +190,24 @@
       }
     },
     "11": {
-      "class_type": "ComfyMathExpression",
+      "class_type": "ResizeImageMaskNode",
       "inputs": {
-        "expression": "a * b",
-        "values.a": [
+        "input": [
+          "7",
+          0
+        ],
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
           "9",
           1
         ],
-        "values.b": [
-          "3",
+        "resize_type.height": [
+          "10",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": [
+          "4",
           0
         ]
       }
@@ -202,16 +216,16 @@
       "class_type": "ResizeImageMaskNode",
       "inputs": {
         "input": [
-          "8",
-          0
+          "5",
+          1
         ],
         "resize_type": "scale dimensions",
         "resize_type.width": [
-          "10",
+          "9",
           1
         ],
         "resize_type.height": [
-          "11",
+          "10",
           1
         ],
         "resize_type.crop": "disabled",
@@ -222,42 +236,19 @@
       }
     },
     "13": {
-      "class_type": "ResizeImageMaskNode",
+      "class_type": "JoinImageWithAlpha",
       "inputs": {
-        "input": [
-          "6",
-          1
-        ],
-        "resize_type": "scale dimensions",
-        "resize_type.width": [
-          "10",
-          1
-        ],
-        "resize_type.height": [
+        "image": [
           "11",
-          1
+          0
         ],
-        "resize_type.crop": "disabled",
-        "scale_method": [
-          "4",
+        "alpha": [
+          "12",
           0
         ]
       }
     },
     "14": {
-      "class_type": "JoinImageWithAlpha",
-      "inputs": {
-        "image": [
-          "12",
-          0
-        ],
-        "alpha": [
-          "13",
-          0
-        ]
-      }
-    },
-    "15": {
       "class_type": "RegexReplace",
       "inputs": {
         "string": [
@@ -272,15 +263,15 @@
         "count": 0
       }
     },
-    "16": {
+    "15": {
       "class_type": "krita_comfyui: KritaOutput",
       "inputs": {
         "images": [
-          "14",
+          "13",
           0
         ],
         "name": [
-          "15",
+          "14",
           0
         ],
         "order": 0,

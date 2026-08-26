@@ -1,4 +1,5 @@
 import math
+import base64
 from typing import TypeAlias, TypedDict, Protocol
 
 
@@ -26,6 +27,38 @@ class Node(TypedDict):
     inputs: dict[str, NodeInput]
 
 
+class ImageView:
+    def __init__(self, ndarray):
+        self._view = ndarray
+
+    def width(self) -> int:
+        return self._view.shape[1]
+
+    def height(self) -> int:
+        return self._view.shape[0]
+
+    def to_base64(self) -> str:
+        return base64.b64encode(self._view.tobytes()).decode(encoding="utf-8")
+
+
+class MaskView:
+    def __init__(self, ndarray):
+        self._view = ndarray
+
+    def width(self) -> int:
+        return self._view.shape[1]
+
+    def height(self) -> int:
+        return self._view.shape[0]
+
+    def to_base64(self) -> str:
+        return base64.b64encode(self._view.tobytes()).decode(encoding="utf-8")
+
+    def is_solid(self, value: int) -> bool:
+        import numpy
+        return numpy.all(self._view == value)
+
+
 class NodeOutputs:
     def __init__(self, id: str):
         self.id = id
@@ -37,10 +70,12 @@ class NodeOutputs:
 class Graph:
     def __init__(self):
         self.node_id = 0
+        self.cached_images = {}
+        self.cached_masks = {}
         self.nodes: dict[str, Node] = {}
 
 
-    def node(self, class_type: str, **kwargs: NodeInput) -> NodeOutputs:
+    def node_raw(self, class_type: str, **kwargs: NodeInput) -> NodeOutputs:
         id = str(self.node_id)
         self.node_id += 1
 
@@ -52,33 +87,73 @@ class Graph:
         return NodeOutputs(id)
 
 
+    def convert_image(self, image: ImageView) -> NodeLink:
+        base64 = image.to_base64()
+        width = image.width()
+        height = image.height()
+
+        cached = self.cached_images.get((base64, width, height), None)
+
+        if cached is None:
+            cached = self.node_raw("krita_comfyui: LoadImageBase64", base64=base64, width=width, height=height).out(0)
+            self.cached_images[(base64, width, height)] = cached
+
+        return cached
+
+
+    def convert_mask(self, mask: MaskView) -> NodeLink:
+        base64 = mask.to_base64()
+        width = mask.width()
+        height = mask.height()
+
+        cached = self.cached_masks.get((base64, width, height), None)
+
+        if cached is None:
+            # TODO figure out a faster way of determining if the selection is fully white or black
+            if mask.is_solid(0xff):
+                cached = self.node_raw("SolidMask", value=1.0, width=width, height=height).out(0)
+            elif mask.is_solid(0x00):
+                cached = self.node_raw("SolidMask", value=0.0, width=width, height=height).out(0)
+            else:
+                cached = self.node_raw("krita_comfyui: LoadMaskBase64", base64=base64, width=width, height=height).out(0)
+
+            self.cached_masks[(base64, width, height)] = cached
+
+        return cached
+
+
+    def node(self, class_type: str, **kwargs: NodeInput) -> NodeOutputs:
+        for key, value in kwargs.items():
+            # TODO better detection for Image and Mask
+            if isinstance(value, ImageView):
+                kwargs[key] = self.convert_image(value)
+
+            elif isinstance(value, MaskView):
+                kwargs[key] = self.convert_mask(value)
+
+        return self.node_raw(class_type, **kwargs)
+
+
     # Sends a list of stuff to ComfyUI
     def list(self, items: list[NodeInput]) -> NodeInput:
         return graph_list(self, items)
 
 
-    # Sends an Image to ComfyUI
-    # Returns a tuple of (image, mask)
-    def image(self, image: Image) -> tuple[NodeLink, NodeLink]:
-        image.check_format()
-        node = self.node("krita_comfyui: LoadImageBase64", base64=image.to_base64(), width=image.width, height=image.height)
-        return (node.out(0), node.out(1))
-
-
-    # Sends a Mask to ComfyUI
-    def mask(self, mask: Mask) -> NodeLink:
-        mask.check_format()
-
-        # TODO figure out a faster way of determining if the selection is fully white
-        if mask.is_solid(0xff):
-            return self.node("SolidMask", value=1.0, width=mask.width, height=mask.height).out(0)
-        else:
-            return self.node("krita_comfyui: LoadMaskBase64", base64=mask.to_base64(), width=mask.width, height=mask.height).out(0)
-
-
     # Causes an error to be thrown when evaluating the graph
     def error(self, message: str) -> NodeLink:
         return self.node("krita_comfyui: ThrowError", message=message).out(0)
+
+
+    def dynamic_combo(self, prefix, dict):
+        output = {}
+
+        for key, value in dict.items():
+            if key == prefix:
+                output[key] = value
+            else:
+                output[f"{prefix}.{key}"] = value
+
+        return output
 
 
     def finalize(self) -> dict[str, Node]:

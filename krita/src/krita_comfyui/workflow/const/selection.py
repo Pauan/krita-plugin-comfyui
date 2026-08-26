@@ -159,7 +159,7 @@ class KritaSelectionMask(ConstantNode):
             crop = Bounds.from_json(crop)
 
         mask = selection.mask(crop)
-        return self.graph.mask(mask)
+        return mask.view()
 
 
 @function(

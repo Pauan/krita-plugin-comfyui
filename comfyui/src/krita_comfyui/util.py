@@ -58,16 +58,16 @@ def mask_bounds(mask):
 # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1741-L1750
 def decode_image(text, width, height):
     bytes = base64.b64decode(text)
-    assert len(bytes) == (width * height) * 4
+    assert len(bytes) == (width * height) * 3
 
-    image = Image.frombuffer("RGBA", (width, height), bytes)
+    image = Image.frombuffer("RGB", (width, height), bytes)
 
     assert image.width == width
     assert image.height == height
-    assert image.mode == "RGBA"
+    assert image.mode == "RGB"
 
-    mask = np.array(image.getchannel("A")).astype(np.float32) / 255.0
-    mask = torch.from_numpy(mask)[None,]
+    #mask = np.array(image.getchannel("A")).astype(np.float32) / 255.0
+    #mask = torch.from_numpy(mask)[None,]
 
     # @TODO is this a good idea ?
     #if image.mode != "RGB":
@@ -76,7 +76,7 @@ def decode_image(text, width, height):
     image = np.array(image).astype(np.float32) / 255.0
     image = torch.from_numpy(image)[None,]
 
-    return (image, mask)
+    return image
 
 
 def decode_mask(text, width, height):
@@ -90,7 +90,7 @@ def decode_mask(text, width, height):
     assert image.mode == "L"
 
     mask = np.array(image).astype(np.float32) / 255.0
-    mask = torch.from_numpy(mask)
+    mask = torch.from_numpy(mask)[None,]
 
     return mask
 

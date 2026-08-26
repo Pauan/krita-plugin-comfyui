@@ -1,5 +1,6 @@
 import krita
 import math
+import qimage2ndarray
 from pathlib import Path
 from enum import Enum
 from contextlib import AbstractContextManager
@@ -8,6 +9,7 @@ from typing import NamedTuple, Self, Literal, Generator, Type, override
 from json import (dumps, loads)
 import numpy as np
 from shared import JSON, round_to_multiple
+from shared.graph import ImageView, MaskView
 from . import clamp
 
 from PyQt6.QtCore import QObject, QByteArray, QSize, QRect, QUuid, QTimer, Qt, pyqtSignal, pyqtSlot
@@ -315,16 +317,21 @@ class Mask:
         return self._qimage.height()
 
 
+    def view(self) -> MaskView:
+        self.check_format()
+        return MaskView(qimage2ndarray.raw_view(self._qimage))
+
+    @staticmethod
+    def from_view(view: MaskView) -> "Mask":
+        return Mask(qimage2ndarray.gray2qimage(view._view))
+
+
     def check_format(self):
         assert self._qimage.format() == QImage.Format.Format_Grayscale8
 
 
     def is_solid(self, value: int) -> bool:
-        raw = Image(self._qimage).bytes()
-
-        array = np.frombuffer(bytes(raw), dtype=np.uint8)
-
-        return np.all(array == value)
+        return self.view().is_solid(value)
 
 
     # TODO replace with base85
@@ -409,8 +416,21 @@ class Image:
         return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
 
 
+    def rgb_view(self) -> ImageView:
+        self.check_format()
+        return ImageView(qimage2ndarray.rgb_view(self._qimage))
+
+    def alpha_view(self) -> MaskView:
+        self.check_format()
+        return MaskView(qimage2ndarray.alpha_view(self._qimage))
+
+    @staticmethod
+    def from_view(view: ImageView) -> "Mask":
+        return Image(qimage2ndarray.array2qimage(view._view))
+
+
     def has_alpha_pixels(self):
-        return not Mask(self._qimage.createAlphaMask()).is_solid(0xFF)
+        return not self.alpha_view().is_solid(0xFF)
 
 
     def check_format(self):

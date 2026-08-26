@@ -518,18 +518,6 @@
         "title": "Krita UI Float"
       }
     },
-    "126": {
-      "inputs": {
-        "image": [
-          "364",
-          0
-        ]
-      },
-      "class_type": "SplitImageWithAlpha",
-      "_meta": {
-        "title": "Split Image with Alpha"
-      }
-    },
     "128": {
       "inputs": {
         "id": "batch_size"
@@ -1063,7 +1051,7 @@
       "inputs": {
         "color": "#ffffff",
         "image": [
-          "332",
+          "459",
           0
         ]
       },
@@ -1907,7 +1895,7 @@
         "resize_type.crop": "disabled",
         "scale_method": "bicubic",
         "input": [
-          "126",
+          "364",
           0
         ]
       },
@@ -2084,7 +2072,7 @@
           2
         ],
         "on_false": [
-          "126",
+          "364",
           0
         ],
         "on_true": [
@@ -2533,6 +2521,22 @@
       "class_type": "krita_comfyui: KritaOutput",
       "_meta": {
         "title": "Krita Output"
+      }
+    },
+    "459": {
+      "inputs": {
+        "image": [
+          "332",
+          0
+        ],
+        "alpha": [
+          "332",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: AddAlphaToImage",
+      "_meta": {
+        "title": "Add Alpha To Image"
       }
     }
   }

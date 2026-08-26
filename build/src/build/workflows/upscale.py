@@ -21,13 +21,11 @@ class Upscale(Workflow):
         scale_method = self.krita_ui_combo("scale_method")
         canvas = self.krita_canvas()
 
-        split_image = self.graph.node("SplitImageWithAlpha", image=canvas.out(0))
-
         load_upscale_model = self.graph.node("UpscaleModelLoader", model_name=model.out(0))
 
         upscale_image = self.graph.node("ImageUpscaleWithModel",
             upscale_model=load_upscale_model.out(0),
-            image=split_image.out(0),
+            image=canvas.out(0),
         )
 
         canvas_size = self.graph.node("krita_comfyui: KritaCanvasSize")
@@ -50,7 +48,7 @@ class Upscale(Workflow):
         )
 
         resize_mask = self.resize_image_mask(
-            input=split_image.out(1),
+            input=canvas.out(1),
             scale_method=scale_method.out(0),
             width=width.out(1),
             height=height.out(1),

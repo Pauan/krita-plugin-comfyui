@@ -106,6 +106,7 @@ source = { editable = "krita" }
 dependencies = [
     { name = "desktop-notifier" },
     { name = "numpy" },
+    { name = "qimage2ndarray" },
     { name = "simpleeval" },
 ]
 
@@ -118,6 +119,7 @@ local = [
 requires-dist = [
     { name = "desktop-notifier", specifier = ">=6.2.0" },
     { name = "numpy", specifier = ">=2.4.4" },
+    { name = "qimage2ndarray", specifier = ">=1.10.0" },
     { name = "simpleeval", specifier = ">=1.0.7" },
 ]
 
@@ -260,6 +262,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/51/4e/3aa27f74211522dba7e9cbc3e74de779c6d4b654c54e50a4840623be8014/pyright-1.1.409.tar.gz", hash = "sha256:986ee05beca9e077c165758ad123667c679e050059a2546aa02473930394bc93", size = 4430434, upload-time = "2026-04-23T11:02:03.799Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/16/6b/330d8ebae582b30c2959a1ef4c3bc344ebde48c2ff0c3f113c4710735e11/pyright-1.1.409-py3-none-any.whl", hash = "sha256:aa3ea228cab90c845c7a60d28db7a844c04315356392aa09fafcee98c8c22fb3", size = 6438161, upload-time = "2026-04-23T11:02:01.309Z" },
+]
+
+[[package]]
+name = "qimage2ndarray"
+version = "1.10.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/c5/9c5630bcda3e2dd8445dd5c663e938451967c84d7f8707816ca9f00824db/qimage2ndarray-1.10.0.tar.gz", hash = "sha256:3725102446dc8a696b2ec775b1d2af43b13af6a7f9ebee8a37115bb9543a2c58", size = 200439, upload-time = "2023-01-28T16:16:59.369Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/79/d3ce0ec91c3c761e04d0210d5544073ba3d38a4d6538e2ba58b45e33275c/qimage2ndarray-1.10.0-py3-none-any.whl", hash = "sha256:4c1c2a4ef2f72a7943392ee76305da87831274b9a10f00ccf624a54cb335ec6d", size = 12590, upload-time = "2023-01-28T16:16:54.996Z" },
 ]
 
 [[package]]

@@ -188,13 +188,11 @@ class ReplaceTransparency(io.ComfyNode):
             color=color,
         ).out(0)
 
-        split_image = graph.node("SplitImageWithAlpha", image=image)
-
-        mask = graph.node("InvertMask", mask=split_image.out(1)).out(0)
+        mask = graph.node("InvertMask", mask=image.out(1)).out(0)
 
         image = graph.node("ImageCompositeMasked",
             destination=empty_image,
-            source=split_image.out(0),
+            source=image.out(0),
             mask=mask,
             x=0,
             y=0,
@@ -219,14 +217,13 @@ class LoadImageBase64(io.ComfyNode):
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
-                io.Mask.Output(display_name="mask"),
             ],
         )
 
     @classmethod
     def execute(cls, base64, width, height) -> io.NodeOutput:
-        (image, mask) = decode_image(base64, width, height)
-        return io.NodeOutput(image, mask)
+        image = decode_image(base64, width, height)
+        return io.NodeOutput(image)
 
 
 class LoadMaskBase64(io.ComfyNode):

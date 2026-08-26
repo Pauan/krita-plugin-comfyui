@@ -45,7 +45,7 @@
         "force_colorize": false,
         "use_gpu": true,
         "image": [
-          "11",
+          "2",
           0
         ]
       },
@@ -79,18 +79,6 @@
       "class_type": "krita_comfyui: KritaOutput",
       "_meta": {
         "title": "Krita Output"
-      }
-    },
-    "11": {
-      "inputs": {
-        "image": [
-          "2",
-          0
-        ]
-      },
-      "class_type": "SplitImageWithAlpha",
-      "_meta": {
-        "title": "Split Image with Alpha"
       }
     }
   }

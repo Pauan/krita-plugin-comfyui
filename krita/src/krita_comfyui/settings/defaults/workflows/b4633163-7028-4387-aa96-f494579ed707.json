@@ -233,18 +233,6 @@
         "title": "Krita UI Combo"
       }
     },
-    "15": {
-      "inputs": {
-        "image": [
-          "42",
-          0
-        ]
-      },
-      "class_type": "SplitImageWithAlpha",
-      "_meta": {
-        "title": "Split Image with Alpha"
-      }
-    },
     "25": {
       "inputs": {
         "preprocessor": [
@@ -256,7 +244,7 @@
           1
         ],
         "image": [
-          "15",
+          "42",
           0
         ]
       },

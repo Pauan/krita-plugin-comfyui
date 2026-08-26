@@ -62,7 +62,11 @@ class KritaCanvasImage(ConstantNode):
 
         if cached_canvas is None:
             image = self.workflow.document.canvas(crop)
-            cached_canvas = self.workflow.graph.image(image)
+
+            cached_canvas = (
+                image.rgb_view(),
+                image.alpha_view(),
+            )
             self.workflow.cached_canvas[crop] = cached_canvas
 
         return cached_canvas
@@ -148,7 +152,11 @@ class KritaLayers(ConstantNode):
         image = self.workflow.cached_layer_images.get((layer.id, crop), None)
 
         if image is None:
-            image = self.workflow.graph.image(layer.image(crop))
+            image = layer.image(crop)
+            image = (
+                image.rgb_view(),
+                image.alpha_view(),
+            )
             self.workflow.cached_layer_images[(layer.id, crop)] = image
 
         return image
