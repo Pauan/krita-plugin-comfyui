@@ -281,7 +281,7 @@ class RegionsEncode(io.ComfyNode):
         def should_keep_region(region):
             if region["strength"] > 0.0 and region["mask"] is not None:
                 prompt = region["prompt"].strip()
-                return prompt != "" and prompt != global_prompt
+                return prompt != "" and prompt != global_prompt and torch.count_nonzero(region["mask"]).item() > 0
             else:
                 return False
 

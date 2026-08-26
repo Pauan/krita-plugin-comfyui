@@ -414,7 +414,7 @@ class Image:
 
     def rgb_view(self) -> ImageView:
         self.check_format()
-        return ImageView(qimage2ndarray.rgb_view(self._qimage))
+        return ImageView(qimage2ndarray.rgb_view(self._qimage, "little"))
 
     def alpha_view(self) -> MaskView:
         self.check_format()
