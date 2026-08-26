@@ -2,8 +2,11 @@
 import math
 import re
 import json
+import numpy
+from PIL import Image
 from simpleeval import simple_eval
-from . import ConstantNode, ConstantOutputs, InputValue, InputAutogrow, Link, function
+from shared.graph import ImageView, MaskView
+from . import ConstantNode, ConstantOutputs, InputValue, InputAutogrow, InputDynamicCombo, Link, function
 
 
 class Primitive(ConstantNode):
@@ -403,6 +406,134 @@ class RepeatLatentBatch(ConstantNode):
             return self.graph.node(self.node_name, samples=samples, amount=amount).out(0)
 
 
+@function(
+    inputs={
+        "resize_type": InputDynamicCombo(),
+    },
+)
+class ResizeImageMaskNode(ConstantNode):
+    def noop(self, input, resize_type, scale_method):
+        return self.graph.node(self.node_name,
+            input=input,
+            scale_method=scale_method,
+            **self.graph.dynamic_combo("resize_type", resize_type)
+        ).out(0)
+
+
+    def scale_dimensions(self, old_width, old_height, new_width, new_height):
+        if new_width == 0 and new_height == 0:
+            return (old_width, old_height)
+
+        if new_width == 0:
+            new_width = max(1, round(old_width * new_height / old_height))
+
+        elif new_height == 0:
+            new_height = max(1, round(old_height * new_width / old_width))
+
+        return (new_width, new_height)
+
+
+    def scale_total_pixels(self, old_width, old_height, megapixels):
+        total = int(megapixels * 1024 * 1024)
+
+        scale_by = math.sqrt(total / (old_width * old_height))
+
+        return (
+            round(old_width * scale_by),
+            round(old_height * scale_by),
+        )
+
+
+    def resample_filter(self, scale_method):
+        match scale_method:
+            case "nearest-exact": return Image.Resampling.NEAREST
+            case "bilinear": return Image.Resampling.BILINEAR
+            case "bicubic": return Image.Resampling.BICUBIC
+            case "lanczos": return Image.Resampling.LANCZOS
+            case _: return None
+
+
+    def resize_image(self, input, new_width, new_height, sample_filter):
+        image = Image.fromarray(input._view, "RGB")
+
+        assert image.width == input.width()
+        assert image.height == input.height()
+        assert image.mode == "RGB"
+
+        return ImageView(numpy.asarray(image.resize((new_width, new_height), sample_filter)))
+
+
+    def resize_mask(self, input, new_width, new_height, sample_filter):
+        image = Image.fromarray(input._view, "L")
+
+        assert image.width == input.width()
+        assert image.height == input.height()
+        assert image.mode == "L"
+
+        return MaskView(numpy.asarray(image.resize((new_width, new_height), sample_filter)))
+
+
+    def run(self, input, resize_type, scale_method):
+        old_width = input.width()
+        old_height = input.height()
+
+
+        selected_type = resize_type["resize_type"]
+
+        if selected_type == "scale by multiplier":
+            multiplier = resize_type["multiplier"]
+            new_width = round(old_width * multiplier)
+            new_height = round(old_height * multiplier)
+
+        elif selected_type == "scale dimensions":
+            if resize_type["crop"] != "disabled":
+                return self.noop(input, resize_type, scale_method)
+
+            new_width, new_height = self.scale_dimensions(old_width, old_height, resize_type["width"], resize_type["height"])
+
+        elif selected_type == "scale longer dimension":
+            raise RuntimeError("TODO")
+
+        elif selected_type == "scale shorter dimension":
+            raise RuntimeError("TODO")
+
+        elif selected_type == "scale width":
+            new_width, new_height = self.scale_dimensions(old_width, old_height, resize_type["width"], 0)
+
+        elif selected_type == "scale height":
+            new_width, new_height = self.scale_dimensions(old_width, old_height, 0, resize_type["height"])
+
+        elif selected_type == "scale total pixels":
+            new_width, new_height = self.scale_total_pixels(old_width, old_height, resize_type["megapixels"])
+
+        elif selected_type == "match size":
+            if resize_type["crop"] != "disabled":
+                return self.noop(input, resize_type, scale_method)
+
+            match = resize_type["match"]
+            new_width = match.width()
+            new_height = match.height()
+
+        elif selected_type == "scale to multiple":
+            raise RuntimeError("TODO")
+
+
+        if new_width == old_width and new_height == old_height:
+            return input
+
+        else:
+            sample_filter = self.resample_filter(scale_method)
+
+            if sample_filter is not None:
+                if isinstance(input, ImageView):
+                    return self.resize_image(input, new_width, new_height, sample_filter)
+
+                elif isinstance(input, MaskView):
+                    return self.resize_mask(input, new_width, new_height, sample_filter)
+
+        return self.noop(input, resize_type, scale_method)
+
+
 CONST_NODES = {
     # https://github.com/Comfy-Org/ComfyUI/blob/d0328b442dd2ecc27bdc112bf6452b2e96aed4f8/comfy_extras/nodes_primitive.py#L104-L108
     "PrimitiveString": Primitive,
@@ -450,4 +581,7 @@ CONST_NODES = {
     "krita_comfyui: Default": Default,
 
     "RepeatLatentBatch": RepeatLatentBatch,
+
+    # https://github.com/Comfy-Org/ComfyUI/blob/b133e48368d0f52bb014f0dd7ae1adb7403d515b/comfy_extras/nodes_post_processing.py#L412
+    "ResizeImageMaskNode": ResizeImageMaskNode,
 }
