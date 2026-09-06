@@ -460,6 +460,38 @@ class ApplyControlNets(ConstantNode):
         return (models, positives, negatives, images)
 
 
+# This is just so we can remove any unused regions.
+@function(
+    name="Region Mask",
+    inputs={
+        "mask": InputValue(constant=True, optional=True),
+        "name": InputValue(constant=True, optional=True),
+    },
+    outputs=1,
+    is_input_list=True,
+    is_output_list=True,
+)
+class RegionMask(ConstantNode):
+    def run(self, mask, name, prompt, strength, isolated, add_to_global):
+        outputs = []
+
+        for mask, name, prompt, strength, isolated, add_to_global in zip_lists([mask, name, prompt, strength, isolated, add_to_global]):
+            if strength > 0.0 and mask is not None:
+                prompt = prompt.strip()
+
+                if prompt != "" and (not mask.is_solid(0x00)):
+                    outputs.append(self.graph.node("krita_comfyui: RegionMask",
+                        mask=mask,
+                        name=name,
+                        prompt=prompt,
+                        strength=strength,
+                        isolated=isolated,
+                        add_to_global=add_to_global,
+                    ).out(0))
+
+        return outputs
+
+
 CONST_NODES = {
     "krita_comfyui: KritaUiBoolean": krita_ui("boolean", ["value", "is_default"]),
     "krita_comfyui: KritaUiCombo": krita_ui("combo", ["value", "label", "is_default"]),
@@ -483,4 +515,6 @@ CONST_NODES = {
     "krita_comfyui: ApplyControlNets": ApplyControlNets,
 
     "krita_comfyui: DetailSize": DetailSize,
+
+    "krita_comfyui: RegionMask": RegionMask,
 }

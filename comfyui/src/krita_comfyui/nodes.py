@@ -85,6 +85,7 @@ class MakeList(io.ComfyNode):
             input=io.MatchType.Input("input", template=template_matchtype, optional=True),
             prefix="input",
             min=0,
+            max=50,
         )
         return io.Schema(
             node_id="krita_comfyui: MakeList",

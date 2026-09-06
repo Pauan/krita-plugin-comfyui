@@ -764,54 +764,6 @@
         "title": "and"
       }
     },
-    "187": {
-      "inputs": {
-        "global_prompt": [
-          "348",
-          0
-        ],
-        "global_strength": 0.01,
-        "global_inverse_strength": 0,
-        "add_to_regions": true,
-        "combine_prompts": "String Concatenate",
-        "clip": [
-          "362",
-          1
-        ],
-        "regions": [
-          "456",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: RegionsEncode",
-      "_meta": {
-        "title": "CLIP Regions Encode"
-      }
-    },
-    "190": {
-      "inputs": {
-        "global_prompt": [
-          "349",
-          0
-        ],
-        "global_strength": 0.01,
-        "global_inverse_strength": 0,
-        "add_to_regions": true,
-        "combine_prompts": "String Concatenate",
-        "clip": [
-          "362",
-          1
-        ],
-        "regions": [
-          "459",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: RegionsEncode",
-      "_meta": {
-        "title": "CLIP Regions Encode"
-      }
-    },
     "207": {
       "inputs": {
         "samples": [
@@ -930,7 +882,7 @@
           1
         ],
         "on_false": [
-          "187",
+          "470",
           0
         ],
         "on_true": [
@@ -950,7 +902,7 @@
           1
         ],
         "on_false": [
-          "190",
+          "471",
           0
         ],
         "on_true": [
@@ -1270,22 +1222,6 @@
         "title": "Krita UI Boolean"
       }
     },
-    "292": {
-      "inputs": {
-        "input1": [
-          "277",
-          0
-        ],
-        "input2": [
-          "291",
-          0
-        ]
-      },
-      "class_type": "Basic data handling: Boolean And",
-      "_meta": {
-        "title": "and"
-      }
-    },
     "295": {
       "inputs": {
         "input1": [
@@ -1383,7 +1319,7 @@
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "text": [
-          "348",
+          "477",
           0
         ]
       },
@@ -1429,7 +1365,7 @@
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "text": [
-          "349",
+          "478",
           0
         ]
       },
@@ -1511,69 +1447,6 @@
           2
         ],
         "delimiter": " "
-      },
-      "class_type": "StringConcatenate",
-      "_meta": {
-        "title": "Text Concatenate"
-      }
-    },
-    "321": {
-      "inputs": {
-        "enabled": [
-          "292",
-          0
-        ],
-        "name": "Regions Positive",
-        "order": 6,
-        "x": 0,
-        "y": 0,
-        "canvas_resize": "do nothing",
-        "resize_other_layers": false,
-        "resize_algorithm": "Bicubic",
-        "text": [
-          "460",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "323": {
-      "inputs": {
-        "enabled": [
-          "292",
-          0
-        ],
-        "name": "Regions Negative",
-        "order": 7,
-        "x": 0,
-        "y": 0,
-        "canvas_resize": "do nothing",
-        "resize_other_layers": false,
-        "resize_algorithm": "Bicubic",
-        "text": [
-          "324",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
-    "324": {
-      "inputs": {
-        "string_a": [
-          "463",
-          0
-        ],
-        "string_b": [
-          "466",
-          0
-        ],
-        "delimiter": ": "
       },
       "class_type": "StringConcatenate",
       "_meta": {
@@ -1950,7 +1823,7 @@
           0
         ],
         "on_true": [
-          "187",
+          "470",
           0
         ]
       },
@@ -1970,7 +1843,7 @@
           0
         ],
         "on_true": [
-          "190",
+          "471",
           0
         ]
       },
@@ -2183,11 +2056,11 @@
       "inputs": {
         "noise_mask": true,
         "positive": [
-          "187",
+          "470",
           0
         ],
         "negative": [
-          "190",
+          "471",
           0
         ],
         "vae": [
@@ -2865,14 +2738,135 @@
         "title": "Region Mask"
       }
     },
-    "460": {
+    "470": {
+      "inputs": {
+        "global_prompt": [
+          "348",
+          0
+        ],
+        "global_strength": 0.01,
+        "global_inverse_strength": 0,
+        "add_to_regions": true,
+        "combine_prompts": "String Concatenate",
+        "clip": [
+          "362",
+          1
+        ],
+        "regions": [
+          "456",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionsEncode",
+      "_meta": {
+        "title": "CLIP Regions Encode"
+      }
+    },
+    "471": {
+      "inputs": {
+        "global_prompt": [
+          "349",
+          0
+        ],
+        "global_strength": 0.01,
+        "global_inverse_strength": 0,
+        "add_to_regions": true,
+        "combine_prompts": "String Concatenate",
+        "clip": [
+          "362",
+          1
+        ],
+        "regions": [
+          "459",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionsEncode",
+      "_meta": {
+        "title": "CLIP Regions Encode"
+      }
+    },
+    "472": {
+      "inputs": {
+        "inputs.input0": [
+          "473",
+          0
+        ],
+        "inputs.input1": [
+          "470",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: MakeList",
+      "_meta": {
+        "title": "Make List"
+      }
+    },
+    "473": {
+      "inputs": {
+        "value": "<global>"
+      },
+      "class_type": "PrimitiveString",
+      "_meta": {
+        "title": "String"
+      }
+    },
+    "474": {
+      "inputs": {
+        "inputs.input0": [
+          "348",
+          0
+        ],
+        "inputs.input1": [
+          "470",
+          2
+        ]
+      },
+      "class_type": "krita_comfyui: MakeList",
+      "_meta": {
+        "title": "Make List"
+      }
+    },
+    "475": {
+      "inputs": {
+        "inputs.input0": [
+          "473",
+          0
+        ],
+        "inputs.input1": [
+          "471",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: MakeList",
+      "_meta": {
+        "title": "Make List"
+      }
+    },
+    "476": {
+      "inputs": {
+        "inputs.input0": [
+          "349",
+          0
+        ],
+        "inputs.input1": [
+          "471",
+          2
+        ]
+      },
+      "class_type": "krita_comfyui: MakeList",
+      "_meta": {
+        "title": "Make List"
+      }
+    },
+    "477": {
       "inputs": {
         "string_a": [
-          "461",
+          "472",
           0
         ],
         "string_b": [
-          "464",
+          "474",
           0
         ],
         "delimiter": ": "
@@ -2882,86 +2876,21 @@
         "title": "Text Concatenate"
       }
     },
-    "461": {
+    "478": {
       "inputs": {
-        "input": [
-          "187",
-          1
-        ],
-        "default": [
-          "462",
+        "string_a": [
+          "475",
           0
-        ]
-      },
-      "class_type": "krita_comfyui: Default",
-      "_meta": {
-        "title": "Default"
-      }
-    },
-    "462": {
-      "inputs": {
-        "value": "<none>"
-      },
-      "class_type": "PrimitiveString",
-      "_meta": {
-        "title": "String"
-      }
-    },
-    "463": {
-      "inputs": {
-        "input": [
-          "190",
-          1
         ],
-        "default": [
-          "462",
+        "string_b": [
+          "476",
           0
-        ]
-      },
-      "class_type": "krita_comfyui: Default",
-      "_meta": {
-        "title": "Default"
-      }
-    },
-    "464": {
-      "inputs": {
-        "input": [
-          "187",
-          2
         ],
-        "default": [
-          "465",
-          0
-        ]
+        "delimiter": ": "
       },
-      "class_type": "krita_comfyui: Default",
+      "class_type": "StringConcatenate",
       "_meta": {
-        "title": "Default"
-      }
-    },
-    "465": {
-      "inputs": {
-        "value": ""
-      },
-      "class_type": "PrimitiveString",
-      "_meta": {
-        "title": "String"
-      }
-    },
-    "466": {
-      "inputs": {
-        "input": [
-          "190",
-          2
-        ],
-        "default": [
-          "465",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: Default",
-      "_meta": {
-        "title": "Default"
+        "title": "Text Concatenate"
       }
     }
   }

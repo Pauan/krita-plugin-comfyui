@@ -291,11 +291,13 @@ class RegionsEncode(io.ComfyNode):
         state = RegionsEncodeState(clip, combine_prompts)
 
         def should_keep_region(region):
-            if region["strength"] > 0.0 and region["mask"] is not None:
-                prompt = region["prompt"].strip()
-                return prompt != "" and prompt != global_prompt and torch.count_nonzero(region["mask"]).item() > 0
-            else:
-                return False
+            return region["prompt"] != global_prompt
+
+            #if region["strength"] > 0.0 and region["mask"] is not None:
+                #prompt = region["prompt"].strip()
+                #return prompt != "" and prompt != global_prompt and torch.count_nonzero(region["mask"]).item() > 0
+            #else:
+                #return False
 
         regions = [region for region in regions if should_keep_region(region)]
         outputs = []
@@ -348,14 +350,12 @@ class RegionsEncode(io.ComfyNode):
                     outputs.append(conditioning)
 
 
+        names = [region["name"] for region in regions]
+        prompts = [region["prompt"] for region in regions]
+
         output = state.combine_conditionings(outputs)
         assert output is not None
-        return io.NodeOutput(
-            output,
-            [region["name"] for region in regions],
-            [region["prompt"] for region in regions],
-            expand=state.graph.finalize(),
-        )
+        return io.NodeOutput(output, names, prompts, expand=state.graph.finalize())
 
 
 class ApplyRegions(io.ComfyNode):

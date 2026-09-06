@@ -212,6 +212,6 @@ def graph_list(graph: Graph, items: list[NodeInput]) -> NodeInput:
     padding = digits(max(0, len(items) - 1))
 
     for i, value in enumerate(items):
-        inputs["inputs.input" + str(i).zfill(padding)] = value
+        inputs["inputs.input" + str(i)] = value
 
     return graph.node("krita_comfyui: MakeList", **inputs).out(0)
