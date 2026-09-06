@@ -236,7 +236,7 @@
       }
     },
     "13": {
-      "class_type": "JoinImageWithAlpha",
+      "class_type": "krita_comfyui: AddAlphaToImage",
       "inputs": {
         "image": [
           "11",

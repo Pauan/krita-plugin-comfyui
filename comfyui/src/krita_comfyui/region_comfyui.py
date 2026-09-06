@@ -21,6 +21,7 @@ class RegionMask(io.ComfyNode):
             description="Creates a region with a mask.",
             inputs=[
                 io.Mask.Input("mask", optional=True, tooltip="Mask for the region."),
+                io.String.Input("name", optional=True, default="", tooltip="Name for the region. Used for debugging."),
                 io.String.Input("prompt", multiline=True, tooltip="Prompt that will be applied only within the region."),
                 io.Float.Input("strength", default=1.0, min=0.0, max=10.0, step=0.01, round=0.01, advanced=True),
                 io.Boolean.Input("isolated", default=False, tooltip="If this is true then the prompt is isolated inside the mask.\n\nIf this is false then the prompt is blended with the rest of the image outside of the mask.", advanced=True),
@@ -32,7 +33,7 @@ class RegionMask(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, prompt, strength, add_to_global, isolated, mask=None) -> io.NodeOutput:
+    def execute(cls, name, prompt, strength, add_to_global, isolated, mask=None) -> io.NodeOutput:
         if mask is not None:
             #if mask.dim() < 3:
                 #mask = mask.unsqueeze(0)
@@ -41,6 +42,7 @@ class RegionMask(io.ComfyNode):
                 mask = torch.clamp(mask * strength, 0.0, 1.0)
 
         return io.NodeOutput({
+            "name": name,
             "prompt": prompt,
             "mask": mask,
             "strength": strength,
@@ -255,6 +257,16 @@ class RegionsEncode(io.ComfyNode):
             ],
             outputs=[
                 io.Conditioning.Output(),
+
+                io.String.Output(
+                    display_name="names",
+                    is_output_list=True,
+                ),
+
+                io.String.Output(
+                    display_name="prompts",
+                    is_output_list=True,
+                ),
             ],
             is_input_list=True,
             enable_expand=True,
@@ -338,7 +350,12 @@ class RegionsEncode(io.ComfyNode):
 
         output = state.combine_conditionings(outputs)
         assert output is not None
-        return io.NodeOutput(output, expand=state.graph.finalize())
+        return io.NodeOutput(
+            output,
+            [region["name"] for region in regions],
+            [region["prompt"] for region in regions],
+            expand=state.graph.finalize(),
+        )
 
 
 class ApplyRegions(io.ComfyNode):

@@ -188,11 +188,13 @@ class ReplaceTransparency(io.ComfyNode):
             color=color,
         ).out(0)
 
-        mask = graph.node("InvertMask", mask=image.out(1)).out(0)
+        split_image = graph.node("SplitImageWithAlpha", image=image)
+
+        mask = graph.node("InvertMask", mask=split_image.out(1)).out(0)
 
         image = graph.node("ImageCompositeMasked",
             destination=empty_image,
-            source=image.out(0),
+            source=split_image.out(0),
             mask=mask,
             x=0,
             y=0,

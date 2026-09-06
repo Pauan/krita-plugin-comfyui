@@ -54,7 +54,7 @@ class Upscale(Workflow):
             height=height.out(1),
         )
 
-        add_alpha = self.graph.node("JoinImageWithAlpha", image=resize_image.out(0), alpha=resize_mask.out(0))
+        add_alpha = self.graph.node("krita_comfyui: AddAlphaToImage", image=resize_image.out(0), alpha=resize_mask.out(0))
 
         return add_alpha.out(0)
 

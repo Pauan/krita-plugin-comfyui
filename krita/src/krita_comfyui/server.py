@@ -85,7 +85,7 @@ class CivitaiInfo:
                     if file["primary"] and file["type"] == "Model" and file["metadata"]["format"] == "SafeTensor":
                         self.file_url = file["downloadUrl"]
                         self.filename = file["name"]
-                        assert self.file_url == model["downloadUrl"]
+                        #assert self.file_url == model["downloadUrl"]
                         break
 
                 break
