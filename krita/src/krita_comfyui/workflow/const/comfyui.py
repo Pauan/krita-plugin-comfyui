@@ -5,6 +5,7 @@ import json
 import numpy
 from PIL import Image
 from simpleeval import simple_eval
+from shared import zip_lists
 from shared.graph import ImageView, MaskView
 from . import ConstantNode, ConstantOutputs, InputValue, InputAutogrow, InputDynamicCombo, Link, function
 
@@ -32,19 +33,33 @@ class Switch(ConstantNode):
                 self.evaluate_input("on_false"),
             ])
 
-        # We don't know if switch is true or false, so we create
-        # a node and determine the branch at runtime.
         else:
-            output = self.graph.node("ComfySwitchNode",
-                switch=switch.to_node(self.graph),
-                # Even though we don't know which branch to take,
-                # we can still constant-evaluate the branches.
-                on_false=self.evaluate_input("on_false").to_node(self.graph),
-                on_true=self.evaluate_input("on_true").to_node(self.graph),
-            ).out(0)
+            outputs = []
+
+            # Even though we don't know which branch to take,
+            # we can still constant-evaluate the branches.
+            on_true = self.evaluate_input("on_true")
+            on_false = self.evaluate_input("on_false")
+
+            for condition, on_true, on_false in zip_lists([switch.values, on_true.values, on_false.values]):
+                # Switch is constant, so we can just return the correct branch.
+                if isinstance(condition, bool):
+                    if condition:
+                        outputs.append(on_true)
+                    else:
+                        outputs.append(on_false)
+
+                # We don't know if switch is true or false, so we create
+                # a node and determine the branch at runtime.
+                else:
+                    outputs.append(self.graph.node("ComfySwitchNode",
+                        switch=condition,
+                        on_false=on_false,
+                        on_true=on_true,
+                    ).out(0))
 
             return ConstantOutputs([
-                Link([output]),
+                Link(outputs),
             ])
 
 
