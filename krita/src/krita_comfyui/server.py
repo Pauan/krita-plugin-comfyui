@@ -1281,11 +1281,7 @@ class ComfyUIClient(QObject):
     def execute_graph(self, *, graph, ui_values, document, is_live_mode, should_notify):
         document_id = document.root_layer().id
 
-        # Constant evaluating a graph can take 20+ milliseconds,
-        # which can cause Krita's UI to freeze.
-        #
-        # So we do evaluation and execution in a separate thread.
-        def run():
+        def evaluate_prompt():
             self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)
 
             start_time = time.monotonic_ns()
@@ -1313,9 +1309,7 @@ class ComfyUIClient(QObject):
                     error=GraphError.from_exception(error),
                 )
                 prompt.add_duration(start_time)
-                self.graph_changed.emit(prompt.graph_info())
-                self.execute_queue()
-                return
+                return (False, prompt)
 
             prompt = Prompt.from_graph(
                 document_id=document_id,
@@ -1326,14 +1320,35 @@ class ComfyUIClient(QObject):
                 duration=Duration(),
                 graph=evaluated_graph.finalize(),
             )
-
-            self.queue.append(prompt)
-
             prompt.add_duration(start_time)
-            self.graph_changed.emit(prompt.graph_info())
 
             self.settings.log_json(evaluated_graph.debug(), label="Execute Graph", level=LogLevel.DEBUG)
+            return (True, prompt)
 
-            self.execute_queue()
+        # Constant evaluating a graph can take 20+ milliseconds,
+        # which can cause Krita's UI to freeze.
+        #
+        # So we do evaluation and execution in a separate thread.
+        if is_live_mode:
+            def run():
+                succeeded, prompt = evaluate_prompt()
+
+                if succeeded:
+                    self.queue.append(prompt)
+
+                self.graph_changed.emit(prompt.graph_info())
+                self.execute_queue()
+
+        # Because we're not in live mode, we evaluate the graph in
+        # the caller's thread, to ensure robust and correct behavior.
+        else:
+            succeeded, prompt = evaluate_prompt()
+
+            def run():
+                if succeeded:
+                    self.queue.append(prompt)
+
+                self.graph_changed.emit(prompt.graph_info())
+                self.execute_queue()
 
         self.run_command.emit(run)

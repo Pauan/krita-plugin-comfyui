@@ -256,6 +256,13 @@
         },
         {
           "type": "boolean",
+          "id": "crop_selection",
+          "label": "Crop image",
+          "tooltip": "If true then it will crop the image to the selection.",
+          "default": true
+        },
+        {
+          "type": "boolean",
           "id": "detail_always",
           "label": "Always detail",
           "tooltip": "If false then it will only detail when inpainting.",
@@ -650,7 +657,7 @@
       "inputs": {
         "round_up": 16,
         "selection": [
-          "258",
+          "489",
           0
         ]
       },
@@ -2720,6 +2727,61 @@
       "class_type": "CreateList",
       "_meta": {
         "title": "Create List"
+      }
+    },
+    "483": {
+      "inputs": {},
+      "class_type": "krita_comfyui: KritaCanvasSize",
+      "_meta": {
+        "title": "Krita Canvas: Size"
+      }
+    },
+    "488": {
+      "inputs": {
+        "id": "crop_selection"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "489": {
+      "inputs": {
+        "switch": [
+          "488",
+          0
+        ],
+        "on_false": [
+          "490",
+          0
+        ],
+        "on_true": [
+          "258",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
+      }
+    },
+    "490": {
+      "inputs": {
+        "x": 0,
+        "y": 0,
+        "width": [
+          "483",
+          0
+        ],
+        "height": [
+          "483",
+          1
+        ],
+        "value": 255
+      },
+      "class_type": "krita_comfyui: KritaSelectionSolid",
+      "_meta": {
+        "title": "Krita Selection: Solid"
       }
     }
   }

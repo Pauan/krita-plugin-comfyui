@@ -32,6 +32,16 @@ class KritaSelection(ConstantNode):
 
 
 @function(
+    name="Krita Selection: Solid",
+    inputs_constant=True,
+)
+class KritaSelectionSolid(ConstantNode):
+    def run(self, x, y, width, height, value):
+        assert value >= 0 and value <= 255
+        return Selection.solid(Bounds(x, y, width, height), value)
+
+
+@function(
     name="Krita Selection: Border",
     inputs_constant=True,
 )
@@ -188,6 +198,7 @@ class KritaSelectionSmooth(ConstantNode):
 
 CONST_NODES = {
     "krita_comfyui: KritaSelection": KritaSelection,
+    "krita_comfyui: KritaSelectionSolid": KritaSelectionSolid,
     "krita_comfyui: KritaSelectionBorder": KritaSelectionBorder,
     "krita_comfyui: KritaSelectionBounds": KritaSelectionBounds,
     "krita_comfyui: KritaSelectionFeather": KritaSelectionFeather,

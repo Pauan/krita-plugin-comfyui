@@ -417,6 +417,31 @@ class KritaSelection(io.ComfyNode):
         raise RuntimeError("Workflow must be run from Krita.")
 
 
+class KritaSelectionSolid(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="krita_comfyui: KritaSelectionSolid",
+            display_name="Krita Selection: Solid",
+            category="krita/selection",
+            description="Creates a solid selection with a bounds.",
+            inputs=[
+                io.Int.Input("x", tooltip="X offset for the selection."),
+                io.Int.Input("y", tooltip="Y offset for the selection."),
+                io.Int.Input("width", tooltip="Width of the selection."),
+                io.Int.Input("height", tooltip="Height of the selection."),
+                io.Int.Input("value", min=0, max=255, step=1, default=255, tooltip="Value of the selection, from 0 to 255."),
+            ],
+            outputs=[
+                Selection.Output(display_name="selection"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, x, y, width, height, value) -> io.NodeOutput:
+        raise RuntimeError("Workflow must be run from Krita.")
+
+
 class KritaSelectionGrow(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:

@@ -291,7 +291,7 @@ class RegionsEncode(io.ComfyNode):
         state = RegionsEncodeState(clip, combine_prompts)
 
         def should_keep_region(region):
-            return region["prompt"] != global_prompt
+            return region is not None and region["prompt"] != global_prompt
 
             #if region["strength"] > 0.0 and region["mask"] is not None:
                 #prompt = region["prompt"].strip()

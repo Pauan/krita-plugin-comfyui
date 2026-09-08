@@ -63,6 +63,7 @@ class KritaComfyui(ComfyExtension):
 
             # krita/selection
             nodes.KritaSelection,
+            nodes.KritaSelectionSolid,
             nodes.KritaSelectionBorder,
             nodes.KritaSelectionBounds,
             nodes.KritaSelectionFeather,
