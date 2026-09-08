@@ -16,6 +16,12 @@ from PyQt6.QtCore import QObject, QByteArray, QSize, QRect, QUuid, QTimer, Qt, p
 from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage
 
 
+# For some unknown reason the root layer's ID changes every time the document is opened.
+#
+# So we use a hardcoded UUID instead.
+ROOT_LAYER_ID = "{a73e5714-7e78-494c-a007-c301a22cb3aa}"
+
+
 def get_extension(type: krita.Extension) -> krita.Extension | None:
     output = None
 

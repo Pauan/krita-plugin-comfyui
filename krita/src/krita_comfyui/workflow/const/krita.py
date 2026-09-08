@@ -1,7 +1,7 @@
 # This module contains constant-evaluation versions of the Krita nodes.
 from shared import MIN_SEED, MAX_SEED, serialize_any, zip_lists, detail_size
 from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, is_link, function, constant
-from ...util.krita import Bounds
+from ...util.krita import ROOT_LAYER_ID, Bounds
 
 
 class UiLink(Link):
@@ -170,7 +170,10 @@ class KritaLayers(ConstantNode):
             masks = []
             names = []
 
-            layer = self.workflow.document.find_layer_by_id(layer_id)
+            if layer_id == ROOT_LAYER_ID:
+                layer = self.workflow.document.root_layer()
+            else:
+                layer = self.workflow.document.find_layer_by_id(layer_id)
 
             if layer is None:
                 self.error(f"Could not find layer {layer_id}")

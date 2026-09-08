@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from shared import Perf
 from ..util import number_of_decimals
-from ..util.krita import DocumentManager
+from ..util.krita import ROOT_LAYER_ID, DocumentManager
 from ..util.qt import LayoutManager, MessageBox, ComboBox, Menu, ScrollArea, BlockSignals
 
 from . import Workflow
@@ -531,7 +531,7 @@ class WorkflowWidget(QWidget):
                 options.append({
                     "icon": "config-canvas-only",
                     "label": "Canvas",
-                    "value": root_layer.id,
+                    "value": ROOT_LAYER_ID,
                     "layer_name": "Canvas",
                 })
 
