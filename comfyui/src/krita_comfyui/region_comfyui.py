@@ -148,9 +148,13 @@ class RegionsEncodeState:
         return encoded
 
 
+    def concat_prompts(self, prompts):
+        return ",\n".join(prompts)
+
+
     def combine_prompts(self, prompts):
         if self.combine_method == "String Concatenate":
-            return self.encode_prompt("\n".join(prompts))
+            return self.encode_prompt(self.concat_prompts(prompts))
 
         elif self.combine_method == "Conditioning (Concat)":
             combined = None
@@ -259,11 +263,6 @@ class RegionsEncode(io.ComfyNode):
                 io.Conditioning.Output(),
 
                 io.String.Output(
-                    display_name="names",
-                    is_output_list=True,
-                ),
-
-                io.String.Output(
                     display_name="prompts",
                     is_output_list=True,
                 ),
@@ -275,14 +274,12 @@ class RegionsEncode(io.ComfyNode):
     @classmethod
     def execute(cls, clip, global_strength, global_inverse_strength, global_prompt, add_to_regions, combine_prompts, regions=[]) -> io.NodeOutput:
         assert len(clip) == 1
-        assert len(global_prompt) == 1
         assert len(global_strength) == 1
         assert len(global_inverse_strength) == 1
         assert len(combine_prompts) == 1
         assert len(add_to_regions) == 1
 
         clip = clip[0]
-        global_prompt = global_prompt[0].strip()
         global_strength = global_strength[0]
         global_inverse_strength = global_inverse_strength[0]
         combine_prompts = combine_prompts[0]
@@ -290,31 +287,39 @@ class RegionsEncode(io.ComfyNode):
 
         state = RegionsEncodeState(clip, combine_prompts)
 
-        def should_keep_region(region):
-            return region is not None and region["prompt"] != global_prompt
-
+        #def should_keep_region(region):
             #if region["strength"] > 0.0 and region["mask"] is not None:
                 #prompt = region["prompt"].strip()
                 #return prompt != "" and prompt != global_prompt and torch.count_nonzero(region["mask"]).item() > 0
             #else:
                 #return False
 
-        regions = [region for region in regions if should_keep_region(region)]
+        regions = [region for region in regions if region is not None]
         outputs = []
 
-        if len(regions) == 0:
-            outputs.append(state.encode_prompt(global_prompt))
+
+        masked_regions = []
+
+        for region in regions:
+            if torch.all(region["mask"] == 1).item():
+                global_prompt.append(region["prompt"])
+            else:
+                masked_regions.append(region)
+
+
+        if len(masked_regions) == 0:
+            outputs.append(state.combine_prompts(global_prompt))
 
         else:
             if global_strength > 0.0:
                 # Combines the add_to_global prompts with the global_prompt
-                prompts = [global_prompt] + [region["prompt"] for region in regions if region["add_to_global"]]
+                prompts = global_prompt + [region["prompt"] for region in masked_regions if region["add_to_global"]]
                 conditioning = state.combine_prompts(prompts)
                 conditioning = state.set_strength(conditioning, global_strength)
                 outputs.append(conditioning)
 
 
-            for region in regions:
+            for region in masked_regions:
                 prompt = region["prompt"]
                 mask = region["mask"]
                 strength = region["strength"]
@@ -323,7 +328,7 @@ class RegionsEncode(io.ComfyNode):
                     # We combine the global_prompt with the region's prompt.
                     # If we don't do this then the global_prompt will have a
                     # weak effect inside the region.
-                    conditioning = state.combine_prompts([global_prompt, prompt])
+                    conditioning = state.combine_prompts(global_prompt + [prompt])
                 else:
                     conditioning = state.encode_prompt(prompt)
 
@@ -338,7 +343,7 @@ class RegionsEncode(io.ComfyNode):
 
 
             if global_inverse_strength > 0.0:
-                masks = [region["mask"] for region in regions]
+                masks = [region["mask"] for region in masked_regions]
 
                 inverse_mask = mask_inverse_sum(masks)
 
@@ -350,12 +355,18 @@ class RegionsEncode(io.ComfyNode):
                     outputs.append(conditioning)
 
 
-        names = [region["name"] for region in regions]
-        prompts = [region["prompt"] for region in regions]
+        prompts = []
+
+        if len(global_prompt) > 0:
+            prompts.append("<global>: " + state.concat_prompts(global_prompt))
+
+        for region in masked_regions:
+            prompts.append(region["name"] + ": " + region["prompt"])
+
 
         output = state.combine_conditionings(outputs)
         assert output is not None
-        return io.NodeOutput(output, names, prompts, expand=state.graph.finalize())
+        return io.NodeOutput(output, prompts, expand=state.graph.finalize())
 
 
 class ApplyRegions(io.ComfyNode):

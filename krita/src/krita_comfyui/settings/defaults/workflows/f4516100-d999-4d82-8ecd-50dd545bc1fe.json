@@ -835,7 +835,7 @@
           1
         ],
         "on_false": [
-          "470",
+          "492",
           0
         ],
         "on_true": [
@@ -855,7 +855,7 @@
           1
         ],
         "on_false": [
-          "471",
+          "493",
           0
         ],
         "on_true": [
@@ -1215,8 +1215,8 @@
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "text": [
-          "477",
-          0
+          "492",
+          1
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -1261,8 +1261,8 @@
         "resize_other_layers": false,
         "resize_algorithm": "Bicubic",
         "text": [
-          "478",
-          0
+          "493",
+          1
         ]
       },
       "class_type": "krita_comfyui: KritaDebug",
@@ -1521,40 +1521,6 @@
         "title": "Krita UI Prompt"
       }
     },
-    "348": {
-      "inputs": {
-        "string_a": [
-          "347",
-          0
-        ],
-        "string_b": [
-          "401",
-          0
-        ],
-        "delimiter": ", "
-      },
-      "class_type": "StringConcatenate",
-      "_meta": {
-        "title": "Text Concatenate"
-      }
-    },
-    "349": {
-      "inputs": {
-        "string_a": [
-          "347",
-          1
-        ],
-        "string_b": [
-          "404",
-          0
-        ],
-        "delimiter": ", "
-      },
-      "class_type": "StringConcatenate",
-      "_meta": {
-        "title": "Text Concatenate"
-      }
-    },
     "356": {
       "inputs": {
         "id": "mask_regions_prompt"
@@ -1703,7 +1669,7 @@
           0
         ],
         "on_true": [
-          "470",
+          "492",
           0
         ]
       },
@@ -1723,7 +1689,7 @@
           0
         ],
         "on_true": [
-          "471",
+          "493",
           0
         ]
       },
@@ -1936,11 +1902,11 @@
       "inputs": {
         "noise_mask": true,
         "positive": [
-          "470",
+          "492",
           0
         ],
         "negative": [
-          "471",
+          "493",
           0
         ],
         "vae": [
@@ -2574,161 +2540,6 @@
         "title": "Region Mask"
       }
     },
-    "470": {
-      "inputs": {
-        "global_prompt": [
-          "348",
-          0
-        ],
-        "global_strength": 0.01,
-        "global_inverse_strength": 0,
-        "add_to_regions": true,
-        "combine_prompts": "String Concatenate",
-        "clip": [
-          "362",
-          1
-        ],
-        "regions": [
-          "456",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: RegionsEncode",
-      "_meta": {
-        "title": "CLIP Regions Encode"
-      }
-    },
-    "471": {
-      "inputs": {
-        "global_prompt": [
-          "349",
-          0
-        ],
-        "global_strength": 0.01,
-        "global_inverse_strength": 0,
-        "add_to_regions": true,
-        "combine_prompts": "String Concatenate",
-        "clip": [
-          "362",
-          1
-        ],
-        "regions": [
-          "459",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: RegionsEncode",
-      "_meta": {
-        "title": "CLIP Regions Encode"
-      }
-    },
-    "473": {
-      "inputs": {
-        "value": "<global>"
-      },
-      "class_type": "PrimitiveString",
-      "_meta": {
-        "title": "String"
-      }
-    },
-    "477": {
-      "inputs": {
-        "string_a": [
-          "479",
-          0
-        ],
-        "string_b": [
-          "480",
-          0
-        ],
-        "delimiter": ": "
-      },
-      "class_type": "StringConcatenate",
-      "_meta": {
-        "title": "Text Concatenate"
-      }
-    },
-    "478": {
-      "inputs": {
-        "string_a": [
-          "481",
-          0
-        ],
-        "string_b": [
-          "482",
-          0
-        ],
-        "delimiter": ": "
-      },
-      "class_type": "StringConcatenate",
-      "_meta": {
-        "title": "Text Concatenate"
-      }
-    },
-    "479": {
-      "inputs": {
-        "inputs.input0": [
-          "473",
-          0
-        ],
-        "inputs.input1": [
-          "470",
-          1
-        ]
-      },
-      "class_type": "CreateList",
-      "_meta": {
-        "title": "Create List"
-      }
-    },
-    "480": {
-      "inputs": {
-        "inputs.input0": [
-          "348",
-          0
-        ],
-        "inputs.input1": [
-          "470",
-          2
-        ]
-      },
-      "class_type": "CreateList",
-      "_meta": {
-        "title": "Create List"
-      }
-    },
-    "481": {
-      "inputs": {
-        "inputs.input0": [
-          "473",
-          0
-        ],
-        "inputs.input1": [
-          "471",
-          1
-        ]
-      },
-      "class_type": "CreateList",
-      "_meta": {
-        "title": "Create List"
-      }
-    },
-    "482": {
-      "inputs": {
-        "inputs.input0": [
-          "349",
-          0
-        ],
-        "inputs.input1": [
-          "471",
-          2
-        ]
-      },
-      "class_type": "CreateList",
-      "_meta": {
-        "title": "Create List"
-      }
-    },
     "483": {
       "inputs": {},
       "class_type": "krita_comfyui: KritaCanvasSize",
@@ -2782,6 +2593,86 @@
       "class_type": "krita_comfyui: KritaSelectionSolid",
       "_meta": {
         "title": "Krita Selection: Solid"
+      }
+    },
+    "491": {
+      "inputs": {
+        "inputs.input0": [
+          "401",
+          0
+        ],
+        "inputs.input1": [
+          "347",
+          0
+        ]
+      },
+      "class_type": "CreateList",
+      "_meta": {
+        "title": "Create List"
+      }
+    },
+    "492": {
+      "inputs": {
+        "global_prompt": [
+          "491",
+          0
+        ],
+        "global_strength": 0.01,
+        "global_inverse_strength": 0,
+        "add_to_regions": true,
+        "combine_prompts": "String Concatenate",
+        "clip": [
+          "362",
+          1
+        ],
+        "regions": [
+          "456",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionsEncode",
+      "_meta": {
+        "title": "CLIP Regions Encode"
+      }
+    },
+    "493": {
+      "inputs": {
+        "global_prompt": [
+          "494",
+          0
+        ],
+        "global_strength": 0.01,
+        "global_inverse_strength": 0,
+        "add_to_regions": true,
+        "combine_prompts": "String Concatenate",
+        "clip": [
+          "362",
+          1
+        ],
+        "regions": [
+          "459",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: RegionsEncode",
+      "_meta": {
+        "title": "CLIP Regions Encode"
+      }
+    },
+    "494": {
+      "inputs": {
+        "inputs.input0": [
+          "404",
+          0
+        ],
+        "inputs.input1": [
+          "347",
+          1
+        ]
+      },
+      "class_type": "CreateList",
+      "_meta": {
+        "title": "Create List"
       }
     }
   }
