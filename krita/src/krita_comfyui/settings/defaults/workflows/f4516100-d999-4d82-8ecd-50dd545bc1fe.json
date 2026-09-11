@@ -483,6 +483,130 @@
     },
     {
       "type": "group",
+      "id": "filter_group",
+      "label": "Filter",
+      "children": [
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "boolean",
+              "id": "filter_enabled",
+              "tooltip": "Whether to apply a filter to the canvas.",
+              "default": false
+            },
+            {
+              "type": "combo",
+              "stretch": 1,
+              "id": "filter_model",
+              "link_to": {
+                "node_id": "AIO_Preprocessor",
+                "input": "preprocessor"
+              },
+              "visible_if": {
+                "id": "filter_show_all",
+                "value": true
+              },
+              "enabled_if": {
+                "id": "filter_enabled",
+                "value": true
+              },
+              "default": "",
+              "tooltip": "Model used for upscaling."
+            },
+            {
+              "type": "combo",
+              "stretch": 1,
+              "id": "filter_model",
+              "link_to": {
+                "node_id": "AIO_Preprocessor",
+                "input": "preprocessor"
+              },
+              "visible_if": {
+                "id": "filter_show_all",
+                "value": false
+              },
+              "enabled_if": {
+                "id": "filter_enabled",
+                "value": true
+              },
+              "default": "",
+              "tooltip": "Model used for upscaling.",
+              "options": [
+                { "label": "Canny", "value": "CannyEdgePreprocessor" },
+                { "separator": true },
+                { "label": "Lineart", "value": "LineArtPreprocessor" },
+                { "label": "Lineart (Standard)", "value": "LineartStandardPreprocessor" },
+                { "label": "Lineart (Any)", "value": "AnyLineArtPreprocessor_aux" },
+                { "label": "Lineart (Anime)", "value": "AnimeLineArtPreprocessor" },
+                { "label": "Lineart (Manga)", "value": "Manga2Anime_LineArt_Preprocessor" },
+                { "separator": true },
+                { "label": "Scribble", "value": "FakeScribblePreprocessor" },
+                { "label": "Scribble (HED)", "value": "HEDPreprocessor" },
+                { "label": "Scribble (PiDI)", "value": "PiDiNetPreprocessor" },
+                { "label": "Scribble (TEED)", "value": "TEEDPreprocessor" },
+                { "label": "Scribble (XDoG)", "value": "Scribble_XDoG_Preprocessor" }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "percentage",
+          "id": "filter_start",
+          "link_to": {
+            "node_id": "krita_comfyui: MakeControlNet",
+            "input": "start_percent"
+          },
+          "step": 0.05,
+          "prefix": "Start: ",
+          "enabled_if": {
+            "id": "filter_enabled",
+            "value": true
+          }
+        },
+        {
+          "type": "percentage",
+          "id": "filter_end",
+          "link_to": {
+            "node_id": "krita_comfyui: MakeControlNet",
+            "input": "end_percent"
+          },
+          "step": 0.05,
+          "prefix": "End: ",
+          "enabled_if": {
+            "id": "filter_enabled",
+            "value": true
+          }
+        },
+        {
+          "type": "percentage",
+          "id": "filter_strength",
+          "link_to": {
+            "node_id": "krita_comfyui: MakeControlNet",
+            "input": "strength"
+          },
+          "step": 0.05,
+          "prefix": "Strength: ",
+          "enabled_if": {
+            "id": "filter_enabled",
+            "value": true
+          }
+        },
+        {
+          "type": "boolean",
+          "id": "filter_show_all",
+          "default": false,
+          "label": "Show all models",
+          "tooltip": "Shows all of the filter models.",
+          "enabled_if": {
+            "id": "filter_enabled",
+            "value": true
+          }
+        }
+      ]
+    },
+    {
+      "type": "group",
       "id": "seed",
       "label": "Seed",
       "children": [
@@ -1058,7 +1182,7 @@
           0
         ],
         "control_nets": [
-          "279",
+          "510",
           0
         ]
       },
@@ -2396,7 +2520,7 @@
     },
     "439": {
       "inputs": {
-        "name": "[%timestamp%]",
+        "name": "[%timestamp% %index%]",
         "order": 0,
         "x": [
           "138",
@@ -2427,7 +2551,7 @@
           0
         ],
         "name": "Before Resizing",
-        "order": 5,
+        "order": 6,
         "x": [
           "138",
           0
@@ -2673,6 +2797,195 @@
       "class_type": "CreateList",
       "_meta": {
         "title": "Create List"
+      }
+    },
+    "497": {
+      "inputs": {
+        "expression": "min(a, b)",
+        "values.a": [
+          "374",
+          0
+        ],
+        "values.b": [
+          "374",
+          1
+        ]
+      },
+      "class_type": "ComfyMathExpression",
+      "_meta": {
+        "title": "Math Expression"
+      }
+    },
+    "498": {
+      "inputs": {
+        "id": "filter_model"
+      },
+      "class_type": "krita_comfyui: KritaUiCombo",
+      "_meta": {
+        "title": "Krita UI Combo"
+      }
+    },
+    "499": {
+      "inputs": {
+        "preprocessor": [
+          "498",
+          0
+        ],
+        "resolution": [
+          "497",
+          1
+        ],
+        "image": [
+          "391",
+          0
+        ]
+      },
+      "class_type": "AIO_Preprocessor",
+      "_meta": {
+        "title": "AIO Aux Preprocessor"
+      }
+    },
+    "500": {
+      "inputs": {
+        "model": "anima/1.0/anima-lllite-any-test-like-v2.safetensors",
+        "type": "Anima",
+        "strength": [
+          "501",
+          0
+        ],
+        "start_percent": [
+          "502",
+          0
+        ],
+        "end_percent": [
+          "503",
+          0
+        ],
+        "image": [
+          "499",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: MakeControlNet",
+      "_meta": {
+        "title": "Make Control Net"
+      }
+    },
+    "501": {
+      "inputs": {
+        "id": "filter_strength"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "502": {
+      "inputs": {
+        "id": "filter_start"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "503": {
+      "inputs": {
+        "id": "filter_end"
+      },
+      "class_type": "krita_comfyui: KritaUiFloat",
+      "_meta": {
+        "title": "Krita UI Float"
+      }
+    },
+    "504": {
+      "inputs": {
+        "inputs.input0": [
+          "279",
+          0
+        ],
+        "inputs.input1": [
+          "500",
+          0
+        ]
+      },
+      "class_type": "CreateList",
+      "_meta": {
+        "title": "Create List"
+      }
+    },
+    "505": {
+      "inputs": {
+        "enabled": [
+          "508",
+          0
+        ],
+        "name": "Filter",
+        "order": 5,
+        "x": [
+          "138",
+          0
+        ],
+        "y": [
+          "138",
+          1
+        ],
+        "canvas_resize": "do nothing",
+        "resize_other_layers": false,
+        "resize_algorithm": "Bicubic",
+        "images": [
+          "499",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaDebug",
+      "_meta": {
+        "title": "Krita Debug"
+      }
+    },
+    "508": {
+      "inputs": {
+        "input1": [
+          "142",
+          0
+        ],
+        "input2": [
+          "509",
+          0
+        ]
+      },
+      "class_type": "Basic data handling: Boolean And",
+      "_meta": {
+        "title": "and"
+      }
+    },
+    "509": {
+      "inputs": {
+        "id": "filter_enabled"
+      },
+      "class_type": "krita_comfyui: KritaUiBoolean",
+      "_meta": {
+        "title": "Krita UI Boolean"
+      }
+    },
+    "510": {
+      "inputs": {
+        "switch": [
+          "509",
+          0
+        ],
+        "on_false": [
+          "279",
+          0
+        ],
+        "on_true": [
+          "504",
+          0
+        ]
+      },
+      "class_type": "ComfySwitchNode",
+      "_meta": {
+        "title": "Switch"
       }
     }
   }
