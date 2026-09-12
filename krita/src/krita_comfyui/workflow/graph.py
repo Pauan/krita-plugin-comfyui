@@ -48,6 +48,21 @@ class WorkflowGraph:
         return self.cached_bounds
 
 
+    def get_cached_canvas(self, crop):
+        cached_canvas = self.cached_canvas.get(crop, None)
+
+        if cached_canvas is None:
+            image = self.document.canvas(crop)
+
+            cached_canvas = (
+                image.rgb_view(),
+                image.alpha_view(),
+            )
+            self.cached_canvas[crop] = cached_canvas
+
+        return cached_canvas
+
+
     @staticmethod
     def random_seed():
         return random.randint(MIN_SEED, MAX_SEED)

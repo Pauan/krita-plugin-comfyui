@@ -211,6 +211,24 @@
 
     {
       "type": "group",
+      "id": "filter_group_global",
+      "label": "Filter",
+      "children": [
+        {
+          "type": "combo",
+          "id": "filter_model",
+          "link_to": {
+            "node_id": "AIO_Preprocessor",
+            "input": "preprocessor"
+          },
+          "default": "ImageLuminanceDetector",
+          "tooltip": "Model used for filtering."
+        }
+      ]
+    },
+
+    {
+      "type": "group",
       "id": "inpainting_group",
       "label": "Inpainting",
       "children": [
@@ -352,6 +370,78 @@
         }
       ]
     },
+
+    {
+      "type": "group",
+      "id": "filter_group",
+      "label": "Filter",
+      "children": [
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "boolean",
+              "id": "filter_enabled",
+              "tooltip": "Whether to apply a filter to the canvas.",
+              "default": false
+            },
+            {
+              "type": "layer_id",
+              "id": "filter_layer",
+              "tooltip": "Layer to apply the filter to.",
+              "stretch": 1,
+              "enabled_if": {
+                "id": "filter_enabled",
+                "value": true
+              }
+            }
+          ]
+        },
+        {
+          "type": "percentage",
+          "id": "filter_start",
+          "link_to": {
+            "node_id": "krita_comfyui: MakeControlNet",
+            "input": "start_percent"
+          },
+          "step": 0.05,
+          "prefix": "Start: ",
+          "enabled_if": {
+            "id": "filter_enabled",
+            "value": true
+          }
+        },
+        {
+          "type": "percentage",
+          "id": "filter_end",
+          "link_to": {
+            "node_id": "krita_comfyui: MakeControlNet",
+            "input": "end_percent"
+          },
+          "step": 0.05,
+          "prefix": "End: ",
+          "enabled_if": {
+            "id": "filter_enabled",
+            "value": true
+          }
+        },
+        {
+          "type": "percentage",
+          "id": "filter_strength",
+          "link_to": {
+            "node_id": "krita_comfyui: MakeControlNet",
+            "input": "strength"
+          },
+          "step": 0.05,
+          "prefix": "Strength: ",
+          "enabled_if": {
+            "id": "filter_enabled",
+            "value": true
+          }
+        }
+      ]
+    },
+
     {
       "type": "group",
       "id": "controlnet_group",
@@ -481,130 +571,7 @@
         }
       ]
     },
-    {
-      "type": "group",
-      "id": "filter_group",
-      "label": "Filter",
-      "children": [
-        {
-          "type": "row",
-          "children": [
-            {
-              "type": "boolean",
-              "id": "filter_enabled",
-              "tooltip": "Whether to apply a filter to the canvas.",
-              "default": false
-            },
-            {
-              "type": "combo",
-              "stretch": 1,
-              "id": "filter_model",
-              "link_to": {
-                "node_id": "AIO_Preprocessor",
-                "input": "preprocessor"
-              },
-              "visible_if": {
-                "id": "filter_show_all",
-                "value": true
-              },
-              "enabled_if": {
-                "id": "filter_enabled",
-                "value": true
-              },
-              "default": "",
-              "tooltip": "Model used for upscaling."
-            },
-            {
-              "type": "combo",
-              "stretch": 1,
-              "id": "filter_model",
-              "link_to": {
-                "node_id": "AIO_Preprocessor",
-                "input": "preprocessor"
-              },
-              "visible_if": {
-                "id": "filter_show_all",
-                "value": false
-              },
-              "enabled_if": {
-                "id": "filter_enabled",
-                "value": true
-              },
-              "default": "",
-              "tooltip": "Model used for upscaling.",
-              "options": [
-                { "label": "Canny", "value": "CannyEdgePreprocessor" },
-                { "separator": true },
-                { "label": "Lineart", "value": "LineArtPreprocessor" },
-                { "label": "Lineart (Standard)", "value": "LineartStandardPreprocessor" },
-                { "label": "Lineart (Any)", "value": "AnyLineArtPreprocessor_aux" },
-                { "label": "Lineart (Anime)", "value": "AnimeLineArtPreprocessor" },
-                { "label": "Lineart (Manga)", "value": "Manga2Anime_LineArt_Preprocessor" },
-                { "separator": true },
-                { "label": "Scribble", "value": "FakeScribblePreprocessor" },
-                { "label": "Scribble (HED)", "value": "HEDPreprocessor" },
-                { "label": "Scribble (PiDI)", "value": "PiDiNetPreprocessor" },
-                { "label": "Scribble (TEED)", "value": "TEEDPreprocessor" },
-                { "label": "Scribble (XDoG)", "value": "Scribble_XDoG_Preprocessor" }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "percentage",
-          "id": "filter_start",
-          "link_to": {
-            "node_id": "krita_comfyui: MakeControlNet",
-            "input": "start_percent"
-          },
-          "step": 0.05,
-          "prefix": "Start: ",
-          "enabled_if": {
-            "id": "filter_enabled",
-            "value": true
-          }
-        },
-        {
-          "type": "percentage",
-          "id": "filter_end",
-          "link_to": {
-            "node_id": "krita_comfyui: MakeControlNet",
-            "input": "end_percent"
-          },
-          "step": 0.05,
-          "prefix": "End: ",
-          "enabled_if": {
-            "id": "filter_enabled",
-            "value": true
-          }
-        },
-        {
-          "type": "percentage",
-          "id": "filter_strength",
-          "link_to": {
-            "node_id": "krita_comfyui: MakeControlNet",
-            "input": "strength"
-          },
-          "step": 0.05,
-          "prefix": "Strength: ",
-          "enabled_if": {
-            "id": "filter_enabled",
-            "value": true
-          }
-        },
-        {
-          "type": "boolean",
-          "id": "filter_show_all",
-          "default": false,
-          "label": "Show all models",
-          "tooltip": "Shows all of the filter models.",
-          "enabled_if": {
-            "id": "filter_enabled",
-            "value": true
-          }
-        }
-      ]
-    },
+
     {
       "type": "group",
       "id": "seed",
@@ -2544,35 +2511,6 @@
         "title": "Krita Output"
       }
     },
-    "441": {
-      "inputs": {
-        "enabled": [
-          "142",
-          0
-        ],
-        "name": "Before Resizing",
-        "order": 6,
-        "x": [
-          "138",
-          0
-        ],
-        "y": [
-          "138",
-          1
-        ],
-        "canvas_resize": "do nothing",
-        "resize_other_layers": false,
-        "resize_algorithm": "Bicubic",
-        "images": [
-          "207",
-          0
-        ]
-      },
-      "class_type": "krita_comfyui: KritaDebug",
-      "_meta": {
-        "title": "Krita Debug"
-      }
-    },
     "450": {
       "inputs": {
         "image": [
@@ -2836,7 +2774,7 @@
           1
         ],
         "image": [
-          "391",
+          "516",
           0
         ]
       },
@@ -2986,6 +2924,84 @@
       "class_type": "ComfySwitchNode",
       "_meta": {
         "title": "Switch"
+      }
+    },
+    "511": {
+      "inputs": {
+        "id": "filter_layer"
+      },
+      "class_type": "krita_comfyui: KritaUiLayerId",
+      "_meta": {
+        "title": "Krita UI Layer Id"
+      }
+    },
+    "512": {
+      "inputs": {
+        "mode": "flatten",
+        "layer_id": [
+          "511",
+          0
+        ],
+        "crop": [
+          "216",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: KritaLayers",
+      "_meta": {
+        "title": "Krita Layers"
+      }
+    },
+    "513": {
+      "inputs": {
+        "image": [
+          "512",
+          0
+        ],
+        "alpha": [
+          "512",
+          1
+        ]
+      },
+      "class_type": "krita_comfyui: AddAlphaToImage",
+      "_meta": {
+        "title": "Add Alpha To Image"
+      }
+    },
+    "514": {
+      "inputs": {
+        "color": "#ffffff",
+        "image": [
+          "513",
+          0
+        ]
+      },
+      "class_type": "krita_comfyui: ReplaceTransparency",
+      "_meta": {
+        "title": "Image Replace Transparency"
+      }
+    },
+    "516": {
+      "inputs": {
+        "resize_type": "scale dimensions",
+        "resize_type.width": [
+          "374",
+          0
+        ],
+        "resize_type.height": [
+          "374",
+          1
+        ],
+        "resize_type.crop": "disabled",
+        "scale_method": "bicubic",
+        "input": [
+          "514",
+          0
+        ]
+      },
+      "class_type": "ResizeImageMaskNode",
+      "_meta": {
+        "title": "Resize Image/Mask"
       }
     }
   }

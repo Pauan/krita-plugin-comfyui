@@ -58,18 +58,7 @@ class KritaCanvasImage(ConstantNode):
         else:
             crop = Bounds.from_json(crop)
 
-        cached_canvas = self.workflow.cached_canvas.get(crop, None)
-
-        if cached_canvas is None:
-            image = self.workflow.document.canvas(crop)
-
-            cached_canvas = (
-                image.rgb_view(),
-                image.alpha_view(),
-            )
-            self.workflow.cached_canvas[crop] = cached_canvas
-
-        return cached_canvas
+        return self.workflow.get_cached_canvas(crop)
 
 
 @function(
@@ -170,8 +159,10 @@ class KritaLayers(ConstantNode):
             masks = []
             names = []
 
+            root_layer = self.workflow.document.root_layer()
+
             if layer_id == ROOT_LAYER_ID:
-                layer = self.workflow.document.root_layer()
+                layer = root_layer
             else:
                 layer = self.workflow.document.find_layer_by_id(layer_id)
 
@@ -179,7 +170,10 @@ class KritaLayers(ConstantNode):
                 self.error(f"Could not find layer {layer_id}")
 
             def add_image(layer):
-                (image, mask) = self.get_layer_image(layer, crop)
+                if layer.id == root_layer.id:
+                    (image, mask) = self.workflow.get_cached_canvas(crop)
+                else:
+                    (image, mask) = self.get_layer_image(layer, crop)
                 images.append(image)
                 masks.append(mask)
                 names.append(layer.name)
