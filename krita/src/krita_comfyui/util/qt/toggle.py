@@ -67,7 +67,7 @@ class Toggle(QCheckBox):
     def hitButton(self, pos: QPoint) -> bool:
         return self.contentsRect().contains(pos)
 
-    def paintEvent(self, e: QPaintEvent | None) -> None:
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
 
         contRect = self.contentsRect()
         height = contRect.height() - 10
@@ -171,7 +171,7 @@ class AnimatedToggle(Toggle):
             self.animation.setEndValue(0)
         self.animations_group.start()
 
-    def paintEvent(self, e: QPaintEvent | None) -> None:
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
 
         contRect = self.contentsRect()
         handleRadius = round(0.24 * contRect.height())

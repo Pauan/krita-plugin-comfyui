@@ -53,15 +53,15 @@ class Completer(QCompleter):
 
 # This causes the mouse wheel event to be blocked, but only when Shift / Alt / Ctrl are not being pressed.
 class BlockMouseWheel(QObject):
-    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
-        if isinstance(event, QWheelEvent):
-            modifiers = event.modifiers()
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
+        if isinstance(a1, QWheelEvent):
+            modifiers = a1.modifiers()
 
             if modifiers == Qt.KeyboardModifier.NoModifier:
-                event.ignore()
+                a1.ignore()
                 return True
 
-        return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 # This causes the up / down keys to be ignored and proxied to another widget.
@@ -70,13 +70,13 @@ class BlockKeyUpDown(QObject):
         super().__init__(parent)
         self.proxy = proxy
 
-    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
-        if isinstance(event, QKeyEvent) and event.type() == QEvent.Type.KeyPress:
-            if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
-                QGuiApplication.sendEvent(self.proxy, event)
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
+        if isinstance(a1, QKeyEvent) and a1.type() == QEvent.Type.KeyPress:
+            if a1.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+                QGuiApplication.sendEvent(self.proxy, a1)
                 return True
 
-        return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class Thread(QThread):
@@ -254,13 +254,13 @@ class Menu(QMenu):
 
 
     # This causes it to not close the menu when clicking inside the menu.
-    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
-        if event is not None:
-            event.ignore()
+    def mouseReleaseEvent(self, a0: QMouseEvent | None) -> None:
+        if a0 is not None:
+            a0.ignore()
 
 
-    def showEvent(self, event: QShowEvent | None) -> None:
-        super().showEvent(event)
+    def showEvent(self, a0: QShowEvent | None) -> None:
+        super().showEvent(a0)
         self.refresh_size()
 
 
@@ -289,8 +289,8 @@ class ComboBox(QComboBox):
 
 
     # Resizes the dropdown automatically when it's displayed.
-    def showEvent(self, event: QShowEvent | None) -> None:
-        super().showEvent(event)
+    def showEvent(self, e: QShowEvent | None) -> None:
+        super().showEvent(e)
         self.resize_dropdown()
 
 
@@ -304,7 +304,7 @@ class ComboBox(QComboBox):
 
         for i in range(self.count()):
             icon = self.itemIcon(i)
-            if icon is not None and not icon.isNull():
+            if icon is not None and not icon.isNull(): # pyright: ignore[reportUnnecessaryComparison]
                 has_icon = True
 
         if not has_icon:
@@ -374,10 +374,10 @@ class BooleanSwitch(QWidget):
 
 
     # TODO this should be mouseClickEvent but it doesn't exist!
-    def mousePressEvent(self, event: QMouseEvent | None) -> None:
-        if event is not None and event.button() == Qt.MouseButton.LeftButton:
+    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
+        if a0 is not None and a0.button() == Qt.MouseButton.LeftButton:
             self.checkbox.setChecked(not self.checkbox.isChecked())
-        super().mousePressEvent(event)
+        super().mousePressEvent(a0)
 
 
 class Slider(QSlider):
@@ -604,6 +604,7 @@ class Layout:
         if stretch == 0:
             self.qlayout.addWidget(widget)
         else:
+            assert isinstance(self.qlayout, QBoxLayout)
             self.qlayout.addWidget(widget, stretch)
         self.widgets.append(widget)
         return Scope(widget)

@@ -5,9 +5,8 @@ from pathlib import Path
 from enum import Enum
 from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import NamedTuple, Self, Literal, Generator, Type, override
+from typing import NamedTuple, Self, Literal, Generator, Type, override, cast
 from json import (dumps, loads)
-import numpy as np
 from shared import JSON, round_to_multiple
 from shared.graph import ImageView, MaskView
 from . import clamp
@@ -310,7 +309,7 @@ class Mask:
     @staticmethod
     def from_packed_bytes(data: QByteArray, width: int, height: int) -> "Mask":
         stride = width
-        qimg = QImage(data, width, height, stride, QImage.Format.Format_Grayscale8)
+        qimg = QImage(cast(bytes, data), width, height, stride, QImage.Format.Format_Grayscale8)
         return Mask(qimg)
 
 
@@ -393,7 +392,7 @@ class Image:
         assert data.size() == (width * height) * 4
 
         stride = width * 4
-        qimage = QImage(data, width, height, stride, QImage.Format.Format_ARGB32)
+        qimage = QImage(cast(bytes, data), width, height, stride, QImage.Format.Format_ARGB32)
 
         # Krita uses BGR so we have to swap it to RGB
         if swap_rgb:
@@ -415,6 +414,7 @@ class Image:
 
     def bytes(self) -> QByteArray:
         ptr = self._qimage.constBits()
+        assert ptr is not None
         return QByteArray(ptr.asstring(self._qimage.sizeInBytes()))
 
 
