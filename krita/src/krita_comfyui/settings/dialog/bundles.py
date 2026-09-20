@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import functools
 from dataclasses import dataclass
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from collections.abc import Iterable
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QMenu, QToolButton, QWidget, QLineEdit, QTreeWidget, QTreeWidgetItem, QAbstractItemView, QHeaderView, QInputDialog
@@ -12,7 +12,9 @@ from ...util.krita import Image
 from ...workflow.ui import UiPrompt
 from ...util.storage import Storage, Dict
 from ...server import CivitaiInfo
-from ...extension import ComfyUIExtension
+
+if TYPE_CHECKING:
+    from ...extension import ComfyUIExtension
 
 
 @functools.total_ordering

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from collections.abc import Generator, Iterable
 from shared import JSON
-from ..extension import ComfyUIExtension
 from ..util.krita import Document
 from ..util.storage import Storage
 from .graph import WorkflowError
+
+if TYPE_CHECKING:
+    from ..extension import ComfyUIExtension
 
 
 # Loops recursively over all the children

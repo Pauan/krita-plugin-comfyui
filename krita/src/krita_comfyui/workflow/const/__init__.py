@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Literal, NoReturn, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast, overload
 from collections.abc import Callable, Sequence
 from shared import zip_lists
 from shared.graph import Graph, NodeOutputs as GraphNodeOutputs
-from ..graph import WorkflowGraph
+
+if TYPE_CHECKING:
+    from ..graph import WorkflowGraph
 
 
 def zip_dict(input: dict[str, Link]) -> list[dict[str, Any]]:

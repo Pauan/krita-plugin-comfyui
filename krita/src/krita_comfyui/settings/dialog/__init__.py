@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from PyQt6.QtCore import QUrl, QSize
 from PyQt6.QtGui import QDesktopServices, QGuiApplication, QCursor
 from PyQt6.QtWidgets import (
@@ -7,11 +7,13 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
 )
 
-from ...extension import ComfyUIExtension
 from ...util.qt import MessageBox, LayoutManager
 from ...util.storage import Storage
 from .. import Settings, Workflows
 from .bundles import SettingsBundles
+
+if TYPE_CHECKING:
+    from ...extension import ComfyUIExtension
 
 
 class SettingsPresets(QWidget):
