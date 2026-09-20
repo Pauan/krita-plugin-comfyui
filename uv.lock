@@ -125,7 +125,7 @@ local = [
 [package.metadata]
 requires-dist = [
     { name = "desktop-notifier", specifier = ">=6.2.0" },
-    { name = "numpy", specifier = ">=2.4.4" },
+    { name = "numpy", specifier = ">=2.5.3" },
     { name = "pillow", specifier = ">=12.3.0" },
     { name = "qimage2ndarray", specifier = ">=1.10.0" },
     { name = "simpleeval", specifier = ">=1.0.7" },
