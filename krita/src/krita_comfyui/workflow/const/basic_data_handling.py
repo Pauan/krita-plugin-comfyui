@@ -1,7 +1,7 @@
 # This module contains constant-evaluation versions of the nodes from
 # https://github.com/StableLlama/ComfyUI-basic_data_handling
 import math
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from . import ConstantNode, function, constant
 
 
@@ -314,15 +314,15 @@ class CastToInt(ConstantNode):
 class CastToList(ConstantNode):
     def run(self, input: Any) -> list[Any]:
         if isinstance(input, list):
-            return input
+            return cast(list[Any], input)
         return [input]
 
 @function()
 class CastToSet(ConstantNode):
     def run(self, input: Any) -> set[Any]:
         if isinstance(input, set):
-            return input
-        return {input,} if not isinstance(input, list) else set(input)
+            return cast(set[Any], input)
+        return {input,} if not isinstance(input, list) else set(cast(list[Any], input))
 
 @function()
 class CastToString(ConstantNode):

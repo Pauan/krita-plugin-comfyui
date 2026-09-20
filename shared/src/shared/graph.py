@@ -34,6 +34,9 @@ class ImageView:
     def __init__(self, ndarray: "npt.NDArray[np.generic]") -> None:
         self._view = ndarray
 
+    def ndarray(self) -> "npt.NDArray[np.generic]":
+        return self._view
+
     def width(self) -> int:
         return self._view.shape[1]
 
@@ -47,6 +50,9 @@ class ImageView:
 class MaskView:
     def __init__(self, ndarray: "npt.NDArray[np.generic]") -> None:
         self._view = ndarray
+
+    def ndarray(self) -> "npt.NDArray[np.generic]":
+        return self._view
 
     def width(self) -> int:
         return self._view.shape[1]

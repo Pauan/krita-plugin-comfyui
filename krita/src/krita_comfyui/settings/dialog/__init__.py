@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
 )
 
+from ...extension import ComfyUIExtension
 from ...util.qt import MessageBox, LayoutManager
 from ...util.storage import Storage
 from .. import Settings, Workflows

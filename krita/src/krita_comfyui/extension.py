@@ -1,6 +1,6 @@
 import contextlib
 from collections.abc import Generator
-from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension, Krita, Window
+from krita import Extension, Krita, Window
 from PyQt6.QtCore import pyqtSignal
 
 from .server import ComfyUIClient, GraphInfo

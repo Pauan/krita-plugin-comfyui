@@ -4,6 +4,7 @@ from typing import Any, Literal, NoReturn, cast, overload
 from collections.abc import Callable, Sequence
 from shared import zip_lists
 from shared.graph import Graph, NodeOutputs as GraphNodeOutputs
+from ..graph import WorkflowGraph
 
 
 def zip_dict(input: dict[str, Link]) -> list[dict[str, Any]]:
@@ -21,7 +22,11 @@ def zip_dict(input: dict[str, Link]) -> list[dict[str, Any]]:
 
 
 def is_link(value: Any) -> bool:
-    return isinstance(value, list) and len(value) == 2 and isinstance(value[0], str) and isinstance(value[1], int)
+    if not isinstance(value, list):
+        return False
+
+    items = cast(list[Any], value)
+    return len(items) == 2 and isinstance(items[0], str) and isinstance(items[1], int)
 
 
 class WorkflowError(RuntimeError):
@@ -442,7 +447,7 @@ def function(*,
             def iter_inputs(cls: ConstantNode, out: Any) -> Any:
                 return [[]]
 
-        elif all([(input.constant or input.allow_links) for name, input in inputs_list]):
+        elif all([(input.constant or input.allow_links) for _, input in inputs_list]):
             def iter_inputs(cls: ConstantNode, out: Any) -> Any:
                 values: list[Any] = []
 
@@ -494,8 +499,10 @@ def function(*,
                 return zip_inputs(values)
 
 
+        Outputs: type[Any]
+
         if outputs == 1:
-            class Outputs:
+            class SingleOutputs:
                 def __init__(self) -> None:
                     self.results: list[Any] = []
 
@@ -513,8 +520,10 @@ def function(*,
                         Link(self.results),
                     ])
 
+            Outputs = SingleOutputs
+
         else:
-            class Outputs:
+            class MultiOutputs:
                 def __init__(self) -> None:
                     self.links = [Link([]) for _ in range(0, outputs)]
 
@@ -535,6 +544,8 @@ def function(*,
 
                 def finalize(self) -> ConstantOutputs:
                     return ConstantOutputs(self.links)
+
+            Outputs = MultiOutputs
 
 
         class Function(cls):

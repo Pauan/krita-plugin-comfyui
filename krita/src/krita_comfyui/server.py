@@ -9,8 +9,6 @@ from enum import Enum, auto
 from typing import Any, ClassVar
 from collections.abc import Callable, Generator
 from pathlib import PurePath
-from shared import Perf
-from . import util
 from .settings import LogLevel, Settings
 from .util.krita import Document, Image
 from .workflow.graph import WorkflowGraph
@@ -52,11 +50,11 @@ class CivitaiInfo:
     name: str | None = None
     username: str | None = None
     category: str = "unknown"
-    tags: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list[str])
 
     model: str | None = None
     version_name: str | None = None
-    trigger_words: list[str] = field(default_factory=list)
+    trigger_words: list[str] = field(default_factory=list[str])
     file_url: str | None = None
     filename: str | None = None
 
@@ -746,6 +744,7 @@ class ComfyUIClient(QObject):
                     "prompt_id": prompt.prompt_id,
                 }
             )
+            assert prompt.body is not None
             self.http.post(request, QByteArray(prompt.body))
 
 
@@ -831,6 +830,8 @@ class ComfyUIClient(QObject):
         if prompt is not None and prompt.state.is_running():
             changed = False
 
+            assert prompt.progress is not None
+
             # These nodes have been cached, so they won't be re-executed.
             # But we still need to count them toward the total progress.
             for id in nodes:
@@ -846,6 +847,8 @@ class ComfyUIClient(QObject):
 
         # If the prompt hasn't been reset...
         if prompt is not None and prompt.state.is_running():
+            assert prompt.progress is not None
+
             changed = False
 
             for node in nodes.values():
@@ -1051,6 +1054,8 @@ class ComfyUIClient(QObject):
 
                                 self.settings.log_str(f"Saving file {pending.filename}", level=LogLevel.DEBUG)
 
+                                assert pending.filename is not None
+
                                 with open(folder / pending.filename, "xb") as file:
                                     file.write(data)
 
@@ -1066,6 +1071,10 @@ class ComfyUIClient(QObject):
                     self.civitai_finished.emit(pending)
 
 
+            case _:
+                pass
+
+
         reply.deleteLater()
 
 
@@ -1077,7 +1086,7 @@ class ComfyUIClient(QObject):
             self.connection_changed.emit(self.is_websocket_connected)
 
 
-    @pyqtSlot(result=bool)
+    @pyqtSlot(result=bool)  # pyright: ignore[reportArgumentType]
     def is_connected(self) -> bool:
         return self.is_websocket_connected
 
@@ -1098,7 +1107,7 @@ class ComfyUIClient(QObject):
         self.run_command.emit(run)
 
 
-    @pyqtSlot(result=list)
+    @pyqtSlot(result=list)  # pyright: ignore[reportArgumentType]
     def current_queue(self) -> list[GraphInfo]:
         return [prompt.graph_info() for prompt in self.queue]
 
@@ -1301,7 +1310,9 @@ class ComfyUIClient(QObject):
 
 
     def execute_graph(self, *, graph: dict[str, Any], ui_values: dict[str, Any], document: Document, is_live_mode: bool, should_notify: bool) -> None:
-        document_id = document.root_layer().id
+        root_layer = document.root_layer()
+        assert root_layer is not None
+        document_id = root_layer.id
 
         def evaluate_prompt() -> tuple[bool, Prompt]:
             self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)

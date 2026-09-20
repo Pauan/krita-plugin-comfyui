@@ -4,7 +4,6 @@ import time
 import contextlib
 from typing import Any, TypeAlias
 from collections.abc import Callable, Generator, Iterable
-from krita import DockWidget
 from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QSizePolicy,
@@ -19,11 +18,11 @@ from ..util.krita import ROOT_LAYER_ID, Document, DocumentManager
 from ..util.storage import PathDict
 from ..settings import Settings, Workflow as SettingsWorkflow
 from ..util.qt import Layout, LayoutManager, MessageBox, ComboBox, Menu, ScrollArea, BlockSignals
+from ..extension import ComfyUIExtension
 
 from . import Workflow
-from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiPrompt, UiGroup, UiRow, UiList, UiLabel, UiSeed
+from .ui import UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiPrompt, UiGroup, UiRow, UiList, UiLabel, UiSeed
 from .prompt import PromptParser
-from .graph import WorkflowGraph
 
 
 UiWidget: TypeAlias = UiCombo | UiLayerId | UiInt | UiFloat | UiBoolean | UiString | UiStringMultiline | UiPrompt | UiGroup | UiRow | UiList | UiLabel | UiSeed
@@ -422,7 +421,7 @@ class WorkflowWidget(QWidget):
                     widget.inputs.listeners.append(widget.inputs.value.add_listener(on_group_changed))
 
                 for child in info["children"]:
-                    self.add_widget(storage, widget.layout, child, default_stretch, on_group_changed, defaults)
+                    self.add_widget(storage, widget.content, child, default_stretch, on_group_changed, defaults)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -434,7 +433,7 @@ class WorkflowWidget(QWidget):
                 widget = UiRow.from_json(self.workflow, storage, defaults, info)
 
                 for child in info["children"]:
-                    self.add_widget(storage, widget.layout, child, default_stretch, on_group_changed, defaults)
+                    self.add_widget(storage, widget.content, child, default_stretch, on_group_changed, defaults)
 
                 self.ui_widgets.append(widget)
                 parent.widget(widget, stretch=info.get("stretch", default_stretch))
@@ -548,7 +547,7 @@ class WorkflowWidget(QWidget):
                     options.append({ "separator": True })
 
         for layer in self.document.layers:
-            if layer is None:
+            if layer is None:  # pyright: ignore[reportUnnecessaryComparison]
                 options.append({ "separator": True })
             else:
                 options.append({
@@ -639,7 +638,7 @@ class WorkflowWidget(QWidget):
                     else:
                         input = inputs.value
 
-                        if input is not None:
+                        if input is not None:  # pyright: ignore[reportUnnecessaryComparison]
                             key = input.key()
                             values = defaults.get(key, None)
 
@@ -680,7 +679,7 @@ class WorkflowWidget(QWidget):
                     else:
                         input = inputs.value
 
-                        if input is not None:
+                        if input is not None:  # pyright: ignore[reportUnnecessaryComparison]
                             info: dict[str, Any] = {
                                 "value": input.get(),
                                 "is_default": input.get() == input.default(),

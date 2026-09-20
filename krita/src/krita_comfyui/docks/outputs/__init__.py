@@ -166,9 +166,11 @@ class ComfyUIOutputWidget(DockWidget):
             texts.sort(key=lambda x: (x["order"], x["name"].casefold()))
 
             # The image group is sorted by the order.
-            images = [batch for _, batch in sorted(images.items(), key=lambda x: x[0])]
+            batches = [batch for _, batch in sorted(images.items(), key=lambda x: x[0])]
 
             for document in Document.all():
-                if document.root_layer().id == info.document_id:
-                    self._widget.new_images(document, images, info.is_live_mode)
+                root = document.root_layer()
+
+                if root is not None and root.id == info.document_id:
+                    self._widget.new_images(document, batches, info.is_live_mode)
                     self._widget.set_text(document, texts, info.is_live_mode)

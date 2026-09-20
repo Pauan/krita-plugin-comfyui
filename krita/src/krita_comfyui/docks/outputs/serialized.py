@@ -235,6 +235,8 @@ class SerializedImage:
             case "crop":
                 output.append("")
                 output.append("Will crop canvas")
+            case _:
+                pass
 
         if self.metadata["resize_other_layers"]:
             output.append("")
@@ -438,6 +440,7 @@ class SerializedImages:
 
         if bounds is not None:
             if resize_layers is not None:
+                assert resize_algorithm is not None
                 document.scale_to_bounds(bounds, resize_layers, resize_algorithm)
             else:
                 document.resize_to_bounds(bounds)
@@ -462,7 +465,9 @@ class SerializedImages:
                 serialized.metadata["x"] - bounds.x,
                 serialized.metadata["y"] - bounds.y,
             )
-            layer.move_to_top(document.root_layer())
+            root = document.root_layer()
+            assert root is not None
+            layer.move_to_top(root)
 
             #activeLayer = document.active_layer()
             #parent = activeLayer.parent
@@ -477,8 +482,6 @@ class SerializedImages:
         document.remove_preview_layer()
 
         bounds = cls.resize_image_bounds(document, images)
-
-        resolution = document.pixels_per_inch()
 
         for serialized in images:
             filename = directory + "/" + serialized.metadata["name"] + ".png"
@@ -498,6 +501,7 @@ class SerializedImages:
         bounds = cls.resize_image_bounds(document, images)
 
         active_layer = document.active_layer()
+        assert active_layer is not None
         parent = active_layer.parent
 
         for serialized in images:
@@ -539,7 +543,7 @@ class SerializedImages:
         # If we use remove_preview_layer then it causes the global selection mask to break.
         document.hide_preview_layer()
 
-        bounds, resize_layers, resize_algorithm = cls.get_image_bounds(document, images)
+        bounds, _, _ = cls.get_image_bounds(document, images)
 
         if bounds is None:
             bounds = document.bounds()
@@ -558,7 +562,10 @@ class SerializedImages:
             resolution,
         )
 
-        for layer in new_document.root_layer().all_children():
+        new_root = new_document.root_layer()
+        assert new_root is not None
+
+        for layer in new_root.all_children():
             layer.remove()
 
         for serialized in images:
@@ -569,4 +576,4 @@ class SerializedImages:
                 serialized.metadata["x"] - bounds.x,
                 serialized.metadata["y"] - bounds.y,
             )
-            new_document.root_layer().insert_child(layer, None)
+            new_root.insert_child(layer, None)

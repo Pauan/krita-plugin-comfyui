@@ -4,10 +4,10 @@ import json
 from typing import Any, cast
 from collections.abc import Generator, Iterable
 from shared import JSON
+from ..extension import ComfyUIExtension
 from ..util.krita import Document
 from ..util.storage import Storage
-from ..settings import LogLevel
-from .graph import WorkflowGraph, WorkflowError
+from .graph import WorkflowError
 
 
 # Loops recursively over all the children
@@ -152,7 +152,8 @@ class Workflow(Storage):
         if self.id == "" or self.document is None:
             serialized: dict[str, JSON] = {}
         else:
-            serialized = cast(dict[str, JSON], self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {}))
+            default: dict[str, JSON] = {}
+            serialized = cast(dict[str, JSON], self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", default))
 
         self.replace_serialized(serialized, save=False, notify_listeners=False)
 

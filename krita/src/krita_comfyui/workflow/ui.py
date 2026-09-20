@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import math
 from typing import Any, Protocol, TypeAlias, cast
-from collections.abc import Callable, Generator, Sequence
-from krita import SliderSpinBox, DoubleSliderSpinBox
-from PyQt6.QtCore import QAbstractItemModel, QSize, Qt, QTimer, QSortFilterProxyModel, QRegularExpression
-from PyQt6.QtGui import QAction, QTextCursor, QTextOption, QFontMetricsF, QKeyEvent, QWheelEvent
+from collections.abc import Callable, Generator
+from krita import DoubleSliderSpinBox
+from PyQt6.QtCore import QAbstractItemModel, Qt, QTimer, QSortFilterProxyModel, QRegularExpression
+from PyQt6.QtGui import QTextCursor, QTextOption, QFontMetricsF, QKeyEvent, QWheelEvent
 from PyQt6.QtWidgets import (
     QWidget,
     QFrame,
@@ -16,11 +16,12 @@ from PyQt6.QtWidgets import (
 )
 from shared import MIN_INTEGER, MAX_INTEGER, MIN_SEED, MAX_SEED
 from ..util.qt import MessageBox, BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel, BlockKeyUpDown
-from ..util import number_of_lines, lerp, normalize, clamp
+from ..util import number_of_lines, clamp
 from ..util.storage import Listener, PathDict, PathValue, List, Index
 from ..util.qt import Layout
 from ..settings import Settings
 from .graph import WorkflowGraph
+from . import Workflow
 
 
 JsonDict: TypeAlias = dict[str, Any]
@@ -488,7 +489,9 @@ class UiStringMultiline(QPlainTextEdit):
 
 
     def get_pixel_height(self, lines: int) -> int:
-        metrics = QFontMetricsF(self.document().defaultFont())
+        document = self.document()
+        assert document is not None
+        metrics = QFontMetricsF(document.defaultFont())
         return math.ceil(metrics.lineSpacing() * (lines + 1))
 
 
@@ -499,12 +502,10 @@ class UiStringMultiline(QPlainTextEdit):
 
 
     def keyPressEvent(self, e: QKeyEvent | None) -> None:
-        if e is not None:
-            match e.key():
-                # This prevents it from tabbing to the next widget.
-                case Qt.Key.Key_Tab:
-                    e.accept()
-                    return
+        # This prevents it from tabbing to the next widget.
+        if e is not None and e.key() == Qt.Key.Key_Tab:
+            e.accept()
+            return
 
         super().keyPressEvent(e)
 
@@ -530,7 +531,9 @@ class DanbooruCompleter(QCompleter):
 
         self.filter = BlockKeyUpDown(self, parent)
 
-        self.popup().installEventFilter(self.filter)
+        popup = self.popup()
+        assert popup is not None
+        popup.installEventFilter(self.filter)
 
         filtered_model = QSortFilterProxyModel(self)
         filtered_model.setDynamicSortFilter(False)
@@ -559,7 +562,9 @@ class BundlesCompleter(QCompleter):
 
         self.filter = BlockKeyUpDown(self, parent)
 
-        self.popup().installEventFilter(self.filter)
+        popup = self.popup()
+        assert popup is not None
+        popup.installEventFilter(self.filter)
 
         filtered_model = QSortFilterProxyModel(self)
         filtered_model.setDynamicSortFilter(False)
@@ -693,15 +698,28 @@ class UiPrompt(UiStringMultiline):
 
 
     def hide_completer(self) -> None:
-        if self.completer.popup().isVisible():
-            self.completer.popup().hide()
+        assert self.completer is not None
+
+        popup = self.completer.popup()
+        assert popup is not None
+
+        if popup.isVisible():
+            popup.hide()
 
         if self.completer.completionPrefix() != "":
             self.completer.setCompletionPrefix("")
 
 
     def show_completer(self, start: int) -> None:
-        popup_width = self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width()
+        assert self.completer is not None
+
+        popup = self.completer.popup()
+        assert popup is not None
+
+        scrollbar = popup.verticalScrollBar()
+        assert scrollbar is not None
+
+        popup_width = popup.sizeHintForColumn(0) + scrollbar.sizeHint().width()
 
         cursor = self.textCursor()
         cursor.setPosition(start)
@@ -758,7 +776,10 @@ class UiPrompt(UiStringMultiline):
             else:
                 if self.completer.completionPrefix() != prefix:
                     self.completer.setCompletionPrefix(prefix)
-                    self.completer.popup().setCurrentIndex(self.completer.completionModel().index(0, 0))
+                    popup = self.completer.popup()
+                    completion_model = self.completer.completionModel()
+                    assert popup is not None and completion_model is not None
+                    popup.setCurrentIndex(completion_model.index(0, 0))
 
                 self.show_completer(start)
 
@@ -769,6 +790,8 @@ class UiPrompt(UiStringMultiline):
 
             start, end = self.find_tag_boundary(text, self.textCursor())
             prefix = text[start:end]
+
+            assert self.timer is not None
 
             if self.should_hide_completer(prefix):
                 self.hide_completer()
@@ -795,16 +818,22 @@ class UiPrompt(UiStringMultiline):
                     return
 
                 case Qt.Key.Key_Tab:
-                    # If the completer is visible, let it handle Tab.
-                    if self.completer is not None and self.completer.popup().isVisible():
-                        e.ignore()
-                        return
+                    if self.completer is not None:
+                        popup = self.completer.popup()
 
-                    # If the completer is invisible, show the completer.
-                    else:
-                        self.maybe_show_completer()
-                        e.accept()
-                        return
+                        # If the completer is visible, let it handle Tab.
+                        if popup is not None and popup.isVisible():
+                            e.ignore()
+                            return
+
+                        # If the completer is invisible, show the completer.
+                        else:
+                            self.maybe_show_completer()
+                            e.accept()
+                            return
+
+                case _:
+                    pass
 
         super().keyPressEvent(e)
 
@@ -855,7 +884,7 @@ class UiGroup(QWidget):
                         column.set_padding(top=3, left=20)
                     else:
                         column.set_padding(top=3)
-                    self.layout = column
+                    self.content = column
 
         self.sync()
 
@@ -934,7 +963,7 @@ class UiRow(QWidget):
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.row() as row:
-            self.layout = row
+            self.content = row
 
 
     @staticmethod
@@ -1280,7 +1309,7 @@ class UiListChild(QFrame):
                         button.clicked.connect(self.remove)
 
             with row.column(stretch=1, align=Qt.AlignmentFlag.AlignTop) as column:
-                self.layout = column
+                self.content = column
 
 
     def update_buttons(self) -> None:
@@ -1319,7 +1348,7 @@ class UiList(QWidget):
         self.layout_manager = LayoutManager(self)
 
         with self.layout_manager.column() as column:
-            self.layout = column
+            self.content = column
 
 
     @staticmethod
@@ -1355,19 +1384,19 @@ class UiList(QWidget):
     def make_children(self) -> Generator[tuple[Index, Layout]]:
         for index in range(len(self.values.get())):
             if index == 0:
-                self.layout.spacer(2)
+                self.content.spacer(2)
             else:
-                self.layout.spacer(3)
+                self.content.spacer(3)
 
-            with self.layout.widget(UiListChild(self, index)) as child:
+            with self.content.widget(UiListChild(self, index)) as child:
                 self.children.append(child)
-                yield (self.values.index(index), child.layout)
+                yield (self.values.index(index), child.content)
 
         for child in self.children:
             child.update_buttons()
 
         if len(self.children) > 0:
-            self.layout.spacer(2)
+            self.content.spacer(2)
 
         if self.label is None:
             text = "Add"
@@ -1376,6 +1405,6 @@ class UiList(QWidget):
             text = f"Add {self.label}"
             tooltip = f"Add new {self.label}."
 
-        with self.layout.tool_button(icon=Krita.icon("list-add"), text=text, tooltip=tooltip) as button:
+        with self.content.tool_button(icon=Krita.icon("list-add"), text=text, tooltip=tooltip) as button:
             button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
             button.clicked.connect(self.add_child)

@@ -8,15 +8,13 @@ from PyQt6.QtWidgets import (
     QToolButton,
     QWidget,
 )
-from shared import MIN_SEED, MAX_SEED
 from ..extension import ComfyUIExtension
 from ..server import ComfyUIClient, GraphInfo, GraphState
 from ..settings import SettingsFile
 from ..util.krita import get_extension
 from ..util.qt import Menu, LayoutManager
 from ..workflow.widget import WorkflowWidget
-from ..workflow.ui import UiBoolean, UiInt
-from ..workflow.graph import WorkflowGraph
+from ..workflow.ui import UiBoolean
 
 
 class JobWidget(QWidget):
@@ -335,5 +333,5 @@ class ComfyUIInputWidget(DockWidget):
         self._inputs = InputsWidget()
         self.setWidget(self._inputs)
 
-    def canvasChanged(self, _canvas: Canvas) -> None:
+    def canvasChanged(self, canvas: Canvas) -> None:
         self._inputs.workflow.document.check_changes()

@@ -2,7 +2,7 @@ import os
 import contextlib
 import functools
 from enum import Enum
-from typing import Any, overload
+from typing import Any, cast, overload
 from collections.abc import Callable, Sequence
 from json import dump, dumps, load, loads
 from pathlib import Path
@@ -51,7 +51,7 @@ class Node:
                 metadata = Input()
 
                 if len(input) > 1:
-                    info = input[1]
+                    info: dict[str, Any] = input[1]
                 else:
                     info = {}
 
@@ -247,7 +247,7 @@ class Workflows(QObject):
         seen: set[str] = set()
         last_default = 0
 
-        for id in self.order.get():
+        for id in cast(list[str], self.order.get()):
             # Removes duplicate IDs.
             if not id in seen:
                 try:
@@ -263,7 +263,7 @@ class Workflows(QObject):
                     pass
 
         # Adds default workflows that aren't in the order.
-        for id in self.order.default():
+        for id in cast(list[str], self.order.default()):
             if not id in seen:
                 new_order.insert(last_default, id)
                 seen.add(id)
@@ -281,7 +281,7 @@ class Workflows(QObject):
             if not id in seen:
                 new_order.append(id)
 
-        self.order.set(new_order)
+        self.order.set(cast(list[JSON], new_order))
 
 
     def _get_file(self, id: str) -> dict[str, Any]:
@@ -292,7 +292,7 @@ class Workflows(QObject):
 
 
     def get_all(self) -> list[Workflow]:
-        return [self.get(id) for id in self.order.get()]
+        return [self.get(id) for id in cast(list[str], self.order.get())]
 
 
     def get(self, id: str) -> Workflow:
@@ -580,15 +580,15 @@ class Settings(QObject):
 
         self.logging_level = self.settings.root.value("logging_level", str)
 
-        self.thread = Thread(self)
+        self.worker_thread = Thread(self)
 
-        self.thread.move(self.node_metadata)
-        self.thread.started.connect(self.node_metadata.load)
+        self.worker_thread.move(self.node_metadata)
+        self.worker_thread.started.connect(self.node_metadata.load)
 
-        self.thread.move(self.danbooru_tags)
-        self.thread.started.connect(self.danbooru_tags.load)
+        self.worker_thread.move(self.danbooru_tags)
+        self.worker_thread.started.connect(self.danbooru_tags.load)
 
-        self.thread.start()
+        self.worker_thread.start()
 
 
     def with_selected_workflow[A](self, f: Callable[[Dict], PathValue[A]]) -> Map[str, A]:
@@ -596,13 +596,13 @@ class Settings(QObject):
 
 
     def cleanup(self) -> contextlib.AbstractContextManager[None]:
-        return self.thread.stop()
+        return self.worker_thread.stop()
 
 
     def clear_log(self) -> None:
         with Perf("clear_log"):
             # Deletes the log file
-            with open(self.dir / "debug.log", "w") as file:
+            with open(self.dir / "debug.log", "w"):
                 pass
 
     def log_str(self, str: str, *, level: LogLevel) -> None:
@@ -647,7 +647,7 @@ class Settings(QObject):
             self.settings.replace_serialized({})
             self.bundles.replace_serialized({})
             self.presets.replace_serialized({})
-            self.workflows.replace_serialized({})
+            self.workflows.clear()
         except:
             self.restore_snapshot(snapshot)
             raise

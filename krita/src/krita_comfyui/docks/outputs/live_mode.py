@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QPalette, QIcon, QAction, QMouseEvent, QResizeEvent
 from PyQt6.QtWidgets import (
@@ -35,11 +35,11 @@ class LiveModeImage(QLabel):
         self.image_menus: list[QAction] = []
 
         self.menu = QMenu(self)
-        self.image_menus.append(self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer))
-        self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Selected layer", self.apply_existing_layer))
-        self.image_menus.append(self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer)))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("paintLayer"), "Selected layer", self.apply_existing_layer)))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document)))
         self.menu.addSeparator()
-        self.image_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete", self.delete_all))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("deletelayer"), "Delete", self.delete_all)))
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
@@ -331,15 +331,15 @@ class LiveModeImage(QLabel):
         self.menu.exec(self.mapToGlobal(pos))
 
 
-    def resizeEvent(self, event: QResizeEvent | None) -> None:
+    def resizeEvent(self, a0: QResizeEvent | None) -> None:
         self.update_margins()
-        super().resizeEvent(event)
+        super().resizeEvent(a0)
 
 
-    def mousePressEvent(self, event: QMouseEvent | None) -> None:
-        super().mousePressEvent(event)
+    def mousePressEvent(self, ev: QMouseEvent | None) -> None:
+        super().mousePressEvent(ev)
 
-        if event is not None and event.buttons() == Qt.MouseButton.LeftButton:
+        if ev is not None and ev.buttons() == Qt.MouseButton.LeftButton:
             self.on_image_clicked()
 
 

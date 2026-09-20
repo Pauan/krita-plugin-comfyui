@@ -1,6 +1,4 @@
 import random
-import sys
-import math
 from typing import Any
 from collections.abc import Hashable
 from shared import MIN_SEED, MAX_SEED

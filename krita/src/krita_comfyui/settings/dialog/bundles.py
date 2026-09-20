@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import functools
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import cast
 from collections.abc import Iterable
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QMenu, QToolButton, QWidget, QLineEdit, QTreeWidget, QTreeWidgetItem, QAbstractItemView, QHeaderView, QInputDialog
@@ -12,7 +12,7 @@ from ...util.krita import Image
 from ...workflow.ui import UiPrompt
 from ...util.storage import Storage, Dict
 from ...server import CivitaiInfo
-from shared import Perf
+from ...extension import ComfyUIExtension
 
 
 @functools.total_ordering
@@ -85,11 +85,11 @@ class Tree:
 
     def clear(self) -> None:
         self.children = {}
-        self.tree.clear()
+        cast(QTreeWidget, self.tree).clear()
 
 
     def sort(self) -> None:
-        self.tree.sortItems(0, Qt.SortOrder.AscendingOrder)
+        cast(QTreeWidget, self.tree).sortItems(0, Qt.SortOrder.AscendingOrder)
 
 
     def filter(self, regex: re.Pattern[str]) -> None:
@@ -107,7 +107,7 @@ class Tree:
 
 
     def make_path(self, path: Iterable[str]) -> QTreeWidget | QTreeWidgetItem:
-        parent = self
+        parent: Tree = self
 
         for name in path:
             parent = parent.subfolder(name)
@@ -178,7 +178,7 @@ class BundleName(QWidget):
 
             row.spacer(6)
 
-            with row.label(text=text, tooltip="Bundle name", selectable=True) as label:
+            with row.label(text=text, tooltip="Bundle name", selectable=True):
                 pass
 
             row.stretch()
@@ -249,8 +249,10 @@ class SettingsBundles(QWidget):
                     tree.setColumnCount(1)
                     tree.setSortingEnabled(False)
                     tree.setHeaderHidden(True)
-                    tree.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-                    tree.header().setStretchLastSection(False)
+                    header = tree.header()
+                    assert header is not None
+                    header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+                    header.setStretchLastSection(False)
                     tree.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
                     tree.itemActivated.connect(self.on_item_clicked)
@@ -270,13 +272,13 @@ class SettingsBundles(QWidget):
         return re.sub(r"/{2,}", "/", re.sub(r"\s*/\s*", "/", name))
 
 
-    def make_parents(self, path: list[str]) -> Folder:
-        parent = Folder(self.tree, path[0])
-
-        for name in path[1:]:
-            parent = parent.make_child(name)
-
-        return parent
+    #def make_parents(self, path: list[str]) -> Folder:
+    #    parent = Folder(self.tree, path[0])
+    #
+    #    for name in path[1:]:
+    #        parent = parent.make_child(name)
+    #
+    #    return parent
 
 
     def update_bundle(self) -> None:
@@ -502,7 +504,7 @@ class SettingsBundles(QWidget):
             self.selected_bundle = None
         else:
             selected_item.setSelected(True)
-            self.tree.tree.scrollToItem(selected_item, QAbstractItemView.ScrollHint.EnsureVisible)
+            cast(QTreeWidget, self.tree.tree).scrollToItem(selected_item, QAbstractItemView.ScrollHint.EnsureVisible)
 
 
     def on_changed(self) -> None:

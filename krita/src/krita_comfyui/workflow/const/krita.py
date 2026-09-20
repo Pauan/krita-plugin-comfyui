@@ -20,7 +20,7 @@ def krita_ui(type: str, outputs: Sequence[str]) -> type[ConstantNode]:
     class KritaUi(ConstantNode):
         def run(self) -> ConstantOutputs:
             ids: list[str] = []
-            links = [UiLink([], ids) for _ in outputs]
+            links: list[Link] = [UiLink([], ids) for _ in outputs]
 
             for id in self.evaluate_input("id").values:
                 id = get_id(id)
@@ -168,6 +168,8 @@ class KritaLayers(ConstantNode):
                 layer = root_layer
             else:
                 layer = self.workflow.document.find_layer_by_id(layer_id)
+
+            assert root_layer is not None
 
             if layer is None:
                 self.error(f"Could not find layer {layer_id}")

@@ -3,13 +3,13 @@ import math
 import re
 import json
 import numpy
-from typing import Any
+from typing import Any, cast
 from collections.abc import Callable
 from PIL import Image
 from simpleeval import simple_eval
 from shared import zip_lists
 from shared.graph import ImageView, MaskView
-from . import ConstantNode, ConstantOutputs, InputValue, InputAutogrow, InputDynamicCombo, Link, function
+from . import ConstantNode, ConstantOutputs, InputAutogrow, InputDynamicCombo, Link, function
 
 
 class Primitive(ConstantNode):
@@ -131,7 +131,7 @@ def _safe_pow(base: Any, exp: Any) -> Any:
     """
     if abs(exp) > MAX_EXPONENT:
         raise ValueError(f"Exponent {exp} exceeds maximum allowed ({MAX_EXPONENT})")
-    return pow(base, exp)
+    return cast(Any, pow(base, exp))
 
 MATH_FUNCTIONS: dict[str, Callable[..., Any]] = {
     "sum": _variadic_sum,
@@ -341,7 +341,7 @@ class RegexExtract(ConstantNode):
 
             elif mode == "All Groups":
                 matches = re.finditer(regex_pattern, string, flags)
-                results = []
+                results: list[str] = []
                 for match in matches:
                     if match.groups() and len(match.groups()) >= group_index:
                         results.append(match.group(group_index))
@@ -374,9 +374,9 @@ class RegexReplace(ConstantNode):
 class JsonExtractString(ConstantNode):
     def run(self, json_string: str, key: str) -> str:
         try:
-            data = json.loads(json_string)
+            data: Any = json.loads(json_string)
             if isinstance(data, dict) and key in data:
-                value = data[key]
+                value: Any = cast(dict[str, Any], data)[key]
                 if value is None:
                     return ""
 
@@ -471,7 +471,7 @@ class ResizeImageMaskNode(ConstantNode):
 
 
     def resize_image(self, input: ImageView, new_width: int, new_height: int, sample_filter: Image.Resampling) -> ImageView:
-        image = Image.fromarray(input._view, "RGB")
+        image = Image.fromarray(input.ndarray(), "RGB")
 
         assert image.width == input.width()
         assert image.height == input.height()
@@ -481,7 +481,7 @@ class ResizeImageMaskNode(ConstantNode):
 
 
     def resize_mask(self, input: MaskView, new_width: int, new_height: int, sample_filter: Image.Resampling) -> MaskView:
-        image = Image.fromarray(input._view, "L")
+        image = Image.fromarray(input.ndarray(), "L")
 
         assert image.width == input.width()
         assert image.height == input.height()
@@ -534,6 +534,9 @@ class ResizeImageMaskNode(ConstantNode):
         elif selected_type == "scale to multiple":
             raise RuntimeError("TODO")
 
+        else:
+            raise RuntimeError(f"Unknown resize type {selected_type}")
+
 
         if new_width == old_width and new_height == old_height:
             return input
@@ -545,7 +548,7 @@ class ResizeImageMaskNode(ConstantNode):
                 if isinstance(input, ImageView):
                     return self.resize_image(input, new_width, new_height, sample_filter)
 
-                elif isinstance(input, MaskView):
+                else:
                     return self.resize_mask(input, new_width, new_height, sample_filter)
 
         return self.noop(input, resize_type, scale_method)

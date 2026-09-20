@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 from collections.abc import Generator
 from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QAction, QMouseEvent
@@ -47,13 +47,13 @@ class ImageWidget(QListWidget):
 
         self.menu = QMenu(self)
         #self.image_menus.append(self.menu.addSection("Apply images to..."))
-        self.image_menus.append(self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer))
-        self.image_menus.append(self.menu.addAction(Krita.icon("paintLayer"), "Selected layer", self.apply_existing_layer))
-        self.image_menus.append(self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document))
-        self.image_menus.append(self.menu.addAction(Krita.icon("document-save"), "Save image", self.save_image))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer)))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("paintLayer"), "Selected layer", self.apply_existing_layer)))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("window-new"), "New document", self.apply_new_document)))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("document-save"), "Save image", self.save_image)))
         self.menu.addSeparator()
-        self.image_menus.append(self.menu.addAction(Krita.icon("edit-clear"), "Delete selected", self.delete_selected))
-        self.all_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete all", self.delete_all))
+        self.image_menus.append(cast(QAction, self.menu.addAction(Krita.icon("edit-clear"), "Delete selected", self.delete_selected)))
+        self.all_menus.append(cast(QAction, self.menu.addAction(Krita.icon("deletelayer"), "Delete all", self.delete_all)))
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setResizeMode(QListView.ResizeMode.Adjust)
@@ -71,11 +71,11 @@ class ImageWidget(QListWidget):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
 
-        self.itemPressed.connect(self.item_pressed, type=Qt.ConnectionType.DirectConnection)
-        self.itemActivated.connect(self.item_clicked, type=Qt.ConnectionType.DirectConnection)
-        self.itemDoubleClicked.connect(self.item_double_clicked, type=Qt.ConnectionType.DirectConnection)
+        self.itemPressed.connect(self.item_pressed, type=Qt.ConnectionType.DirectConnection)  # pyright: ignore[reportCallIssue]
+        self.itemActivated.connect(self.item_clicked, type=Qt.ConnectionType.DirectConnection)  # pyright: ignore[reportCallIssue]
+        self.itemDoubleClicked.connect(self.item_double_clicked, type=Qt.ConnectionType.DirectConnection)  # pyright: ignore[reportCallIssue]
         # This forces itemSelectionChanged to trigger after itemPressed
-        self.itemSelectionChanged.connect(self.selection_changed, type=Qt.ConnectionType.QueuedConnection)
+        self.itemSelectionChanged.connect(self.selection_changed, type=Qt.ConnectionType.QueuedConnection)  # pyright: ignore[reportCallIssue]
 
         self.load_document()
 
@@ -102,7 +102,9 @@ class ImageWidget(QListWidget):
     def get_total_width(self) -> int:
         images = self.image_total_size() * self.number_of_images
 
-        scrollbar_width = self.verticalScrollBar().sizeHint().width()
+        scrollbar = self.verticalScrollBar()
+        assert scrollbar is not None
+        scrollbar_width = scrollbar.sizeHint().width()
 
         return scrollbar_width + images + 3
 
@@ -220,7 +222,7 @@ class ImageWidget(QListWidget):
         if x != 0 or y != 0:
             assert self.images is not None
 
-            for item, data in self.all_data():
+            for _, data in self.all_data():
                 self.images.get_image(data["uuid"]).update_position(document, x, y)
 
 
@@ -345,6 +347,7 @@ class ImageWidget(QListWidget):
 
             for i in reversed(range(self.count())):
                 item = self.item(i)
+                assert item is not None
 
                 data = item.data(Qt.ItemDataRole.UserRole)
 
@@ -408,6 +411,7 @@ class ImageWidget(QListWidget):
     def is_previous_single(self) -> bool:
         for i in reversed(range(self.count())):
             item = self.item(i)
+            assert item is not None
             data = item.data(Qt.ItemDataRole.UserRole)
 
             # We found a spacer, so stop searching

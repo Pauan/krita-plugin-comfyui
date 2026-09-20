@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QWidget,
 )
+from shared import JSON
 from ...util.krita import Document, DocumentManager
 from ...util.qt import MessageBox, LayoutManager
 
@@ -22,7 +23,7 @@ class TextWidget(QWidget):
         self.text_menus: list[QAction] = []
 
         self.menu = QMenu(self)
-        self.text_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete all texts", self.clear_text))
+        self.text_menus.append(cast(QAction, self.menu.addAction(Krita.icon("deletelayer"), "Delete all texts", self.clear_text)))
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
@@ -71,7 +72,7 @@ class TextWidget(QWidget):
         document = self.document.current()
 
         if document is not None:
-            texts = document.get_key_json("krita_comfyui/output_texts", [])
+            texts = cast(list[dict[str, Any]], document.get_key_json("krita_comfyui/output_texts", []))
         else:
             texts = []
 
@@ -110,7 +111,7 @@ class TextWidget(QWidget):
             if len(texts) == 0:
                 document.remove_key("krita_comfyui/output_texts")
             else:
-                document.set_key_json("krita_comfyui/output_texts", "krita_comfyui: Output Texts", texts)
+                document.set_key_json("krita_comfyui/output_texts", "krita_comfyui: Output Texts", cast(JSON, texts))
 
         if self.document.is_equal(document):
             self.display_text(texts)
