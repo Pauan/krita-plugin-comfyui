@@ -49,7 +49,7 @@ class LayerType(Enum):
     transform = "transformmask"
     colorize = "colorizemask"
 
-    def icon_name(self):
+    def icon_name(self) -> str:
         match self:
             case LayerType.empty: return ""
             case LayerType.paint: return "paintLayer"
@@ -65,14 +65,14 @@ class LayerType(Enum):
             case LayerType.transform: return "transformMask"
             case LayerType.colorize: return "colorizeMask"
 
-    def icon(self):
+    def icon(self) -> QIcon:
         return Krita.icon(self.icon_name())
 
-    def is_group(self):
+    def is_group(self) -> bool:
         return self in (LayerType.group,)
 
     # Layers that contain color pixel data
-    def is_image(self):
+    def is_image(self) -> bool:
         return self in (
             LayerType.paint,
             LayerType.vector,
@@ -83,11 +83,11 @@ class LayerType(Enum):
         )
 
     # Layers that contain alpha pixel data
-    def is_mask(self):
+    def is_mask(self) -> bool:
         return self in (LayerType.transparency, LayerType.selection)
 
     # Layers which modify their parent layer
-    def is_filter(self):
+    def is_filter(self) -> bool:
         return self in (
             LayerType.transparency,
             LayerType.selection,
@@ -257,10 +257,10 @@ class Bounds(NamedTuple):
 
 
 class HideModifications(AbstractContextManager[None]):
-    def __init__(self, document: krita.Document):
+    def __init__(self, document: krita.Document) -> None:
         self.document = document
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.modified = self.document.modified()
 
     def __exit__(
@@ -274,11 +274,11 @@ class HideModifications(AbstractContextManager[None]):
 
 
 class ActiveNode(AbstractContextManager[None]):
-    def __init__(self, document: krita.Document):
+    def __init__(self, document: krita.Document) -> None:
         self.document = document
 
     @override
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.active = self.document.activeNode()
 
     @override
@@ -296,7 +296,7 @@ class ActiveNode(AbstractContextManager[None]):
 class Mask:
     _qimage: QImage
 
-    def __init__(self, qimage: QImage):
+    def __init__(self, qimage: QImage) -> None:
         self._qimage = qimage
 
 
@@ -328,7 +328,7 @@ class Mask:
         return MaskView(qimage2ndarray.raw_view(self._qimage))
 
 
-    def check_format(self):
+    def check_format(self) -> None:
         assert self._qimage.format() == QImage.Format.Format_Grayscale8
 
 
@@ -344,7 +344,7 @@ class Mask:
 class Image:
     _qimage: QImage
 
-    def __init__(self, qimage: QImage):
+    def __init__(self, qimage: QImage) -> None:
         self._qimage = qimage
 
 
@@ -427,11 +427,11 @@ class Image:
         return MaskView(qimage2ndarray.alpha_view(self._qimage))
 
 
-    def has_alpha_pixels(self):
+    def has_alpha_pixels(self) -> bool:
         return not self.alpha_view().is_solid(0xFF)
 
 
-    def check_format(self):
+    def check_format(self) -> None:
         assert self._qimage.format() == QImage.Format.Format_ARGB32
 
 
@@ -451,7 +451,7 @@ class Image:
         return Image(scaled)
 
 
-    def save(self, filename: str, format: str, quality: int):
+    def save(self, filename: str, format: str, quality: int) -> None:
         if self.has_alpha_pixels():
             image = self._qimage
         else:
@@ -460,7 +460,7 @@ class Image:
         image.save(filename, format, quality)
 
 
-    def draw_image(self, image: Self, bounds: Bounds):
+    def draw_image(self, image: Self, bounds: Bounds) -> None:
         mode = QPainter.CompositionMode.CompositionMode_SourceOver
         painter = QPainter(self._qimage)
         painter.setCompositionMode(mode)
@@ -468,7 +468,7 @@ class Image:
         painter.end()
 
 
-    def draw_icon(self, icon: QIcon, bounds: Bounds, alignment: Qt.AlignmentFlag, state: QIcon.State):
+    def draw_icon(self, icon: QIcon, bounds: Bounds, alignment: Qt.AlignmentFlag, state: QIcon.State) -> None:
         mode = QPainter.CompositionMode.CompositionMode_SourceOver
         painter = QPainter(self._qimage)
         painter.setCompositionMode(mode)
@@ -491,7 +491,7 @@ class Image:
 class Layer:
     _node: krita.Node
 
-    def __init__(self, node: krita.Node):
+    def __init__(self, node: krita.Node) -> None:
         self._node = node
 
 
@@ -520,7 +520,7 @@ class Layer:
         return self._node.name()
 
     @name.setter
-    def name(self, value: str):
+    def name(self, value: str) -> None:
         if self.name != value:
             self._node.setName(value)
 
@@ -530,7 +530,7 @@ class Layer:
         return self._node.visible()
 
     @is_visible.setter
-    def is_visible(self, value: bool):
+    def is_visible(self, value: bool) -> None:
         if self.is_visible != value:
             self._node.setVisible(value)
 
@@ -540,7 +540,7 @@ class Layer:
         return self._node.locked()
 
     @is_locked.setter
-    def is_locked(self, value: bool):
+    def is_locked(self, value: bool) -> None:
         if self.is_locked != value:
             self._node.setLocked(value)
 
@@ -550,27 +550,27 @@ class Layer:
         return self._node.animated()
 
     @is_animated.setter
-    def is_animated(self, value: bool):
+    def is_animated(self, value: bool) -> None:
         if value and not self._node.animated():
             self._node.enableAnimation()
 
 
-    def merge_down(self):
+    def merge_down(self) -> None:
         self._node.mergeDown()
         self._node = None
 
 
-    def write_image(self, image: Image, x: int, y: int):
+    def write_image(self, image: Image, x: int, y: int) -> None:
         if not self._node.setPixelData(image.bytes(), x, y, image.width, image.height):
             raise RuntimeError("Writing image failed")
 
 
-    def replace_image(self, image: Image, x: int, y: int):
+    def replace_image(self, image: Image, x: int, y: int) -> None:
         self.write_image(image, x, y)
         self.crop(x, y, image.width, image.height)
 
 
-    def move_to_top(self, parent: Self):
+    def move_to_top(self, parent: Self) -> None:
         old_parent = self._node.parentNode()
 
         if old_parent != parent._node:
@@ -590,15 +590,15 @@ class Layer:
             parent._node.addChildNode(self._node, None)
 
 
-    def remove(self):
+    def remove(self) -> None:
         self._node.remove()
 
 
-    def crop(self, x: int, y: int, width: int, height: int):
+    def crop(self, x: int, y: int, width: int, height: int) -> None:
         self._node.cropNode(x, y, width, height)
 
 
-    def insert_child(self, child: Self, above: Self | None=None):
+    def insert_child(self, child: Self, above: Self | None=None) -> None:
         if above is None:
             self._node.addChildNode(child._node, None)
         else:
@@ -636,16 +636,16 @@ class Layer:
 class Selection:
     _selection: krita.Selection
 
-    def __init__(self, selection: krita.Selection):
+    def __init__(self, selection: krita.Selection) -> None:
         self._selection = selection
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Selection):
             return self._selection == other._selection
         else:
             return NotImplemented
 
-    def __ne__(self, other: object):
+    def __ne__(self, other: object) -> bool:
         if isinstance(other, Selection):
             return self._selection != other._selection
         else:
@@ -668,30 +668,30 @@ class Selection:
     def copy(self) -> "Selection":
         return Selection(self._selection.duplicate())
 
-    def add(self, other: Self):
+    def add(self, other: Self) -> None:
         self._selection.add(other._selection)
 
-    def subtract(self, other: Self):
+    def subtract(self, other: Self) -> None:
         self._selection.subtract(other._selection)
 
-    def intersect(self, other: Self):
+    def intersect(self, other: Self) -> None:
         self._selection.intersect(other._selection)
 
-    def invert(self):
+    def invert(self) -> None:
         self._selection.invert()
 
-    def smooth(self):
+    def smooth(self) -> None:
         self._selection.smooth()
 
-    def grow(self, horizontal: int, vertical: int):
+    def grow(self, horizontal: int, vertical: int) -> None:
         self._selection.grow(horizontal, vertical)
 
-    def shrink(self, horizontal: int, vertical: int):
+    def shrink(self, horizontal: int, vertical: int) -> None:
         # TODO investigate the edgeLock argument
         self._selection.shrink(horizontal, vertical, False)
 
 
-    def feather_outside(self, radius: int):
+    def feather_outside(self, radius: int) -> None:
         # Hack needed because Krita feathers both inside and outside the selection
         half_grow = round(radius / 2)
         self.grow(half_grow, half_grow)
@@ -703,18 +703,18 @@ class Selection:
         self._selection.feather(half_feather)
 
     # TODO this is off by 1 pixel when the radius is an odd number
-    def feather_inside(self, radius: int):
+    def feather_inside(self, radius: int) -> None:
         # Hack needed because Krita feathers both inside and outside the selection
         half = round(radius / 2)
         self.shrink(half, half)
         self._selection.feather(half)
 
-    def feather_both(self, radius: int):
+    def feather_both(self, radius: int) -> None:
         self._selection.feather(radius)
 
 
     # TODO this is off by 1 pixel
-    def border_outside(self, x: int, y: int):
+    def border_outside(self, x: int, y: int) -> None:
         # Hack needed because Krita borders both inside and outside the selection
         half_x = round(x / 2)
         half_y = round(y / 2)
@@ -722,7 +722,7 @@ class Selection:
         self._selection.border(half_x, half_y)
 
     # TODO this is off by 1 pixel
-    def border_inside(self, x: int, y: int):
+    def border_inside(self, x: int, y: int) -> None:
         # Hack needed because Krita borders both inside and outside the selection
         half_x = round(x / 2)
         half_y = round(y / 2)
@@ -730,7 +730,7 @@ class Selection:
         self._selection.border(half_x, half_y)
 
     # TODO this is off by 1 pixel
-    def border_both(self, x: int, y: int):
+    def border_both(self, x: int, y: int) -> None:
         self._selection.border(x, y)
 
 
@@ -745,7 +745,7 @@ class Selection:
 class Document:
     _document: krita.Document
 
-    def __init__(self, document: krita.Document):
+    def __init__(self, document: krita.Document) -> None:
         self._document = document
 
 
@@ -780,14 +780,14 @@ class Document:
         return new_document
 
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Document):
             return self._document == other._document
         else:
             return NotImplemented
 
 
-    def wait_for_done(self):
+    def wait_for_done(self) -> None:
         self._document.waitForDone()
 
 
@@ -800,7 +800,7 @@ class Document:
         return self._document.modified()
 
     @modified.setter
-    def modified(self, value: bool):
+    def modified(self, value: bool) -> None:
         self._document.setModified(value)
 
 
@@ -812,7 +812,7 @@ class Document:
     def all_keys(self) -> list[str]:
         return self._document.annotationTypes()
 
-    def remove_key(self, key: str):
+    def remove_key(self, key: str) -> None:
         self._document.removeAnnotation(key)
 
     def has_key(self, key: str) -> bool:
@@ -826,7 +826,7 @@ class Document:
             return value
         return default
 
-    def set_key_bytes(self, key: str, description: str, value: QByteArray):
+    def set_key_bytes(self, key: str, description: str, value: QByteArray) -> None:
         self._document.setAnnotation(key, description, value)
 
 
@@ -836,7 +836,7 @@ class Document:
             return value.data().decode("utf-8")
         return default
 
-    def set_key_str(self, key: str, description: str, value: str):
+    def set_key_str(self, key: str, description: str, value: str) -> None:
         self.set_key_bytes(key, description, QByteArray(value.encode("utf-8")))
 
 
@@ -846,7 +846,7 @@ class Document:
             return loads(value)
         return default
 
-    def set_key_json(self, key: str, description: str, json: JSON):
+    def set_key_json(self, key: str, description: str, json: JSON) -> None:
         self.set_key_str(key, description, dumps(json))
 
 
@@ -861,16 +861,16 @@ class Document:
             return Selection(selection)
 
 
-    def get_animation_length(self):
+    def get_animation_length(self) -> int:
         return self._document.animationLength()
 
 
-    def set_animation_frame(self, frame: int):
+    def set_animation_frame(self, frame: int) -> None:
         if self._document.currentTime() != frame:
             self._document.setCurrentTime(frame)
 
 
-    def refresh(self):
+    def refresh(self) -> None:
         self._document.refreshProjection()
 
 
@@ -943,7 +943,7 @@ class Document:
                 return layer
 
 
-    def resize_to_bounds(self, new_bounds: Bounds):
+    def resize_to_bounds(self, new_bounds: Bounds) -> None:
         if new_bounds != self.bounds():
             self._document.resizeImage(
                 new_bounds.x,
@@ -953,7 +953,7 @@ class Document:
             )
 
 
-    def scale_to_bounds(self, new_bounds: Bounds, scale_bounds: Bounds, scale_algorithm: str):
+    def scale_to_bounds(self, new_bounds: Bounds, scale_bounds: Bounds, scale_algorithm: str) -> None:
         current_bounds = self.bounds()
 
         if new_bounds != current_bounds:
@@ -977,7 +977,7 @@ class Document:
             )
 
 
-    def remove_preview_layer(self):
+    def remove_preview_layer(self) -> None:
         with self.disable_modification():
             layer = self.find_preview_layer()
 
@@ -988,7 +988,7 @@ class Document:
             self.remove_key("krita_comfyui/preview_layer")
 
 
-    def hide_preview_layer(self):
+    def hide_preview_layer(self) -> None:
         with self.disable_modification():
             layer = self.find_preview_layer()
 
@@ -1077,7 +1077,7 @@ class Document:
         return changed
 
 
-    def show_preview_layer(self, name: str, image: Image, x: int, y: int, canvas_resize: Literal["do nothing", "enlarge", "crop"]):
+    def show_preview_layer(self, name: str, image: Image, x: int, y: int, canvas_resize: Literal["do nothing", "enlarge", "crop"]) -> None:
         with self.disable_modification():
             with ActiveNode(self._document):
                 layer = self.find_preview_layer()
@@ -1104,13 +1104,13 @@ class Document:
 
 
 class LayerMetadata:
-    def __init__(self, id: str, name: str, type: LayerType, path: str):
+    def __init__(self, id: str, name: str, type: LayerType, path: str) -> None:
         self.id = id
         self.name = name
         self.type = type
         self.path = path
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, LayerMetadata):
             return self.id == other.id and self.name == other.name and self.type == other.type and self.path == other.path
         else:
@@ -1125,7 +1125,7 @@ class DocumentManager(QObject):
     layers_changed = pyqtSignal()
 
 
-    def __init__(self, parent: QObject):
+    def __init__(self, parent: QObject) -> None:
         super().__init__(parent)
 
         self._document: Document | None = None
@@ -1150,7 +1150,7 @@ class DocumentManager(QObject):
             root: Layer | None = document.root_layer()
 
             if root is not None:
-                def loop(node: Layer, path: list[str]):
+                def loop(node: Layer, path: list[str]) -> None:
                     for layer in node.children():
                         if layer.type.is_group() or layer.type.is_image():
                             child_path: list[str] = path + [layer.name]
@@ -1166,7 +1166,7 @@ class DocumentManager(QObject):
 
 
     @pyqtSlot()
-    def _update_layers(self, emit: bool=True):
+    def _update_layers(self, emit: bool=True) -> None:
         new_layers = self._get_all_layers()
 
         if self.layers != new_layers:
@@ -1185,14 +1185,14 @@ class DocumentManager(QObject):
             return False
 
 
-    def current(self):
+    def current(self) -> Document | None:
         document = Document.current()
 
         if self.is_equal(document):
             return self._document
 
 
-    def check_changes(self):
+    def check_changes(self) -> None:
         document = Document.current()
 
         if not self.is_equal(document):

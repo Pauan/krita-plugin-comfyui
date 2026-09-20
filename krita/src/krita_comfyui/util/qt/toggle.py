@@ -20,12 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from typing import Any
+
 from PyQt6.QtCore import (
     Qt, QSize, QPoint, QPointF, QRectF,
     QEasingCurve, QPropertyAnimation, QSequentialAnimationGroup,
-    pyqtProperty)
+    pyqtProperty)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownVariableType]
 
-from PyQt6.QtWidgets import QCheckBox, QSizePolicy
+from PyQt6.QtWidgets import QCheckBox, QSizePolicy, QWidget
 from PyQt6.QtGui import QColor, QBrush, QPaintEvent, QPen, QPainter
 
 
@@ -35,11 +37,11 @@ class Toggle(QCheckBox):
     _light_grey_pen = QPen(Qt.GlobalColor.lightGray)
 
     def __init__(self,
-        parent=None,
-        bar_color=Qt.GlobalColor.gray,
-        checked_color="#00B0FF",
-        handle_color=Qt.GlobalColor.white,
-        ):
+        parent: QWidget | None = None,
+        bar_color: Qt.GlobalColor | QColor = Qt.GlobalColor.gray,
+        checked_color: str = "#00B0FF",
+        handle_color: Qt.GlobalColor | QColor = Qt.GlobalColor.white,
+        ) -> None:
         super().__init__(parent)
 
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -55,17 +57,17 @@ class Toggle(QCheckBox):
         # Setup the rest of the widget.
 
         self.setContentsMargins(4, 0, 6, 0)
-        self._handle_position = 0
+        self._handle_position: float = 0
 
         self.stateChanged.connect(self.handle_state_change)
 
-    def sizeHint(self):
+    def sizeHint(self) -> QSize:
         return QSize(52, 32)
 
-    def hitButton(self, pos: QPoint):
+    def hitButton(self, pos: QPoint) -> bool:
         return self.contentsRect().contains(pos)
 
-    def paintEvent(self, e: QPaintEvent):
+    def paintEvent(self, e: QPaintEvent | None) -> None:
 
         contRect = self.contentsRect()
         height = contRect.height() - 10
@@ -105,15 +107,15 @@ class Toggle(QCheckBox):
 
         p.end()
 
-    def handle_state_change(self, value):
+    def handle_state_change(self, value: int) -> None:
         self._handle_position = 1 if value else 0
 
-    @pyqtProperty(int)
-    def handle_position(self):
+    @pyqtProperty(int)  # pyright: ignore[reportUntypedFunctionDecorator, reportUnknownVariableType]
+    def handle_position(self) -> float:  # pyright: ignore[reportRedeclaration]
         return self._handle_position
 
-    @handle_position.setter
-    def handle_position(self, pos):
+    @handle_position.setter  # pyright: ignore[reportFunctionMemberAccess]
+    def handle_position(self, pos: float) -> None:
         """change the property
         we need to trigger QWidget.update() method, either by:
             1- calling it here [ what we're doing ].
@@ -122,12 +124,12 @@ class Toggle(QCheckBox):
         self._handle_position = pos
         self.update()
 
-    @pyqtProperty(int)
-    def pulse_radius(self):
+    @pyqtProperty(int)  # pyright: ignore[reportUntypedFunctionDecorator, reportUnknownVariableType]
+    def pulse_radius(self) -> float:  # pyright: ignore[reportRedeclaration]
         return self._pulse_radius
 
-    @pulse_radius.setter
-    def pulse_radius(self, pos):
+    @pulse_radius.setter  # pyright: ignore[reportFunctionMemberAccess]
+    def pulse_radius(self, pos: float) -> None:
         self._pulse_radius = pos
         self.update()
 
@@ -137,10 +139,10 @@ class AnimatedToggle(Toggle):
     _transparent_pen = QPen(Qt.GlobalColor.transparent)
     _light_grey_pen = QPen(Qt.GlobalColor.lightGray)
 
-    def __init__(self, *args, pulse_unchecked_color="#44999999",
-        pulse_checked_color="#4400B0EE", **kwargs):
+    def __init__(self, *args: Any, pulse_unchecked_color: str = "#44999999",
+        pulse_checked_color: str = "#4400B0EE", **kwargs: Any) -> None:
 
-        self._pulse_radius = 0
+        self._pulse_radius: float = 0
 
         super().__init__(*args, **kwargs)
 
@@ -161,7 +163,7 @@ class AnimatedToggle(Toggle):
         self._pulse_checked_animation = QBrush(QColor(pulse_checked_color))
 
 
-    def handle_state_change(self, value):
+    def handle_state_change(self, value: int) -> None:
         self.animations_group.stop()
         if value:
             self.animation.setEndValue(1)
@@ -169,7 +171,7 @@ class AnimatedToggle(Toggle):
             self.animation.setEndValue(0)
         self.animations_group.start()
 
-    def paintEvent(self, e: QPaintEvent):
+    def paintEvent(self, e: QPaintEvent | None) -> None:
 
         contRect = self.contentsRect()
         handleRadius = round(0.24 * contRect.height())

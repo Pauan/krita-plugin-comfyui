@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 import re
 import contextlib
 import traceback
+import builtins
+from collections.abc import Generator, Sequence
+from types import TracebackType
+from typing import Protocol, cast
 from PyQt6.QtCore import QObject, QThread, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QGuiApplication
+from PyQt6.QtGui import QAction, QGuiApplication, QIcon, QKeyEvent, QWheelEvent, QShowEvent, QMouseEvent
 from PyQt6.QtWidgets import (
     QWidget,
     QMenu,
@@ -26,6 +32,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QCompleter,
     QStackedLayout,
+    QBoxLayout,
 )
 from .toggle import Toggle
 
@@ -38,15 +45,16 @@ RE_SPACE = re.compile(r" +")
     The string `foo bar qux` will match substring of `foo` followed by substring of `bar` followed by substring of `qux`.
 """
 class Completer(QCompleter):
-    def splitPath(self, path):
-        self.model().setFilterRegularExpression(r".*\b.*".join([QRegularExpression.escape(x) for x in re.split(RE_SPACE, path.strip())]))
+    def splitPath(self, path: str | None) -> list[str]:
+        model = cast(QSortFilterProxyModel, self.model())
+        model.setFilterRegularExpression(r".*\b.*".join([QRegularExpression.escape(x) for x in re.split(RE_SPACE, (path or "").strip())]))
         return []
 
 
 # This causes the mouse wheel event to be blocked, but only when Shift / Alt / Ctrl are not being pressed.
 class BlockMouseWheel(QObject):
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.Wheel:
+    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
+        if isinstance(event, QWheelEvent):
             modifiers = event.modifiers()
 
             if modifiers == Qt.KeyboardModifier.NoModifier:
@@ -58,33 +66,32 @@ class BlockMouseWheel(QObject):
 
 # This causes the up / down keys to be ignored and proxied to another widget.
 class BlockKeyUpDown(QObject):
-    def __init__(self, parent, proxy):
+    def __init__(self, parent: QObject | None, proxy: QObject) -> None:
         super().__init__(parent)
         self.proxy = proxy
 
-    def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.KeyPress:
-            match event.key():
-                case Qt.Key.Key_Up | Qt.Key.Key_Down:
-                    QGuiApplication.sendEvent(self.proxy, event)
-                    return True
+    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
+        if isinstance(event, QKeyEvent) and event.type() == QEvent.Type.KeyPress:
+            if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+                QGuiApplication.sendEvent(self.proxy, event)
+                return True
 
         return super().eventFilter(obj, event)
 
 
 class Thread(QThread):
-    def __init__(self, parent):
+    def __init__(self, parent: QObject | None) -> None:
         super().__init__(parent)
-        self.objects = []
+        self.objects: list[QObject] = []
 
 
-    def move(self, object):
+    def move(self, object: QObject) -> None:
         self.objects.append(object)
         object.moveToThread(self)
 
 
     @contextlib.contextmanager
-    def stop(self):
+    def stop(self) -> Generator[None]:
         try:
             for x in self.objects:
                 x.deleteLater()
@@ -99,7 +106,17 @@ class Thread(QThread):
 
 
 class MessageBox(QMessageBox):
-    def __init__(self, parent, *, text, icon=None, information=None, details=None, rich_text=False, buttons=[]):
+    def __init__(
+        self,
+        parent: QWidget | None,
+        *,
+        text: str,
+        icon: QMessageBox.Icon | None = None,
+        information: str | None = None,
+        details: str | None = None,
+        rich_text: bool = False,
+        buttons: Sequence[QMessageBox.StandardButton] = (),
+    ) -> None:
         super().__init__(parent)
 
         if rich_text:
@@ -135,13 +152,13 @@ class MessageBox(QMessageBox):
 
 
     @staticmethod
-    def question(parent, text):
+    def question(parent: QWidget | None, text: str) -> bool:  # pyright: ignore[reportIncompatibleMethodOverride]
         reply = QMessageBox.question(parent, "Krita Plugin ComfyUI", text)
         return reply == QMessageBox.StandardButton.Yes
 
 
     @staticmethod
-    def info(parent, *, text, information=None, details=None, rich_text=False):
+    def info(parent: QWidget | None, *, text: str, information: str | None = None, details: str | None = None, rich_text: bool = False) -> None:
         MessageBox(parent,
             icon=QMessageBox.Icon.Information,
             text=text,
@@ -153,7 +170,7 @@ class MessageBox(QMessageBox):
 
 
     @staticmethod
-    def error(parent, *, text, information=None, details=None, rich_text=False):
+    def error(parent: QWidget | None, *, text: str, information: str | None = None, details: str | None = None, rich_text: bool = False) -> None:
         MessageBox(parent,
             icon=QMessageBox.Icon.Critical,
             text=text,
@@ -165,7 +182,7 @@ class MessageBox(QMessageBox):
 
 
     @staticmethod
-    def from_exception(parent, exception):
+    def from_exception(parent: QWidget | None, exception: BaseException) -> None:
         MessageBox(parent,
             icon=QMessageBox.Icon.Critical,
             text=str(exception),
@@ -187,35 +204,48 @@ class MessageBox(QMessageBox):
 
 
 class ScrollArea(QScrollArea):
-    def sizeHint(self):
+    def sizeHint(self) -> QSize:
         frame = self.frameWidth() * 2
 
         if self.verticalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
-            width = self.verticalScrollBar().sizeHint().width()
+            vertical_scroll_bar = self.verticalScrollBar()
+            assert vertical_scroll_bar is not None
+            width = vertical_scroll_bar.sizeHint().width()
         else:
             width = 0
 
         if self.horizontalScrollBarPolicy() != Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
-            height = self.horizontalScrollBar().sizeHint().height()
+            horizontal_scroll_bar = self.horizontalScrollBar()
+            assert horizontal_scroll_bar is not None
+            height = horizontal_scroll_bar.sizeHint().height()
         else:
             height = 0
 
-        return QSize(frame, frame) + self.widget().sizeHint() + QSize(width, height)
+        widget = self.widget()
+        assert widget is not None
+
+        return QSize(frame, frame) + widget.sizeHint() + QSize(width, height)
+
+
+class MenuWidget(Protocol):
+    def on_menu_show(self) -> None: ...
+    def adjustSize(self) -> None: ...
+    def size(self) -> QSize: ...
 
 
 class Menu(QMenu):
-    def __init__(self, parent, widget):
+    def __init__(self, parent: QWidget | None, widget: MenuWidget) -> None:
         super().__init__(parent)
 
         self.widget = widget
 
         self.action = QWidgetAction(self)
-        self.action.setDefaultWidget(self.widget)
+        self.action.setDefaultWidget(cast(QWidget, self.widget))
         self.action.setMenuRole(QAction.MenuRole.NoRole)
         self.addAction(self.action)
 
 
-    def refresh_size(self):
+    def refresh_size(self) -> None:
         self.widget.on_menu_show()
         self.widget.adjustSize()
 
@@ -224,18 +254,19 @@ class Menu(QMenu):
 
 
     # This causes it to not close the menu when clicking inside the menu.
-    def mouseReleaseEvent(self, event):
-        event.ignore()
+    def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
+        if event is not None:
+            event.ignore()
 
 
-    def showEvent(self, event):
+    def showEvent(self, event: QShowEvent | None) -> None:
         super().showEvent(event)
         self.refresh_size()
 
 
 class ComboBox(QComboBox):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
 
         self.block_wheel = BlockMouseWheel(self)
         self.installEventFilter(self.block_wheel)
@@ -247,7 +278,9 @@ class ComboBox(QComboBox):
 
         model = QSortFilterProxyModel(self)
         model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        model.setSourceModel(self.completer().model())
+        completer = self.completer()
+        assert completer is not None
+        model.setSourceModel(completer.model())
 
         completer = Completer(model, self)
         completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
@@ -256,14 +289,15 @@ class ComboBox(QComboBox):
 
 
     # Resizes the dropdown automatically when it's displayed.
-    def showEvent(self, event):
+    def showEvent(self, event: QShowEvent | None) -> None:
         super().showEvent(event)
         self.resize_dropdown()
 
 
     # Resizes the dropdown so it fits all of the items
-    def resize_dropdown(self):
+    def resize_dropdown(self) -> None:
         view = self.view()
+        assert view is not None
 
         icon_size = max(0, self.iconSize().width())
         has_icon = False
@@ -278,15 +312,19 @@ class ComboBox(QComboBox):
 
         column_width = max(0, view.sizeHintForColumn(0))
 
-        scrollbar_width = max(0, view.verticalScrollBar().sizeHint().width())
+        vertical_scroll_bar = view.verticalScrollBar()
+        assert vertical_scroll_bar is not None
+
+        scrollbar_width = max(0, vertical_scroll_bar.sizeHint().width())
 
         view.setMinimumWidth(icon_size + column_width + scrollbar_width)
 
 
 class BooleanSwitch(QWidget):
     changed = pyqtSignal(Qt.CheckState)
+    checkbox: QCheckBox
 
-    def __init__(self, tooltip, label, style):
+    def __init__(self, tooltip: str, label: str | None, style: str) -> None:
         super().__init__()
 
         self.layout_manager = LayoutManager(self)
@@ -326,81 +364,81 @@ class BooleanSwitch(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
 
-    def isChecked(self):
+    def isChecked(self) -> bool:
         return self.checkbox.isChecked()
 
 
-    def setChecked(self, checked):
+    def setChecked(self, checked: bool) -> None:
         if self.checkbox.isChecked() != checked:
             self.checkbox.setChecked(checked)
 
 
     # TODO this should be mouseClickEvent but it doesn't exist!
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:
+        if event is not None and event.button() == Qt.MouseButton.LeftButton:
             self.checkbox.setChecked(not self.checkbox.isChecked())
         super().mousePressEvent(event)
 
 
 class Slider(QSlider):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
         self.block_wheel = BlockMouseWheel(self)
         self.installEventFilter(self.block_wheel)
 
 
 class SpinBox(QSpinBox):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
         self.block_wheel = BlockMouseWheel(self)
         self.installEventFilter(self.block_wheel)
 
 
 class DoubleSpinBox(QDoubleSpinBox):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
         self.block_wheel = BlockMouseWheel(self)
         self.installEventFilter(self.block_wheel)
 
 
 class BlockSignals:
-    def __init__(self, obj: QObject):
+    def __init__(self, obj: QObject) -> None:
         self.obj = obj
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.obj.blockSignals(True)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None) -> bool:
         self.obj.blockSignals(False)
         return False
 
 
-class Scope:
-    def __init__(self, value):
+class Scope[T]:
+    def __init__(self, value: T) -> None:
         self.value = value
 
-    def __enter__(self):
+    def __enter__(self) -> T:
         return self.value
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None) -> bool:
         return False
 
 
-def make_column():
+def make_column() -> Layout:
     qlayout = QVBoxLayout()
     qlayout.setSpacing(0)
     qlayout.setContentsMargins(0, 0, 0, 0)
     return Layout(qlayout)
 
 
-def make_row():
+def make_row() -> Layout:
     qlayout = QHBoxLayout()
     qlayout.setSpacing(0)
     qlayout.setContentsMargins(0, 0, 0, 0)
     return Layout(qlayout)
 
 
-def make_stack():
+def make_stack() -> Layout:
     qlayout = QStackedLayout()
     qlayout.setSpacing(0)
     qlayout.setContentsMargins(0, 0, 0, 0)
@@ -408,17 +446,17 @@ def make_stack():
 
 
 class Toolbar:
-    def __init__(self, qtoolbar):
+    def __init__(self, qtoolbar: QToolBar) -> None:
         self.qtoolbar = qtoolbar
 
 
-    def widget(self, widget):
+    def widget[W: QWidget](self, widget: W) -> Scope[W]:
         self.qtoolbar.addWidget(widget)
         return Scope(widget)
 
 
     # TODO code duplication with Layout
-    def tool_button(self, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
+    def tool_button(self, icon: QIcon | None = None, text: str | None = None, cursor: Qt.CursorShape | None = Qt.CursorShape.PointingHandCursor, tooltip: str | None = None) -> Scope[QToolButton]:
         widget = QToolButton()
 
         if icon is not None:
@@ -437,18 +475,20 @@ class Toolbar:
         return self.widget(widget)
 
 
-    def separator(self):
-        return Scope(self.qtoolbar.addSeparator())
+    def separator(self) -> Scope[QAction]:
+        action = self.qtoolbar.addSeparator()
+        assert action is not None
+        return Scope(action)
 
 
 class Layout:
-    def __init__(self, qlayout):
+    def __init__(self, qlayout: QBoxLayout | QStackedLayout) -> None:
         self.qlayout = qlayout
-        self.widgets = []
-        self.layouts = []
+        self.widgets: list[QWidget] = []
+        self.layouts: list[Layout] = []
 
 
-    def clear(self):
+    def clear(self) -> None:
         for layout in self.layouts:
             layout.clear()
 
@@ -458,11 +498,12 @@ class Layout:
             if len > 0:
                 item = self.qlayout.takeAt(len - 1)
 
-                widget = item.widget()
+                if item is not None:
+                    widget = item.widget()
 
-                if widget is not None:
-                    widget.setParent(None)
-                    widget.deleteLater()
+                    if widget is not None:
+                        widget.setParent(None)
+                        widget.deleteLater()
 
             else:
                 break
@@ -471,7 +512,7 @@ class Layout:
         self.layouts = []
 
 
-    def remove(self, widget):
+    def remove(self, widget: QWidget) -> bool:
         is_removed = False
 
         for layout in self.layouts:
@@ -490,26 +531,34 @@ class Layout:
         return True
 
 
-    def set_child_spacing(self, amount):
+    def set_child_spacing(self, amount: builtins.int) -> None:
         self.qlayout.setSpacing(amount)
 
-    def set_padding(self, left=0, top=0, right=0, bottom=0):
+    def set_padding(self, left: builtins.int = 0, top: builtins.int = 0, right: builtins.int = 0, bottom: builtins.int = 0) -> None:
         self.qlayout.setContentsMargins(left, top, right, bottom)
 
-    def set_current_index(self, index):
+    def set_current_index(self, index: builtins.int) -> None:
+        assert isinstance(self.qlayout, QStackedLayout)
         self.qlayout.setCurrentIndex(index)
 
-    def current_widget(self):
+    def current_widget(self) -> QWidget | None:
+        assert isinstance(self.qlayout, QStackedLayout)
         return self.qlayout.currentWidget()
 
 
-    def column(self, *, stretch=0, align=None):
+    def _add_layout(self, layout: Layout, stretch: builtins.int) -> None:
+        assert isinstance(self.qlayout, QBoxLayout)
+
+        if stretch == 0:
+            self.qlayout.addLayout(layout.qlayout)
+        else:
+            self.qlayout.addLayout(layout.qlayout, stretch)
+
+
+    def column(self, *, stretch: builtins.int = 0, align: Qt.AlignmentFlag | None = None) -> Scope[Layout]:
         layout = make_column()
 
-        if stretch == 0:
-            self.qlayout.addLayout(layout.qlayout)
-        else:
-            self.qlayout.addLayout(layout.qlayout, stretch)
+        self._add_layout(layout, stretch)
 
         if align is not None:
             assert self.qlayout.setAlignment(layout.qlayout, align)
@@ -518,13 +567,10 @@ class Layout:
         return Scope(layout)
 
 
-    def row(self, *, stretch=0, align=None):
+    def row(self, *, stretch: builtins.int = 0, align: Qt.AlignmentFlag | None = None) -> Scope[Layout]:
         layout = make_row()
 
-        if stretch == 0:
-            self.qlayout.addLayout(layout.qlayout)
-        else:
-            self.qlayout.addLayout(layout.qlayout, stretch)
+        self._add_layout(layout, stretch)
 
         if align is not None:
             assert self.qlayout.setAlignment(layout.qlayout, align)
@@ -533,13 +579,10 @@ class Layout:
         return Scope(layout)
 
 
-    def stack(self, *, stretch=0, align=None):
+    def stack(self, *, stretch: builtins.int = 0, align: Qt.AlignmentFlag | None = None) -> Scope[Layout]:
         layout = make_stack()
 
-        if stretch == 0:
-            self.qlayout.addLayout(layout.qlayout)
-        else:
-            self.qlayout.addLayout(layout.qlayout, stretch)
+        self._add_layout(layout, stretch)
 
         if align is not None:
             assert self.qlayout.setAlignment(layout.qlayout, align)
@@ -548,14 +591,16 @@ class Layout:
         return Scope(layout)
 
 
-    def stretch(self, stretch=1):
+    def stretch(self, stretch: builtins.int = 1) -> None:
+        assert isinstance(self.qlayout, QBoxLayout)
         self.qlayout.addStretch(stretch)
 
-    def spacer(self, amount):
+    def spacer(self, amount: builtins.int) -> None:
+        assert isinstance(self.qlayout, QBoxLayout)
         self.qlayout.addSpacing(amount)
 
 
-    def widget(self, widget, *, stretch=0):
+    def widget[W: QWidget](self, widget: W, *, stretch: builtins.int = 0) -> Scope[W]:
         if stretch == 0:
             self.qlayout.addWidget(widget)
         else:
@@ -564,11 +609,11 @@ class Layout:
         return Scope(widget)
 
 
-    def list(self):
+    def list(self) -> Scope[QListWidget]:
         return self.widget(QListWidget())
 
 
-    def button(self, *, stretch=0, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
+    def button(self, *, stretch: builtins.int = 0, icon: QIcon | None = None, text: str | None = None, cursor: Qt.CursorShape | None = Qt.CursorShape.PointingHandCursor, tooltip: str | None = None) -> Scope[QPushButton]:
         widget = QPushButton()
 
         if icon is not None:
@@ -586,7 +631,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def toolbar(self, *, stretch=0, orientation=Qt.Orientation.Horizontal, tooltip=None):
+    def toolbar(self, *, stretch: builtins.int = 0, orientation: Qt.Orientation = Qt.Orientation.Horizontal, tooltip: str | None = None) -> Scope[Toolbar]:
         widget = QToolBar()
 
         widget.setOrientation(orientation)
@@ -610,7 +655,7 @@ class Layout:
             return Scope(Toolbar(widget))
 
 
-    def tool_button(self, *, stretch=0, icon=None, text=None, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
+    def tool_button(self, *, stretch: builtins.int = 0, icon: QIcon | None = None, text: str | None = None, cursor: Qt.CursorShape | None = Qt.CursorShape.PointingHandCursor, tooltip: str | None = None) -> Scope[QToolButton]:
         widget = QToolButton()
 
         if icon is not None:
@@ -629,7 +674,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def progress_bar(self, *, stretch=0, minimum=None, maximum=None, tooltip=None):
+    def progress_bar(self, *, stretch: builtins.int = 0, minimum: builtins.int | None = None, maximum: builtins.int | None = None, tooltip: str | None = None) -> Scope[QProgressBar]:
         widget = QProgressBar()
 
         if minimum is not None:
@@ -644,7 +689,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def icon(self, icon, *, width, height, stretch=0, tooltip=None):
+    def icon(self, icon: QIcon | None, *, width: builtins.int, height: builtins.int, stretch: builtins.int = 0, tooltip: str | None = None) -> Scope[QLabel]:
         widget = QLabel()
 
         if icon is not None:
@@ -656,7 +701,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def label(self, *, stretch=0, text=None, selectable=False, tooltip=None):
+    def label(self, *, stretch: builtins.int = 0, text: str | None = None, selectable: bool = False, tooltip: str | None = None) -> Scope[QLabel]:
         widget = QLabel()
 
         if text is not None:
@@ -671,7 +716,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def combo_box(self, *, stretch=0, cursor=Qt.CursorShape.PointingHandCursor, tooltip=None):
+    def combo_box(self, *, stretch: builtins.int = 0, cursor: Qt.CursorShape | None = Qt.CursorShape.PointingHandCursor, tooltip: str | None = None) -> Scope[ComboBox]:
         widget = ComboBox()
 
         if tooltip is not None:
@@ -683,7 +728,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def slider(self, *, stretch=0, tooltip=None):
+    def slider(self, *, stretch: builtins.int = 0, tooltip: str | None = None) -> Scope[Slider]:
         widget = Slider()
 
         if tooltip is not None:
@@ -692,7 +737,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def int(self, *, stretch=0, tooltip=None):
+    def int(self, *, stretch: builtins.int = 0, tooltip: str | None = None) -> Scope[SpinBox]:
         widget = SpinBox()
 
         if tooltip is not None:
@@ -701,7 +746,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def float(self, *, stretch=0, tooltip=None):
+    def float(self, *, stretch: builtins.int = 0, tooltip: str | None = None) -> Scope[DoubleSpinBox]:
         widget = DoubleSpinBox()
 
         if tooltip is not None:
@@ -710,7 +755,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def group(self, *, stretch=0, title=None, align=None, flat=None, checkable=None, tooltip=None):
+    def group(self, *, stretch: builtins.int = 0, title: str | None = None, align: Qt.AlignmentFlag | None = None, flat: bool | None = None, checkable: bool | None = None, tooltip: str | None = None) -> Scope[QGroupBox]:
         widget = QGroupBox()
 
         if title is not None:
@@ -731,7 +776,7 @@ class Layout:
         return self.widget(widget, stretch=stretch)
 
 
-    def scroll(self, *, stretch=0, max_height=None):
+    def scroll(self, *, stretch: builtins.int = 0, max_height: builtins.int | None = None) -> Scope[QScrollArea]:
         widget = QScrollArea()
 
         widget.setWidgetResizable(True)
@@ -743,27 +788,27 @@ class Layout:
 
 
 class LayoutManager:
-    def __init__(self, parent):
+    def __init__(self, parent: QWidget) -> None:
         self.parent = parent
-        self.layout = None
+        self.layout: Layout | None = None
 
 
-    def column(self):
+    def column(self) -> Scope[Layout]:
         assert self.layout is None
-        self.layout = make_column()
-        self.parent.setLayout(self.layout.qlayout)
-        return Scope(self.layout)
+        layout = self.layout = make_column()
+        self.parent.setLayout(layout.qlayout)
+        return Scope(layout)
 
 
-    def row(self):
+    def row(self) -> Scope[Layout]:
         assert self.layout is None
-        self.layout = make_row()
-        self.parent.setLayout(self.layout.qlayout)
-        return Scope(self.layout)
+        layout = self.layout = make_row()
+        self.parent.setLayout(layout.qlayout)
+        return Scope(layout)
 
 
-    def stack(self):
+    def stack(self) -> Scope[Layout]:
         assert self.layout is None
-        self.layout = make_stack()
-        self.parent.setLayout(self.layout.qlayout)
-        return Scope(self.layout)
+        layout = self.layout = make_stack()
+        self.parent.setLayout(layout.qlayout)
+        return Scope(layout)

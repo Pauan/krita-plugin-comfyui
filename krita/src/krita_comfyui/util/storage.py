@@ -2,21 +2,21 @@ import json
 import contextlib
 from shared import JSON
 from typing import Protocol
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 
 
 class Listener(Protocol):
-    def stop(self):
+    def stop(self) -> None:
         ...
 
 
 class LeafListener(Listener):
-    def __init__(self, storage: "Storage", path: tuple[str | int, ...], receiver: Callable[[], None]):
+    def __init__(self, storage: "Storage", path: tuple[str | int, ...], receiver: Callable[[], None]) -> None:
         self._storage = storage
         self._path = path
         self._receiver = receiver
 
-    def stop(self):
+    def stop(self) -> None:
         self._storage.remove_listener(self._path, self._receiver)
 
 
@@ -32,7 +32,7 @@ class PathLeaf[A](Protocol):
         self._storage.add_listener(self._path, f)
         return LeafListener(self._storage, self._path, f)
 
-    def with_value(self, f: Callable[[A], None]):
+    def with_value(self, f: Callable[[A], None]) -> Listener:
         f(self.get())
         return self.add_listener(lambda: f(self.get()))
 
@@ -58,21 +58,21 @@ class Path[A](PathLeaf[A]):
     def _ensure_exists(self) -> A:
         ...
 
-    def _remove(self):
+    def _remove(self) -> None:
         ...
 
 
 class MapListener[A, B](Listener):
-    def __init__(self, map: "Map[A, B]", receiver: Callable[[], None]):
+    def __init__(self, map: "Map[A, B]", receiver: Callable[[], None]) -> None:
         self._map = map
         self._receiver = receiver
 
-    def stop(self):
+    def stop(self) -> None:
         self._map.remove_listener(self._receiver)
 
 
 class Map[A, B](PathValue[B]):
-    def __init__(self, storage: "Storage", parent: PathLeaf[A], map: Callable[[A], PathValue[B]]):
+    def __init__(self, storage: "Storage", parent: PathLeaf[A], map: Callable[[A], PathValue[B]]) -> None:
         self._storage = storage
         self._parent = parent
         self._map = map
@@ -86,7 +86,7 @@ class Map[A, B](PathValue[B]):
         self._parent_listener = parent.add_listener(self._update)
 
 
-    def stop(self):
+    def stop(self) -> None:
         self._parent_listener.stop()
 
         self._listeners.clear()
@@ -96,12 +96,12 @@ class Map[A, B](PathValue[B]):
             self._listener = None
 
 
-    def _emit(self):
+    def _emit(self) -> None:
         for listener in self._listeners:
             listener()
 
 
-    def _update(self):
+    def _update(self) -> None:
         self._value = self._map(self._parent.get())
         self._path = self._value._path
 
@@ -121,10 +121,10 @@ class Map[A, B](PathValue[B]):
     def get(self) -> B:
         return self._value.get()
 
-    def set(self, value: B):
+    def set(self, value: B) -> bool:
         return self._value.set(value)
 
-    def remove(self):
+    def remove(self) -> bool:
         return self._value.remove()
 
 
@@ -136,7 +136,7 @@ class Map[A, B](PathValue[B]):
         return MapListener(self, f)
 
 
-    def remove_listener(self, f: Callable[[], None]):
+    def remove_listener(self, f: Callable[[], None]) -> None:
         self._listeners.remove(f)
 
         if len(self._listeners) == 0:
@@ -159,7 +159,7 @@ class PathDict(Path[dict[str, JSON]]):
 class Root(PathDict):
     _path: tuple[str | int, ...] = tuple()
 
-    def __init__(self, storage: "Storage"):
+    def __init__(self, storage: "Storage") -> None:
         self._storage = storage
 
     def get(self) -> dict[str, JSON]:
@@ -168,12 +168,12 @@ class Root(PathDict):
     def _ensure_exists(self) -> dict[str, JSON]:
         return self._storage._serialized # pyright: ignore [reportPrivateUsage]
 
-    def _remove(self):
+    def _remove(self) -> None:
         assert len(self._storage._serialized) == 0 # pyright: ignore [reportPrivateUsage]
 
 
 class Dict(PathDict):
-    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, optional: bool):
+    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, optional: bool) -> None:
         self._storage = storage
         self._parent = parent
         self._key = key
@@ -216,7 +216,7 @@ class Dict(PathDict):
             return default
 
 
-    def _remove(self):
+    def _remove(self) -> None:
         parent = self._parent.get()
 
         try:
@@ -233,7 +233,7 @@ class Dict(PathDict):
 
 
 class List(Path[list[JSON]]):
-    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, optional: bool):
+    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, optional: bool) -> None:
         self._storage = storage
         self._parent = parent
         self._key = key
@@ -276,7 +276,7 @@ class List(Path[list[JSON]]):
             return default
 
 
-    def _remove(self):
+    def _remove(self) -> None:
         parent = self._parent.get()
 
         try:
@@ -292,13 +292,13 @@ class List(Path[list[JSON]]):
             self._parent._remove()
 
 
-    def append(self, value: dict[str, JSON]):
+    def append(self, value: dict[str, JSON]) -> None:
         list = self._ensure_exists()
         list.append(value)
         self._storage.on_changed(self._path)
 
 
-    def remove(self, index: int):
+    def remove(self, index: int) -> JSON:
         assert index >= 0
 
         list = self.get()
@@ -314,7 +314,7 @@ class List(Path[list[JSON]]):
         return value
 
 
-    def move(self, old_index: int, new_index: int):
+    def move(self, old_index: int, new_index: int) -> None:
         assert old_index != new_index
         assert old_index >= 0
         assert new_index >= 0
@@ -329,12 +329,12 @@ class List(Path[list[JSON]]):
         self._storage.on_changed(self._path)
 
 
-    def index(self, index: int):
+    def index(self, index: int) -> "Index":
         return Index(self._storage, self, index)
 
 
 class Index(PathDict):
-    def __init__(self, storage: "Storage", parent: Path[list[JSON]], index: int):
+    def __init__(self, storage: "Storage", parent: Path[list[JSON]], index: int) -> None:
         self._storage = storage
         self._parent = parent
         self._index = index
@@ -365,12 +365,12 @@ class Index(PathDict):
         return out
 
 
-    def _remove(self):
+    def _remove(self) -> None:
         pass
 
 
 class Value[A: JSON](PathValue[A]):
-    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, cls: type[A], default: A | None):
+    def __init__(self, storage: "Storage", parent: Path[dict[str, JSON]], key: str, cls: type[A], default: A | None) -> None:
         self._storage = storage
         self._parent = parent
         self._key = key
@@ -407,7 +407,7 @@ class Value[A: JSON](PathValue[A]):
             return self.default()
 
 
-    def set(self, value: A):
+    def set(self, value: A) -> bool:
         parent = self._parent._ensure_exists() # pyright: ignore [reportPrivateUsage]
 
         try:
@@ -422,7 +422,7 @@ class Value[A: JSON](PathValue[A]):
         return changed
 
 
-    def remove(self):
+    def remove(self) -> bool:
         parent = self._parent.get()
 
         try:
@@ -441,7 +441,7 @@ class Value[A: JSON](PathValue[A]):
 
 
 class SaveState:
-    def __init__(self):
+    def __init__(self) -> None:
         self.enabled = True
         self.delayed = False
         self.did_save = False
@@ -477,7 +477,7 @@ class SaveState:
 
 
 class Storage:
-    def __init__(self, serialized: dict[str, JSON]):
+    def __init__(self, serialized: dict[str, JSON]) -> None:
         self.root = Root(self)
 
         self._save_state = SaveState()
@@ -489,17 +489,17 @@ class Storage:
     def _get_default[A](self, key: str) -> JSON:
         raise ValueError("default must be provided")
 
-    def _save(self):
+    def _save(self) -> None:
         pass
 
 
-    def save(self):
+    def save(self) -> None:
         if self._save_state.try_save():
             self._save()
 
 
     @contextlib.contextmanager
-    def delay_save(self):
+    def delay_save(self) -> Generator[None]:
         delayed = self._save_state.start_delay()
         try:
             yield
@@ -508,7 +508,7 @@ class Storage:
                 self.save()
 
 
-    def replace_serialized(self, new_serialized: dict[str, JSON], *, save: bool=True, notify_listeners: bool=True):
+    def replace_serialized(self, new_serialized: dict[str, JSON], *, save: bool=True, notify_listeners: bool=True) -> bool:
         if self._serialized != new_serialized:
             self._serialized = new_serialized
 
@@ -533,7 +533,7 @@ class Storage:
         return self.replace_serialized(snapshot, save=save, notify_listeners=notify_listeners)
 
 
-    def on_changed(self, path: tuple[str | int, ...]):
+    def on_changed(self, path: tuple[str | int, ...]) -> None:
         self.save()
 
         try:
@@ -545,7 +545,7 @@ class Storage:
             listener()
 
 
-    def add_listener(self, path: tuple[str | int, ...], f: Callable[[], None]):
+    def add_listener(self, path: tuple[str | int, ...], f: Callable[[], None]) -> None:
         try:
             listeners = self._listeners[path]
         except KeyError:
@@ -554,7 +554,7 @@ class Storage:
         listeners.append(f)
 
 
-    def remove_listener(self, path: tuple[str | int, ...], f: Callable[[], None]):
+    def remove_listener(self, path: tuple[str | int, ...], f: Callable[[], None]) -> None:
         try:
             listeners = self._listeners[path]
         except KeyError:

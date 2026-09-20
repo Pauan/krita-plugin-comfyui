@@ -1,4 +1,5 @@
 import re
+from collections.abc import Sequence
 
 
 NEWLINE = re.compile(r"(?:\r\n|\r|\n)")
@@ -7,7 +8,7 @@ def number_of_lines(text: str) -> int:
     return len(list(re.finditer(NEWLINE, text))) + 1
 
 
-def number_of_decimals[A](number: int, default: A=None) -> int | A:
+def number_of_decimals[A](number: int | float, default: A = None) -> int | A:
     decimals = str(number)[::-1].find(".")
 
     if decimals == -1:
@@ -30,13 +31,13 @@ def normalize(value: float, min: float, max: float) -> float:
     return (value - min) / (max - min)
 
 
-def average(values):
+def average(values: Sequence[float]) -> float:
     return sum(values) / len(values)
 
 
-def normalize_mean(values, average, min, max, scale):
+def normalize_mean(values: Sequence[float], average: float, min: float, max: float, scale: float) -> list[float]:
     if min == max:
-        return [1.0 for x in values]
+        return [1.0 for _ in values]
 
     else:
         stddev = max - min

@@ -3,7 +3,7 @@ import asyncio
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 
-async def notify(notifier: desktop_notifier.DesktopNotifier, message: str):
+async def notify(notifier: desktop_notifier.DesktopNotifier, message: str) -> None:
     await notifier.send(
         title="Krita ComfyUI",
         message=message,
@@ -14,16 +14,16 @@ async def notify(notifier: desktop_notifier.DesktopNotifier, message: str):
 class NotifyWorker(QObject):
     message = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-        self.notifier = None
+        self.notifier: desktop_notifier.DesktopNotifier | None = None
         self.message.connect(self.on_message)
 
-        self.event_loop = None
+        self.event_loop: asyncio.AbstractEventLoop | None = None
 
     @pyqtSlot(str)
-    def on_message(self, message: str):
+    def on_message(self, message: str) -> None:
         if self.event_loop is None:
             self.event_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.event_loop)
