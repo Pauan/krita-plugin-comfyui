@@ -1,0 +1,15 @@
+{
+    "name": "Krita Plugin ComfyUI",
+    "image": "mcr.microsoft.com/devcontainers/python:3-3.14-trixie",
+    "features": {
+        "ghcr.io/va-h/devcontainers-features/uv:1": {},
+        "ghcr.io/devcontainers/features/node:2.1.0": {},
+        "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    },
+    /*"mounts": [
+        "source=claude-code-config,target=/home/vscode/.claude,type=volume"
+    ],
+    "containerEnv": {
+        "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+    }*/
+}
