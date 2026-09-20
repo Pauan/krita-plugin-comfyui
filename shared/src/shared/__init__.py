@@ -78,7 +78,7 @@ def divide_duration(duration: int, amount: int) -> tuple[int, int]:
 
 
 class Duration:
-    def __init__(self, nanoseconds: int):
+    def __init__(self, nanoseconds: int) -> None:
         nanoseconds, milliseconds = divide_duration(nanoseconds, 1000000)
         milliseconds, seconds = divide_duration(milliseconds, 1000)
         seconds, minutes = divide_duration(seconds, 60)
@@ -186,18 +186,18 @@ def detail_size(width: int, height: int, resize_type: ResizeType, round_up: int,
 
 
 class Perf(AbstractContextManager[None]):
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
 
-    def done(self):
+    def done(self) -> None:
         end = time.perf_counter_ns()
         diff = float(end - self.start) / 1000000.0
         print(f"{self.name} took {diff} ms")
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.start = time.perf_counter_ns()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> None:
         self.start = time.perf_counter_ns()
 
     def __exit__(

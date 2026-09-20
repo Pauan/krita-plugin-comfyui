@@ -1,5 +1,8 @@
 import math
 import base64
+import numpy as np
+import numpy.typing as npt
+from collections.abc import Mapping
 from typing import TypeAlias, TypedDict, Protocol
 
 
@@ -7,7 +10,7 @@ class Image(Protocol):
     width: int
     height: int
 
-    def check_format(self):
+    def check_format(self) -> None:
         ...
 
     def to_base64(self) -> str:
@@ -28,7 +31,7 @@ class Node(TypedDict):
 
 
 class ImageView:
-    def __init__(self, ndarray):
+    def __init__(self, ndarray: "npt.NDArray[np.generic]") -> None:
         self._view = ndarray
 
     def width(self) -> int:
@@ -42,7 +45,7 @@ class ImageView:
 
 
 class MaskView:
-    def __init__(self, ndarray):
+    def __init__(self, ndarray: "npt.NDArray[np.generic]") -> None:
         self._view = ndarray
 
     def width(self) -> int:
@@ -56,11 +59,11 @@ class MaskView:
 
     def is_solid(self, value: int) -> bool:
         import numpy
-        return numpy.all(self._view == value)
+        return bool(numpy.all(self._view == value))
 
 
 class NodeOutputs:
-    def __init__(self, id: str):
+    def __init__(self, id: str) -> None:
         self.id = id
 
     def out(self, index: int) -> NodeLink:
@@ -68,10 +71,10 @@ class NodeOutputs:
 
 
 class Graph:
-    def __init__(self):
+    def __init__(self) -> None:
         self.node_id = 0
-        self.cached_images = {}
-        self.cached_masks = {}
+        self.cached_images: dict[tuple[str, int, int], NodeLink] = {}
+        self.cached_masks: dict[tuple[str, int, int], NodeLink] = {}
         self.nodes: dict[str, Node] = {}
 
 
@@ -144,10 +147,10 @@ class Graph:
         return self.node("krita_comfyui: ThrowError", message=message).out(0)
 
 
-    def dynamic_combo(self, prefix, dict):
-        output = {}
+    def dynamic_combo(self, prefix: str, values: Mapping[str, NodeInput]) -> dict[str, NodeInput]:
+        output: dict[str, NodeInput] = {}
 
-        for key, value in dict.items():
+        for key, value in values.items():
             if key == prefix:
                 output[key] = value
             else:
@@ -209,7 +212,7 @@ def graph_list(graph: Graph, items: list[NodeInput]) -> NodeInput:
     inputs: dict[str, NodeInput] = {}
 
     # We pad the numbers so that they are sorted correctly
-    padding = digits(max(0, len(items) - 1))
+    #padding = digits(max(0, len(items) - 1))
 
     for i, value in enumerate(items):
         inputs["inputs.input" + str(i)] = value
