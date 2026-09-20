@@ -3,6 +3,8 @@ import math
 import re
 import json
 import numpy
+from typing import Any
+from collections.abc import Callable
 from PIL import Image
 from simpleeval import simple_eval
 from shared import zip_lists
@@ -11,14 +13,14 @@ from . import ConstantNode, ConstantOutputs, InputValue, InputAutogrow, InputDyn
 
 
 class Primitive(ConstantNode):
-    def run(self):
+    def run(self) -> ConstantOutputs:
         return ConstantOutputs([
             self.evaluate_input("value"),
         ])
 
 
 class Switch(ConstantNode):
-    def run(self):
+    def run(self) -> ConstantOutputs:
         switch = self.evaluate_input("switch")
 
         all_true, all_false = switch.check_booleans()
@@ -34,7 +36,7 @@ class Switch(ConstantNode):
             ])
 
         else:
-            outputs = []
+            outputs: list[Any] = []
 
             # Even though we don't know which branch to take,
             # we can still constant-evaluate the branches.
@@ -64,7 +66,7 @@ class Switch(ConstantNode):
 
 
 class Default(ConstantNode):
-    def run(self):
+    def run(self) -> ConstantOutputs:
         input = self.evaluate_input("input")
 
         if len(input.values) == 0:
@@ -74,8 +76,8 @@ class Default(ConstantNode):
 
 
 class CreateList(ConstantNode):
-    def run(self):
-        outputs = []
+    def run(self) -> ConstantOutputs:
+        outputs: list[Any] = []
 
         for value in self.inputs.values():
             outputs.extend(self.workflow.evaluate_link(value).values)
@@ -86,7 +88,7 @@ class CreateList(ConstantNode):
 
 
 class ConditioningAverage(ConstantNode):
-    def run(self):
+    def run(self) -> ConstantOutputs:
         strength = self.evaluate_input("conditioning_to_strength")
 
         all_zero, all_one = strength.check_percentage()
@@ -115,13 +117,13 @@ class ConditioningAverage(ConstantNode):
 
 MAX_EXPONENT = 4000
 
-def _variadic_sum(*args):
+def _variadic_sum(*args: Any) -> Any:
     """Support both sum(values) and sum(a, b, c)."""
     if len(args) == 1 and hasattr(args[0], "__iter__"):
         return sum(args[0])
     return sum(args)
 
-def _safe_pow(base, exp):
+def _safe_pow(base: Any, exp: Any) -> Any:
     """Wrap pow() with an exponent cap to prevent DoS via huge exponents.
 
     The ** operator is already guarded by simpleeval's safe_power, but
@@ -131,7 +133,7 @@ def _safe_pow(base, exp):
         raise ValueError(f"Exponent {exp} exceeds maximum allowed ({MAX_EXPONENT})")
     return pow(base, exp)
 
-MATH_FUNCTIONS = {
+MATH_FUNCTIONS: dict[str, Callable[..., Any]] = {
     "sum": _variadic_sum,
     "min": min,
     "max": max,
@@ -158,11 +160,11 @@ MATH_FUNCTIONS = {
     outputs=3,
 )
 class MathExpression(ConstantNode):
-    def run(self, expression, values):
+    def run(self, expression: str, values: dict[str, Any]) -> tuple[float, int, bool]:
         if not expression.strip():
             raise ValueError("Expression cannot be empty.")
 
-        context: dict = dict(values)
+        context: dict[str, Any] = dict(values)
         context["values"] = list(values.values())
 
         result = simple_eval(expression, names=context, functions=MATH_FUNCTIONS)
@@ -181,7 +183,7 @@ class MathExpression(ConstantNode):
 
 @function()
 class BoundingBox(ConstantNode):
-    def run(self, x, y, width, height):
+    def run(self, x: int, y: int, width: int, height: int) -> dict[str, int]:
         return { "x": x, "y": y, "width": width, "height": height }
 
 
@@ -191,31 +193,31 @@ class BoundingBox(ConstantNode):
     },
 )
 class StringFormat(ConstantNode):
-    def run(self, f_string, values):
+    def run(self, f_string: str, values: dict[str, Any]) -> str:
         return f_string.format(**values)
 
 
 @function()
 class StringConcatenate(ConstantNode):
-    def run(self, string_a, string_b, delimiter):
+    def run(self, string_a: str, string_b: str, delimiter: str) -> str:
         return delimiter.join((string_a, string_b))
 
 
 @function()
 class StringSubstring(ConstantNode):
-    def run(self, string, start, end):
+    def run(self, string: str, start: int, end: int) -> str:
         return string[start:end]
 
 
 @function()
 class StringLength(ConstantNode):
-    def run(self, string):
+    def run(self, string: str) -> int:
         return len(string)
 
 
 @function()
 class CaseConverter(ConstantNode):
-    def run(self, string, mode):
+    def run(self, string: str, mode: str) -> str:
         if mode == "UPPERCASE":
             result = string.upper()
         elif mode == "lowercase":
@@ -231,7 +233,7 @@ class CaseConverter(ConstantNode):
 
 @function()
 class StringTrim(ConstantNode):
-    def run(self, string, mode):
+    def run(self, string: str, mode: str) -> str:
         if mode == "Both":
             result = string.strip()
         elif mode == "Left":
@@ -245,13 +247,13 @@ class StringTrim(ConstantNode):
 
 @function()
 class StringReplace(ConstantNode):
-    def run(self, string, find, replace):
+    def run(self, string: str, find: str, replace: str) -> str:
         return string.replace(find, replace)
 
 
 @function()
 class StringContains(ConstantNode):
-    def run(self, string, substring, case_sensitive):
+    def run(self, string: str, substring: str, case_sensitive: bool) -> bool:
         if case_sensitive:
             contains = substring in string
         else:
@@ -261,7 +263,7 @@ class StringContains(ConstantNode):
 
 @function()
 class StringCompare(ConstantNode):
-    def run(self, string_a, string_b, mode, case_sensitive):
+    def run(self, string_a: str, string_b: str, mode: str, case_sensitive: bool) -> bool | None:
         if case_sensitive:
             a = string_a
             b = string_b
@@ -279,7 +281,7 @@ class StringCompare(ConstantNode):
 
 @function()
 class RegexMatch(ConstantNode):
-    def run(self, string, regex_pattern, case_insensitive, multiline, dotall):
+    def run(self, string: str, regex_pattern: str, case_insensitive: bool, multiline: bool, dotall: bool) -> bool:
         flags = 0
 
         if case_insensitive:
@@ -301,7 +303,7 @@ class RegexMatch(ConstantNode):
 
 @function()
 class RegexExtract(ConstantNode):
-    def run(self, string, regex_pattern, mode, case_insensitive, multiline, dotall, group_index):
+    def run(self, string: str, regex_pattern: str, mode: str, case_insensitive: bool, multiline: bool, dotall: bool, group_index: int) -> str:
         join_delimiter = "\n"
 
         flags = 0
@@ -355,7 +357,7 @@ class RegexExtract(ConstantNode):
 
 @function()
 class RegexReplace(ConstantNode):
-    def run(self, string, regex_pattern, replace, case_insensitive=True, multiline=False, dotall=False, count=0):
+    def run(self, string: str, regex_pattern: str, replace: str, case_insensitive: bool = True, multiline: bool = False, dotall: bool = False, count: int = 0) -> str:
         flags = 0
 
         if case_insensitive:
@@ -370,7 +372,7 @@ class RegexReplace(ConstantNode):
 
 @function()
 class JsonExtractString(ConstantNode):
-    def run(self, json_string, key):
+    def run(self, json_string: str, key: str) -> str:
         try:
             data = json.loads(json_string)
             if isinstance(data, dict) and key in data:
@@ -388,7 +390,7 @@ class JsonExtractString(ConstantNode):
 
 @function()
 class NotNode(ConstantNode):
-    def run(self, value):
+    def run(self, value: Any) -> bool:
         return not value
 
 @function(
@@ -397,7 +399,7 @@ class NotNode(ConstantNode):
     },
 )
 class AndNode(ConstantNode):
-    def run(self, values):
+    def run(self, values: dict[str, Any]) -> bool:
         return all(values.values())
 
 @function(
@@ -406,7 +408,7 @@ class AndNode(ConstantNode):
     },
 )
 class OrNode(ConstantNode):
-    def run(self, values):
+    def run(self, values: dict[str, Any]) -> bool:
         return any(values.values())
 
 
@@ -414,7 +416,7 @@ class OrNode(ConstantNode):
     inputs_allow_links=True,
 )
 class RepeatLatentBatch(ConstantNode):
-    def run(self, samples, amount):
+    def run(self, samples: Any, amount: int) -> Any:
         if amount == 1:
             return samples
         else:
@@ -427,7 +429,7 @@ class RepeatLatentBatch(ConstantNode):
     },
 )
 class ResizeImageMaskNode(ConstantNode):
-    def noop(self, input, resize_type, scale_method):
+    def noop(self, input: Any, resize_type: dict[str, Any], scale_method: str) -> Any:
         return self.graph.node(self.node_name,
             input=input,
             scale_method=scale_method,
@@ -435,7 +437,7 @@ class ResizeImageMaskNode(ConstantNode):
         ).out(0)
 
 
-    def scale_dimensions(self, old_width, old_height, new_width, new_height):
+    def scale_dimensions(self, old_width: int, old_height: int, new_width: int, new_height: int) -> tuple[int, int]:
         if new_width == 0 and new_height == 0:
             return (old_width, old_height)
 
@@ -448,7 +450,7 @@ class ResizeImageMaskNode(ConstantNode):
         return (new_width, new_height)
 
 
-    def scale_total_pixels(self, old_width, old_height, megapixels):
+    def scale_total_pixels(self, old_width: int, old_height: int, megapixels: float) -> tuple[int, int]:
         total = int(megapixels * 1024 * 1024)
 
         scale_by = math.sqrt(total / (old_width * old_height))
@@ -459,7 +461,7 @@ class ResizeImageMaskNode(ConstantNode):
         )
 
 
-    def resample_filter(self, scale_method):
+    def resample_filter(self, scale_method: str) -> Image.Resampling | None:
         match scale_method:
             case "nearest-exact": return Image.Resampling.NEAREST
             case "bilinear": return Image.Resampling.BILINEAR
@@ -468,7 +470,7 @@ class ResizeImageMaskNode(ConstantNode):
             case _: return None
 
 
-    def resize_image(self, input, new_width, new_height, sample_filter):
+    def resize_image(self, input: ImageView, new_width: int, new_height: int, sample_filter: Image.Resampling) -> ImageView:
         image = Image.fromarray(input._view, "RGB")
 
         assert image.width == input.width()
@@ -478,7 +480,7 @@ class ResizeImageMaskNode(ConstantNode):
         return ImageView(numpy.asarray(image.resize((new_width, new_height), sample_filter)))
 
 
-    def resize_mask(self, input, new_width, new_height, sample_filter):
+    def resize_mask(self, input: MaskView, new_width: int, new_height: int, sample_filter: Image.Resampling) -> MaskView:
         image = Image.fromarray(input._view, "L")
 
         assert image.width == input.width()
@@ -488,7 +490,7 @@ class ResizeImageMaskNode(ConstantNode):
         return MaskView(numpy.asarray(image.resize((new_width, new_height), sample_filter)))
 
 
-    def run(self, input, resize_type, scale_method):
+    def run(self, input: ImageView | MaskView, resize_type: dict[str, Any], scale_method: str) -> Any:
         old_width = input.width()
         old_height = input.height()
 

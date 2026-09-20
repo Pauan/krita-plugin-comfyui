@@ -1,5 +1,7 @@
+from typing import Any
+from collections.abc import Generator
 from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QAction, QMouseEvent
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -10,9 +12,9 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QFileDialog,
 )
-from ...util.krita import Image, Bounds
+from ...util.krita import Image, Bounds, Document, DocumentManager
 from ...util.qt import MessageBox, BlockSignals
-from .serialized import SerializedImages
+from .serialized import SerializedImage, SerializedImages
 
 
 class ImageWidget(QListWidget):
@@ -24,7 +26,7 @@ class ImageWidget(QListWidget):
 
     total_bytes_changed = pyqtSignal()
 
-    def __init__(self, document):
+    def __init__(self, document: DocumentManager) -> None:
         super().__init__()
 
         self.document = document
@@ -35,11 +37,13 @@ class ImageWidget(QListWidget):
         # Displays the thumbnails at twice the image_size resolution then downscales it
         self.thumbnail_size = self.image_size * 2
 
-        self.selected = []
+        self.images: SerializedImages | None = None
+
+        self.selected: list[QListWidgetItem] = []
         self.clicked_on_selected = False
 
-        self.image_menus = []
-        self.all_menus = []
+        self.image_menus: list[QAction] = []
+        self.all_menus: list[QAction] = []
 
         self.menu = QMenu(self)
         #self.image_menus.append(self.menu.addSection("Apply images to..."))
@@ -77,10 +81,13 @@ class ImageWidget(QListWidget):
 
 
     # TODO figure out a more efficient way of doing this
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
+    def mouseMoveEvent(self, e: QMouseEvent | None) -> None:
+        super().mouseMoveEvent(e)
 
-        item = self.itemAt(event.position().toPoint())
+        if e is None:
+            return
+
+        item = self.itemAt(e.position().toPoint())
 
         if item is not None and item.data(Qt.ItemDataRole.UserRole) is not None:
             self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -88,11 +95,11 @@ class ImageWidget(QListWidget):
             self.setCursor(Qt.CursorShape.ArrowCursor)
 
 
-    def image_total_size(self):
+    def image_total_size(self) -> int:
         return self.image_size + (self.image_padding * 2)
 
 
-    def get_total_width(self):
+    def get_total_width(self) -> int:
         images = self.image_total_size() * self.number_of_images
 
         scrollbar_width = self.verticalScrollBar().sizeHint().width()
@@ -100,7 +107,7 @@ class ImageWidget(QListWidget):
         return scrollbar_width + images + 3
 
 
-    def load_document(self):
+    def load_document(self) -> None:
         old_bytes = self.total_bytes
 
         with BlockSignals(self):
@@ -123,7 +130,7 @@ class ImageWidget(QListWidget):
             self.total_bytes_changed.emit()
 
 
-    def thumbnail(self, image, applied):
+    def thumbnail(self, image: Image, applied: bool) -> QIcon:
         thumbnail = image.scale_to_fit(self.thumbnail_size, self.thumbnail_size)
 
         if applied:
@@ -137,8 +144,8 @@ class ImageWidget(QListWidget):
         return thumbnail.to_icon()
 
 
-    def selected_images(self):
-        selected = []
+    def selected_images(self) -> list[tuple[QListWidgetItem, dict[str, Any]]]:
+        selected: list[tuple[QListWidgetItem, dict[str, Any]]] = []
 
         for item in self.selectedItems():
             data = item.data(Qt.ItemDataRole.UserRole)
@@ -149,7 +156,7 @@ class ImageWidget(QListWidget):
         return selected
 
 
-    def item_pressed(self, item):
+    def item_pressed(self, item: QListWidgetItem) -> None:
         # This flag determines if we clicked on an item that is already selected. In that case we should deselect it.
         #
         # But we can't deselect it inside of itemPressed, because itemPressed triggers on right click, and we don't want that.
@@ -158,7 +165,7 @@ class ImageWidget(QListWidget):
         self.clicked_on_selected = item.isSelected() and len(self.selected) == 1 and self.selected[0] is item
 
 
-    def item_clicked(self, item):
+    def item_clicked(self, item: QListWidgetItem) -> None:
         # We need to use the itemActivated event because the itemPressed event triggers on right click,
         # which we don't want.
         #
@@ -178,7 +185,7 @@ class ImageWidget(QListWidget):
 
     # There is a delay when clicking rapidly, by using itemDoubleClicked we can avoid that delay and
     # select / deselect the item immediately.
-    def item_double_clicked(self, item):
+    def item_double_clicked(self, item: QListWidgetItem) -> None:
         if item.isSelected() and len(self.selected) == 1 and self.selected[0] is item:
             self.selected = []
             item.setSelected(False)
@@ -188,32 +195,39 @@ class ImageWidget(QListWidget):
             item.setSelected(True)
 
 
-    def all_data(self):
+    def all_data(self) -> Generator[tuple[QListWidgetItem, dict[str, Any]]]:
         for i in range(self.count()):
             item = self.item(i)
-            data = item.data(Qt.ItemDataRole.UserRole)
 
-            if data is not None:
-                yield item, data
+            if item is not None:
+                data = item.data(Qt.ItemDataRole.UserRole)
+
+                if data is not None:
+                    yield item, data
 
 
     # When images are selected / deselected we have to serialize that information.
-    def update_selected_state(self, document):
+    def update_selected_state(self, document: Document) -> None:
+        assert self.images is not None
+
         for item, data in self.all_data():
             self.images.get_image(data["uuid"]).set_selected(document, item.isSelected())
 
 
     # When the canvas is resized / scaled we have to shift the {x, y} of all the
     # images so that they are properly aligned with the new canvas bounds.
-    def update_position(self, document, x, y):
+    def update_position(self, document: Document, x: int, y: int) -> None:
         if x != 0 or y != 0:
+            assert self.images is not None
+
             for item, data in self.all_data():
                 self.images.get_image(data["uuid"]).update_position(document, x, y)
 
 
-    def maybe_show_preview(self, document, selected):
+    def maybe_show_preview(self, document: Document, selected: list[tuple[QListWidgetItem, dict[str, Any]]]) -> None:
         # Show a preview of the last selected image
         if len(selected) > 0:
+            assert self.images is not None
             data = selected[-1][1]
             self.images.get_image(data["uuid"]).show_preview(document)
 
@@ -221,14 +235,14 @@ class ImageWidget(QListWidget):
             document.hide_preview_layer()
 
 
-    def update_preview(self):
+    def update_preview(self) -> None:
         document = self.document.current()
 
         if document is not None:
             self.maybe_show_preview(document, self.selected_images())
 
 
-    def selection_changed(self):
+    def selection_changed(self) -> None:
         selected = self.selected_images()
 
         self.selected = [item for (item, _) in selected]
@@ -240,7 +254,7 @@ class ImageWidget(QListWidget):
             self.maybe_show_preview(document, selected)
 
 
-    def deselect_all_images(self):
+    def deselect_all_images(self) -> None:
         with BlockSignals(self):
             for item in self.selectedItems():
                 item.setSelected(False)
@@ -254,11 +268,13 @@ class ImageWidget(QListWidget):
                 document.hide_preview_layer()
 
 
-    def apply_selected_images(self, document):
+    def apply_selected_images(self, document: Document) -> list[SerializedImage]:
+        assert self.images is not None
+
         with BlockSignals(self):
             self.selected = []
 
-            images = []
+            images: list[SerializedImage] = []
 
             for (item, data) in self.selected_images():
                 image = self.images.get_image(data["uuid"])
@@ -279,7 +295,7 @@ class ImageWidget(QListWidget):
             return images
 
 
-    def apply_new_layer(self):
+    def apply_new_layer(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -288,7 +304,7 @@ class ImageWidget(QListWidget):
             self.update_position(document, bounds.x, bounds.y)
 
 
-    def apply_existing_layer(self):
+    def apply_existing_layer(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -297,7 +313,7 @@ class ImageWidget(QListWidget):
             self.update_position(document, bounds.x, bounds.y)
 
 
-    def apply_new_document(self):
+    def apply_new_document(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -305,7 +321,7 @@ class ImageWidget(QListWidget):
             SerializedImages.apply_new_document(document, selected_images)
 
 
-    def save_image(self):
+    def save_image(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -319,11 +335,11 @@ class ImageWidget(QListWidget):
             SerializedImages.save_images(document, directory, selected_images)
 
 
-    def delete_selected(self):
+    def delete_selected(self) -> None:
         with BlockSignals(self):
             self.selected = []
 
-            uuids = []
+            uuids: list[str] = []
 
             seen_item = False
 
@@ -357,6 +373,8 @@ class ImageWidget(QListWidget):
 
                 old_bytes = self.total_bytes
 
+                assert self.images is not None
+
                 for serialized in self.images.remove_uuids(document, uuids):
                     self.total_bytes -= serialized.image.byte_size()
                     assert self.total_bytes >= 0
@@ -365,7 +383,7 @@ class ImageWidget(QListWidget):
                     self.total_bytes_changed.emit()
 
 
-    def delete_all(self):
+    def delete_all(self) -> None:
         if MessageBox.question(self, "Are you sure you want to delete all ComfyUI output images?"):
             old_bytes = self.total_bytes
 
@@ -373,6 +391,8 @@ class ImageWidget(QListWidget):
                 document = self.document.current()
 
                 if document is not None:
+                    assert self.images is not None
+
                     document.remove_preview_layer()
                     self.images.clear(document)
 
@@ -385,7 +405,7 @@ class ImageWidget(QListWidget):
 
 
     # Returns true if the previous image is single
-    def is_previous_single(self):
+    def is_previous_single(self) -> bool:
         for i in reversed(range(self.count())):
             item = self.item(i)
             data = item.data(Qt.ItemDataRole.UserRole)
@@ -399,7 +419,7 @@ class ImageWidget(QListWidget):
         return True
 
 
-    def add_spacer(self, height):
+    def add_spacer(self, height: int) -> None:
         spacer = QListWidgetItem("")
         spacer.setFlags(Qt.ItemFlag.NoItemFlags)
         spacer.setData(Qt.ItemDataRole.UserRole, None)
@@ -408,7 +428,7 @@ class ImageWidget(QListWidget):
         self.addItem(spacer)
 
 
-    def add_image(self, serialized, *, size, is_single, allow_selection):
+    def add_image(self, serialized: SerializedImage, *, size: int, is_single: bool, allow_selection: bool) -> None:
         item = QListWidgetItem(self.thumbnail(serialized.image, applied=serialized.is_applied()), None)
 
         item.setSizeHint(QSize(size, size))
@@ -430,7 +450,7 @@ class ImageWidget(QListWidget):
             self.selected.append(item)
 
 
-    def add_images(self, group, *, allow_selection):
+    def add_images(self, group: list[list[SerializedImage]], *, allow_selection: bool) -> None:
         with BlockSignals(self):
             # The group contains a single image.
             is_single = len(group) == 1 and len(group[0]) == 1
@@ -458,8 +478,10 @@ class ImageWidget(QListWidget):
             #self.scrollToBottom()
 
 
-    def new_images(self, document, group):
+    def new_images(self, document: Document, group: list[list[dict[str, Any]]]) -> None:
         if self.document.is_equal(document):
+            assert self.images is not None
+
             old_bytes = self.total_bytes
 
             self.add_images(self.images.add_new_group(document, group), allow_selection=False)
@@ -476,11 +498,11 @@ class ImageWidget(QListWidget):
             SerializedImages.load(document, load_images=False).add_new_group(document, group)
 
 
-    def job_started(self):
+    def job_started(self) -> None:
         self.deselect_all_images()
 
 
-    def show_context_menu(self, pos: QPoint):
+    def show_context_menu(self, pos: QPoint) -> None:
         images_selected = len(self.selected_images()) > 0
 
         has_images = self.count() > 0

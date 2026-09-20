@@ -1,7 +1,9 @@
 from datetime import datetime
+from typing import Any, cast
+from collections.abc import Callable, Generator, Iterable, MutableSequence, Sequence
 from uuid import uuid4
-from shared import format_duration
-from krita import InfoObject
+from shared import format_duration, JSON
+from PyQt6.QtCore import QByteArray
 from ...util.krita import Document, Image, Layer, Bounds
 
 
@@ -20,40 +22,40 @@ LIVE_MODE_UUID = "b9618008-c80c-485e-82c9-be9df679be44"
 
 
 # Deletes elements from the list which the function returns True
-def delete_all(list, f):
-    indexes = []
+def delete_all[A](items: MutableSequence[A], f: Callable[[A], bool]) -> None:
+    indexes: list[int] = []
 
-    for index in reversed(range(len(list))):
-        if f(list[index]):
+    for index in reversed(range(len(items))):
+        if f(items[index]):
             indexes.append(index)
 
     for index in indexes:
-        del list[index]
+        del items[index]
 
 
 # Class for images which are stored in the document.
 class SerializedImage:
-    def __init__(self, uuid, image, metadata):
+    def __init__(self, uuid: str, image: Image, metadata: dict[str, Any]) -> None:
         self.uuid = uuid
         self.image = image
         self.metadata = metadata
 
 
     @staticmethod
-    def new_uuid():
+    def new_uuid() -> str:
         uuid = str(uuid4())
         assert uuid != LIVE_MODE_UUID
         return uuid
 
 
     @staticmethod
-    def live_mode_uuid():
+    def live_mode_uuid() -> str:
         return LIVE_MODE_UUID
 
 
     # Migrates from old image metadata to the new metadata format.
     @staticmethod
-    def migrate_metadata(metadata):
+    def migrate_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         metadata["batch_mode"] = metadata.get("batch_mode", "separate images")
         metadata["frame"] = metadata.get("frame", 0)
         metadata["canvas_resize"] = metadata.get("canvas_resize", DEFAULT_CANVAS_RESIZE)
@@ -65,8 +67,8 @@ class SerializedImage:
 
 
     @classmethod
-    def load_metadata(cls, document, uuid):
-        metadata = document.get_key_json(f"{IMAGE_METADATA_KEY}{uuid}", None)
+    def load_metadata(cls, document: Document, uuid: str) -> dict[str, Any] | None:
+        metadata = cast(dict[str, Any] | None, document.get_key_json(f"{IMAGE_METADATA_KEY}{uuid}", None))
 
         if metadata is not None:
             metadata = cls.migrate_metadata(metadata)
@@ -75,12 +77,12 @@ class SerializedImage:
 
 
     @staticmethod
-    def load_bytes(document, uuid):
+    def load_bytes(document: Document, uuid: str) -> QByteArray | None:
         return document.get_key_bytes(f"{IMAGE_BYTES_KEY}{uuid}", None)
 
 
     @classmethod
-    def load(cls, document, uuid):
+    def load(cls, document: Document, uuid: str) -> "SerializedImage | None":
         metadata = cls.load_metadata(document, uuid)
 
         if metadata is not None:
@@ -92,8 +94,8 @@ class SerializedImage:
 
 
     @staticmethod
-    def save_new_image(document, uuid, info):
-        metadata = {
+    def save_new_image(document: Document, uuid: str, info: dict[str, Any]) -> "SerializedImage":
+        metadata: dict[str, Any] = {
             "format": "rgba",
             "batch_mode": info["batch_mode"],
             "frame": info["frame"],
@@ -123,20 +125,20 @@ class SerializedImage:
 
 
     @classmethod
-    def save_live_mode(cls, document, info):
+    def save_live_mode(cls, document: Document, info: dict[str, Any]) -> "SerializedImage":
         return cls.save_new_image(document, LIVE_MODE_UUID, info)
 
 
-    def save_bytes(self, document):
+    def save_bytes(self, document: Document) -> None:
         bytes = self.image.bytes()
         document.set_key_bytes(f"{IMAGE_BYTES_KEY}{self.uuid}", "krita_comfyui: Image Bytes", bytes)
 
 
-    def save_metadata(self, document):
+    def save_metadata(self, document: Document) -> None:
         document.set_key_json(f"{IMAGE_METADATA_KEY}{self.uuid}", "krita_comfyui: Image Metadata", self.metadata)
 
 
-    def set_metadata_boolean(self, document, key: str, value: bool, *, save=True):
+    def set_metadata_boolean(self, document: Document, key: str, value: bool, *, save: bool = True) -> bool:
         old_value = self.metadata.get(key, False)
 
         if old_value != value:
@@ -157,21 +159,21 @@ class SerializedImage:
         return False
 
 
-    def is_applied(self):
+    def is_applied(self) -> bool:
         return self.metadata.get("applied", False)
 
-    def set_applied(self, document, value, *, save=True):
+    def set_applied(self, document: Document, value: bool, *, save: bool = True) -> bool:
         return self.set_metadata_boolean(document, "applied", value, save=save)
 
 
-    def is_selected(self):
+    def is_selected(self) -> bool:
         return self.metadata.get("selected", False)
 
-    def set_selected(self, document, value, *, save=True):
+    def set_selected(self, document: Document, value: bool, *, save: bool = True) -> bool:
         return self.set_metadata_boolean(document, "selected", value, save=save)
 
 
-    def update_position(self, document, x, y):
+    def update_position(self, document: Document, x: int, y: int) -> None:
         assert x != 0 or y != 0
 
         self.metadata["x"] -= x
@@ -179,14 +181,14 @@ class SerializedImage:
         self.save_metadata(document)
 
 
-    def remove(self, document):
+    def remove(self, document: Document) -> None:
         try:
             document.remove_key(f"{IMAGE_BYTES_KEY}{self.uuid}")
         finally:
             document.remove_key(f"{IMAGE_METADATA_KEY}{self.uuid}")
 
 
-    def show_preview(self, document):
+    def show_preview(self, document: Document) -> None:
         name = self.metadata["name"]
 
         document.show_preview_layer(
@@ -198,7 +200,7 @@ class SerializedImage:
         )
 
 
-    def tooltip(self):
+    def tooltip(self) -> str:
         output = [self.metadata["name"]]
 
         duration = format_duration(self.metadata["duration"])
@@ -243,15 +245,15 @@ class SerializedImage:
 
 # Class for a list of image UUIDs which are stored in the document.
 class SerializedImages:
-    def __init__(self, uuids):
+    def __init__(self, uuids: list[list[list[str]]]) -> None:
         self.uuids = uuids
-        self.images = {}
+        self.images: dict[str, SerializedImage] = {}
 
 
     # Migrates from the old format where groups weren't saved.
     @staticmethod
-    def migrate_uuids(uuids):
-        output = []
+    def migrate_uuids(uuids: list[Any]) -> list[list[list[str]]]:
+        output: list[list[list[str]]] = []
 
         for group in uuids:
             # It's an old style batch, so we wrap it into a group.
@@ -264,8 +266,8 @@ class SerializedImages:
 
 
     @classmethod
-    def load(cls, document, *, load_images=True):
-        output = SerializedImages(cls.migrate_uuids(document.get_key_json(UUIDS_KEY, [])))
+    def load(cls, document: Document, *, load_images: bool = True) -> "SerializedImages":
+        output = SerializedImages(cls.migrate_uuids(cast(list[Any], document.get_key_json(UUIDS_KEY, []))))
         output.verify_storage_integrity(document)
 
         if load_images:
@@ -273,20 +275,22 @@ class SerializedImages:
                 assert uuid != LIVE_MODE_UUID
                 assert not uuid in output.images
 
-                output.images[uuid] = SerializedImage.load(document, uuid)
+                image = SerializedImage.load(document, uuid)
+                assert image is not None
+                output.images[uuid] = image
 
         return output
 
 
     # Verifies that there aren't any dangling leftover images in the document.
-    def verify_storage_integrity(self, document):
-        seen_uuid = set()
+    def verify_storage_integrity(self, document: Document) -> None:
+        seen_uuid: set[str] = set()
 
         for uuid in self.all_uuids():
             seen_uuid.add(uuid)
 
-        seen_metadata = set()
-        seen_bytes = set()
+        seen_metadata: set[str] = set()
+        seen_bytes: set[str] = set()
 
         for key in document.all_keys():
             uuid = key.removeprefix(IMAGE_METADATA_KEY)
@@ -304,29 +308,29 @@ class SerializedImages:
             assert uuid in seen_bytes
 
 
-    def all_uuids(self):
+    def all_uuids(self) -> Generator[str]:
         for group in self.uuids:
             for batch in group:
                 yield from batch
 
 
-    def get_image(self, uuid):
+    def get_image(self, uuid: str) -> "SerializedImage":
         return self.images[uuid]
 
 
-    def get_images(self):
+    def get_images(self) -> list[list[list["SerializedImage"]]]:
         return [[[self.images[uuid] for uuid in batch] for batch in group] for group in self.uuids]
 
 
-    def add_new_group(self, document, group):
+    def add_new_group(self, document: Document, group: list[list[dict[str, Any]]]) -> list[list[SerializedImage]]:
         assert len(group) > 0
 
-        new_group = []
+        new_group: list[list[str]] = []
 
         for batch in group:
             assert len(batch) > 0
 
-            new_batch = []
+            new_batch: list[str] = []
 
             for info in batch:
                 uuid = SerializedImage.new_uuid()
@@ -342,7 +346,7 @@ class SerializedImages:
         return [[self.images[uuid] for uuid in batch] for batch in new_group]
 
 
-    def clear(self, document):
+    def clear(self, document: Document) -> None:
         for uuid in self.all_uuids():
             image = self.images.pop(uuid)
             image.remove(document)
@@ -352,21 +356,21 @@ class SerializedImages:
         self.save(document)
 
 
-    def remove_uuids(self, document, uuids):
+    def remove_uuids(self, document: Document, uuids: Sequence[str]) -> list["SerializedImage"]:
         assert len(uuids) > 0
 
-        images = []
+        images: list[SerializedImage] = []
 
         for uuid in uuids:
             image = self.images.pop(uuid)
             image.remove(document)
             images.append(image)
 
-        def remove_batch(batch):
+        def remove_batch(batch: list[str]) -> bool:
             delete_all(batch, lambda uuid: uuid in uuids)
             return len(batch) == 0
 
-        def remove_group(group):
+        def remove_group(group: list[list[str]]) -> bool:
             delete_all(group, remove_batch)
             return len(group) == 0
 
@@ -377,25 +381,25 @@ class SerializedImages:
         return images
 
 
-    def save(self, document):
+    def save(self, document: Document) -> None:
         if len(self.uuids) == 0:
             document.remove_key(UUIDS_KEY)
         else:
-            document.set_key_json(UUIDS_KEY, "krita_comfyui: Image UUIDs", self.uuids)
+            document.set_key_json(UUIDS_KEY, "krita_comfyui: Image UUIDs", cast(JSON, self.uuids))
 
         self.verify_storage_integrity(document)
 
 
     @staticmethod
-    def get_image_bounds(document, images):
-        bounds = None
-        resize_layers = None
-        resize_algorithm = None
+    def get_image_bounds(document: Document, images: Iterable[SerializedImage]) -> tuple[Bounds | None, Bounds | None, str | None]:
+        bounds: Bounds | None = None
+        resize_layers: Bounds | None = None
+        resize_algorithm: str | None = None
 
         for serialized in images:
             image = serialized.image
             info = serialized.metadata
-            image_bounds = None
+            image_bounds: Bounds | None = None
 
             match info["canvas_resize"]:
                 case "do nothing":
@@ -429,7 +433,7 @@ class SerializedImages:
 
 
     @classmethod
-    def resize_image_bounds(cls, document, images):
+    def resize_image_bounds(cls, document: Document, images: Iterable[SerializedImage]) -> Bounds:
         bounds, resize_layers, resize_algorithm = cls.get_image_bounds(document, images)
 
         if bounds is not None:
@@ -444,7 +448,7 @@ class SerializedImages:
 
 
     @classmethod
-    def apply_new_layers(cls, document, images):
+    def apply_new_layers(cls, document: Document, images: Iterable[SerializedImage]) -> Bounds:
         # This ensures that the canvas bounds will be properly reset to normal.
         document.remove_preview_layer()
 
@@ -468,7 +472,7 @@ class SerializedImages:
 
 
     @classmethod
-    def save_images(cls, document, directory, images):
+    def save_images(cls, document: Document, directory: str, images: Iterable[SerializedImage]) -> Bounds:
         # This ensures that the canvas bounds will be properly reset to normal.
         document.remove_preview_layer()
 
@@ -487,7 +491,7 @@ class SerializedImages:
 
 
     @classmethod
-    def apply_existing_layer(cls, document, images):
+    def apply_existing_layer(cls, document: Document, images: Iterable[SerializedImage]) -> Bounds:
         # This ensures that the canvas bounds will be properly reset to normal.
         document.remove_preview_layer()
 
@@ -529,7 +533,7 @@ class SerializedImages:
 
 
     @classmethod
-    def apply_new_document(cls, document, images):
+    def apply_new_document(cls, document: Document, images: Iterable[SerializedImage]) -> None:
         # This ensures that the canvas bounds will be properly reset to normal.
         #
         # If we use remove_preview_layer then it causes the global selection mask to break.

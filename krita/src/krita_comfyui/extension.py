@@ -1,8 +1,9 @@
 import contextlib
-from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension
+from collections.abc import Generator
+from krita import DockWidgetFactory, DockWidgetFactoryBase, Extension, Krita, Window
 from PyQt6.QtCore import pyqtSignal
 
-from .server import ComfyUIClient
+from .server import ComfyUIClient, GraphInfo
 from .settings import Settings
 from .settings.dialog import SettingsDialog
 from .util.notify import NotifyWorker
@@ -13,7 +14,7 @@ class ComfyUIExtension(Extension):
     job_started = pyqtSignal()
 
 
-    def __init__(self, parent):
+    def __init__(self, parent: Krita) -> None:
         super().__init__(parent)
 
         self.live_mode_enabled = True
@@ -47,7 +48,7 @@ class ComfyUIExtension(Extension):
 
 
     @contextlib.contextmanager
-    def disable_live_mode(self):
+    def disable_live_mode(self) -> Generator[None]:
         live_mode_enabled = self.live_mode_enabled
         try:
             self.live_mode_enabled = False
@@ -56,20 +57,20 @@ class ComfyUIExtension(Extension):
             self.live_mode_enabled = live_mode_enabled
 
 
-    def show_settings(self):
+    def show_settings(self) -> None:
         self.settings_dialog.show()
 
 
-    def createActions(self, window):
+    def createActions(self, window: Window) -> None:
         pass
 
 
-    def setup(self):
+    def setup(self) -> None:
         self.notify_thread.start()
         self.client_thread.start()
 
 
-    def on_graph_changed(self, graph):
+    def on_graph_changed(self, graph: GraphInfo) -> None:
         if graph.state.is_success():
             if graph.should_notify:
                 self.notify.message.emit("Job finished")
@@ -78,7 +79,7 @@ class ComfyUIExtension(Extension):
             self.notify.message.emit("Job errored!")
 
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.settings_dialog.deleteLater()
 
         self.client.disconnect()

@@ -1,17 +1,19 @@
 import re
 import json
 import random
+from typing import Any
+from collections.abc import Sequence
 from .const import WorkflowError
 from ..util import average, normalize_mean
 
 
 class Prompt:
-    def __init__(self, prompt, weight):
+    def __init__(self, prompt: str, weight: float) -> None:
         self.prompt = prompt
         self.weight = weight
 
 
-    def danbooru_tag(self, danbooru_tags):
+    def danbooru_tag(self, danbooru_tags: dict[str, Any]) -> dict[str, Any] | None:
         tag = danbooru_tags.get(self.prompt, None)
 
         if tag is not None:
@@ -26,11 +28,11 @@ class Prompt:
             return tag
 
 
-    def anima(self):
+    def anima(self) -> str:
         return self.prompt.replace("_", " ").replace("(", "\\(").replace(")", "\\)")
 
 
-    def serialize(self):
+    def serialize(self) -> str:
         assert self.weight != 0.0
 
         if self.weight == 1.0:
@@ -40,14 +42,14 @@ class Prompt:
 
 
 class ParserState:
-    def __init__(self, bundles):
+    def __init__(self, bundles: dict[str, Any]) -> None:
         self.bundles = bundles
-        self.positive = []
-        self.negative = []
-        self.loras = []
+        self.positive: list[Prompt] = []
+        self.negative: list[Prompt] = []
+        self.loras: list[dict[str, Any]] = []
 
 
-    def parse_function(self, prompt, weight, seen_bundles):
+    def parse_function(self, prompt: str, weight: float, seen_bundles: frozenset[str]) -> None:
         if weight != 0.0:
             function = re.fullmatch(r'<([a-z\-]+):([^>]*)>', prompt)
 
@@ -85,7 +87,7 @@ class ParserState:
                             self.negative.append(Prompt(prompt, -weight))
 
 
-    def parse_line(self, line, global_weight, seen_bundles):
+    def parse_line(self, line: str, global_weight: float, seen_bundles: frozenset[str]) -> None:
         # Search for a weight for the line
         match = re.fullmatch(r'(.*)\* *([\-\d\.]+)', line)
 
@@ -110,7 +112,7 @@ class ParserState:
                         self.parse_function(prompt, weight, seen_bundles)
 
 
-    def parse(self, text, global_weight, seen_bundles):
+    def parse(self, text: str, global_weight: float, seen_bundles: frozenset[str]) -> None:
         if re.search(r'BREAK', text) is not None:
             raise WorkflowError("BREAK is not supported:\n\n" + text)
 
@@ -137,13 +139,13 @@ class ParserState:
 
 
 class Parsed:
-    def __init__(self, positive, negative, loras):
+    def __init__(self, positive: list[Prompt], negative: list[Prompt], loras: list[dict[str, Any]]) -> None:
         self.positive = positive
         self.negative = negative
         self.loras = loras
 
 
-    def convert_to_anima(self, prompts, danbooru_tags):
+    def convert_to_anima(self, prompts: Sequence[Prompt], danbooru_tags: dict[str, Any]) -> None:
         for prompt in prompts:
             tag = prompt.danbooru_tag(danbooru_tags)
 
@@ -157,10 +159,10 @@ class Parsed:
                         prompt.prompt = prompt.anima()
 
 
-    def normalize_weights(self, prompts, danbooru_tags):
-        danbooru_prompts = []
+    def normalize_weights(self, prompts: Sequence[Prompt], danbooru_tags: dict[str, Any]) -> None:
+        danbooru_prompts: list[Prompt] = []
 
-        post_counts = []
+        post_counts: list[int] = []
 
         for prompt in prompts:
             tag = prompt.danbooru_tag(danbooru_tags)
@@ -176,16 +178,16 @@ class Parsed:
                 prompt.weight = prompt.weight * weight
 
 
-    def serialize(self, prompts):
+    def serialize(self, prompts: Sequence[Prompt]) -> str:
         return ",\n".join([prompt.serialize() for prompt in prompts])
 
 
 class PromptParser:
-    def __init__(self, bundles):
+    def __init__(self, bundles: dict[str, Any]) -> None:
         self.bundles = bundles
 
 
-    def parse(self, text, global_weight=1.0):
+    def parse(self, text: str, global_weight: float = 1.0) -> Parsed:
         state = ParserState(self.bundles)
         state.parse(text, global_weight, frozenset())
         return Parsed(state.positive, state.negative, state.loras)

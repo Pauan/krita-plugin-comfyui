@@ -1,9 +1,12 @@
-from krita import DockWidget
+from typing import Any
+from krita import DockWidget, Canvas
 from PyQt6.QtWidgets import (
     QSizePolicy,
     QWidget,
 )
 from ...extension import ComfyUIExtension
+from ...server import GraphInfo
+from ...settings import Settings
 from ...util.krita import DocumentManager, Document, get_extension
 from ...util.qt import LayoutManager
 from .images import ImageWidget
@@ -12,7 +15,7 @@ from .text import TextWidget
 
 
 class OutputsWidget(QWidget):
-    def __init__(self, extension, settings):
+    def __init__(self, extension: ComfyUIExtension, settings: Settings) -> None:
         super().__init__()
 
         self.extension = extension
@@ -23,9 +26,9 @@ class OutputsWidget(QWidget):
         self.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred))
 
         self.document = DocumentManager(self)
-        self.layout = LayoutManager(self)
+        self.layout_manager = LayoutManager(self)
 
-        with self.layout.column() as column:
+        with self.layout_manager.column() as column:
             self.text = TextWidget(self.document)
             column.widget(self.text)
 
@@ -42,7 +45,7 @@ class OutputsWidget(QWidget):
         self.live_mode_enabled.with_value(self.on_live_mode_changed)
 
 
-    def on_live_mode_changed(self, live_mode):
+    def on_live_mode_changed(self, live_mode: bool) -> None:
         if live_mode:
             self.live_mode.update_preview()
             self.stack.set_current_index(1)
@@ -51,14 +54,14 @@ class OutputsWidget(QWidget):
             self.stack.set_current_index(0)
 
 
-    def on_job_started(self):
+    def on_job_started(self) -> None:
         if self.live_mode_enabled.get():
             self.live_mode.job_started()
         else:
             self.image.job_started()
 
 
-    def get_title(self):
+    def get_title(self) -> str:
         bytes = self.live_mode.total_bytes + self.image.total_bytes
 
         if bytes == 0:
@@ -85,7 +88,7 @@ class OutputsWidget(QWidget):
             return f"ComfyUI Outputs  ({bytes:g} {suffix})"
 
 
-    def set_text(self, document, text, is_live_mode):
+    def set_text(self, document: Document, text: list[dict[str, Any]], is_live_mode: bool) -> None:
         if is_live_mode:
             with self.extension.disable_live_mode(), document.disable_modification():
                 self.text.set_text(document, text)
@@ -93,7 +96,7 @@ class OutputsWidget(QWidget):
             self.text.set_text(document, text)
 
 
-    def new_images(self, document, images, is_live_mode):
+    def new_images(self, document: Document, images: list[list[dict[str, Any]]], is_live_mode: bool) -> None:
         if len(images) > 0:
             if is_live_mode:
                 self.live_mode.new_images(document, images, self.live_mode_enabled.get())
@@ -102,7 +105,7 @@ class OutputsWidget(QWidget):
 
 
 class ComfyUIOutputWidget(DockWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("ComfyUI Outputs")
 
@@ -118,18 +121,18 @@ class ComfyUIOutputWidget(DockWidget):
         self.update_title()
 
 
-    def update_title(self):
+    def update_title(self) -> None:
         self.setWindowTitle(self._widget.get_title())
 
 
-    def canvasChanged(self, canvas):
+    def canvasChanged(self, canvas: Canvas) -> None:
         self._widget.document.check_changes()
 
 
-    def on_graph_changed(self, info):
+    def on_graph_changed(self, info: GraphInfo) -> None:
         if info.state.is_success():
-            images = {}
-            texts = []
+            images: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
+            texts: list[dict[str, Any]] = []
 
             for output in info.outputs:
                 if "krita_comfyui_output_images" in output:

@@ -1,5 +1,6 @@
+from typing import Any
 from PyQt6.QtCore import QPoint, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QPalette, QIcon
+from PyQt6.QtGui import QPalette, QIcon, QAction, QMouseEvent, QResizeEvent
 from PyQt6.QtWidgets import (
     QLabel,
     QFrame,
@@ -7,12 +8,13 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 from ...util.qt import MessageBox, LayoutManager
-from ...util.krita import Image
+from ...extension import ComfyUIExtension
+from ...util.krita import Image, Document, DocumentManager
 from .serialized import SerializedImages, SerializedImage
 
 
 class LiveModeImage(QLabel):
-    def __init__(self, root, extension, document, warning_widget):
+    def __init__(self, root: "LiveModeWidget", extension: ComfyUIExtension, document: DocumentManager, warning_widget: "LiveModeWarning") -> None:
         super().__init__()
 
         self.root = root
@@ -28,9 +30,9 @@ class LiveModeImage(QLabel):
         self.image_width = 0
         self.image_height = 0
 
-        self.current_image = None
+        self.current_image: SerializedImage | None = None
 
-        self.image_menus = []
+        self.image_menus: list[QAction] = []
 
         self.menu = QMenu(self)
         self.image_menus.append(self.menu.addAction(Krita.icon("cloneLayer"), "New layer", self.apply_new_layer))
@@ -73,7 +75,7 @@ class LiveModeImage(QLabel):
         self.load_image()
 
 
-    def update_margins(self):
+    def update_margins(self) -> None:
         if self.image_width > 0 and self.image_height > 0:
             width = self.width()
             height = self.height()
@@ -99,7 +101,7 @@ class LiveModeImage(QLabel):
         self.setContentsMargins(0, 0, 0, 0)
 
 
-    def load_image(self):
+    def load_image(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -117,13 +119,13 @@ class LiveModeImage(QLabel):
             self.clear_image()
 
 
-    def update_total_bytes(self, value):
+    def update_total_bytes(self, value: int) -> None:
         if self.root.total_bytes != value:
             self.root.total_bytes = value
             self.root.total_bytes_changed.emit()
 
 
-    def clear_image(self):
+    def clear_image(self) -> None:
         self.current_image = None
 
         self.setToolTip("")
@@ -139,11 +141,12 @@ class LiveModeImage(QLabel):
         self.apply_image.setVisible(False)
 
 
-    def update_applied(self):
+    def update_applied(self) -> None:
+        assert self.current_image is not None
         self.apply_image.setVisible(self.current_image.is_applied())
 
 
-    def set_image(self, serialized):
+    def set_image(self, serialized: SerializedImage) -> None:
         self.current_image = serialized
 
         self.setToolTip(serialized.tooltip())
@@ -160,11 +163,11 @@ class LiveModeImage(QLabel):
 
 
     @staticmethod
-    def flattened_images(group):
+    def flattened_images(group: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
         return [info for batch in group for info in batch]
 
 
-    def new_image(self, document, group, is_visible):
+    def new_image(self, document: Document, group: list[list[dict[str, Any]]], is_visible: bool) -> None:
         with self.extension.disable_live_mode(), document.disable_modification():
             images = self.flattened_images(group)
 
@@ -210,7 +213,8 @@ class LiveModeImage(QLabel):
                     self.update_image_preview(document)
 
 
-    def set_selected(self, document, selected, *, update_preview=True):
+    def set_selected(self, document: Document, selected: bool, *, update_preview: bool = True) -> None:
+        assert self.current_image is not None
         self.current_image.set_selected(document, selected)
 
         self.overlay.setVisible(selected)
@@ -219,14 +223,14 @@ class LiveModeImage(QLabel):
             self.update_image_preview(document)
 
 
-    def update_image_preview(self, document):
+    def update_image_preview(self, document: Document) -> None:
         if self.current_image is not None and self.current_image.is_selected():
             self.current_image.show_preview(document)
         else:
             document.hide_preview_layer()
 
 
-    def update_preview(self):
+    def update_preview(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -234,7 +238,7 @@ class LiveModeImage(QLabel):
                 self.update_image_preview(document)
 
 
-    def on_image_clicked(self):
+    def on_image_clicked(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -243,7 +247,7 @@ class LiveModeImage(QLabel):
                     self.set_selected(document, not self.current_image.is_selected())
 
 
-    def job_started(self):
+    def job_started(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -252,13 +256,14 @@ class LiveModeImage(QLabel):
                     self.set_selected(document, False)
 
 
-    def apply_selected(self, document):
+    def apply_selected(self, document: Document) -> None:
+        assert self.current_image is not None
         self.set_selected(document, False, update_preview=False)
         self.current_image.set_applied(document, True)
         self.update_applied()
 
 
-    def apply_new_layer(self):
+    def apply_new_layer(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -270,7 +275,7 @@ class LiveModeImage(QLabel):
                     SerializedImages.apply_new_layers(document, [self.current_image])
 
 
-    def apply_existing_layer(self):
+    def apply_existing_layer(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -282,7 +287,7 @@ class LiveModeImage(QLabel):
                     SerializedImages.apply_existing_layer(document, [self.current_image])
 
 
-    def apply_new_document(self):
+    def apply_new_document(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -293,7 +298,7 @@ class LiveModeImage(QLabel):
                     SerializedImages.apply_new_document(document, [self.current_image])
 
 
-    def delete_all(self):
+    def delete_all(self) -> None:
         if MessageBox.question(self, "Are you sure you want to delete the live mode image?"):
             with self.extension.disable_live_mode():
                 document = self.document.current()
@@ -310,7 +315,7 @@ class LiveModeImage(QLabel):
                 self.clear_image()
 
 
-    def show_context_menu(self, pos: QPoint):
+    def show_context_menu(self, pos: QPoint) -> None:
         has_image = self.current_image is not None
 
         document = self.document.current()
@@ -326,20 +331,20 @@ class LiveModeImage(QLabel):
         self.menu.exec(self.mapToGlobal(pos))
 
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
         self.update_margins()
         super().resizeEvent(event)
 
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:
         super().mousePressEvent(event)
 
-        if event.buttons() == Qt.MouseButton.LeftButton:
+        if event is not None and event.buttons() == Qt.MouseButton.LeftButton:
             self.on_image_clicked()
 
 
 class LiveModeWarning(QFrame):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.layout_manager = LayoutManager(self)
@@ -366,14 +371,14 @@ class LiveModeWarning(QFrame):
                 label.setContentsMargins(0, 0, 0, 0)
 
 
-    def store(self, document, value):
+    def store(self, document: Document, value: str | None) -> None:
         if value is None:
             document.remove_key("krita_comfyui/live_mode_warning")
         else:
             document.set_key_str("krita_comfyui/live_mode_warning", "krita_comfyui: Live Mode Warning", value)
 
 
-    def load(self, document):
+    def load(self, document: Document) -> None:
         message = document.get_key_str("krita_comfyui/live_mode_warning", None)
 
         if message is None:
@@ -382,11 +387,11 @@ class LiveModeWarning(QFrame):
             self.show(message)
 
 
-    def hide(self):
+    def hide(self) -> None:
         self.setVisible(False)
 
 
-    def show(self, message):
+    def show(self, message: str) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         self.warning_label.setText(message)
         self.setVisible(True)
 
@@ -395,7 +400,7 @@ class LiveModeWidget(QFrame):
     total_bytes_changed = pyqtSignal()
 
 
-    def __init__(self, extension, document):
+    def __init__(self, extension: ComfyUIExtension, document: DocumentManager) -> None:
         super().__init__()
 
         self.total_bytes = 0
@@ -418,13 +423,13 @@ class LiveModeWidget(QFrame):
                 self.image_widget = widget
 
 
-    def new_images(self, document, group, is_visible):
+    def new_images(self, document: Document, group: list[list[dict[str, Any]]], is_visible: bool) -> None:
         self.image_widget.new_image(document, group, is_visible)
 
 
-    def job_started(self):
+    def job_started(self) -> None:
         self.image_widget.job_started()
 
 
-    def update_preview(self):
+    def update_preview(self) -> None:
         self.image_widget.update_preview()

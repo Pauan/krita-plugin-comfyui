@@ -22,8 +22,8 @@ from PyQt6.QtGui import QIcon, QPainter, QPixmap, QImage
 ROOT_LAYER_ID = "{a73e5714-7e78-494c-a007-c301a22cb3aa}"
 
 
-def get_extension(type: krita.Extension) -> krita.Extension | None:
-    output = None
+def get_extension[E: krita.Extension](type: type[E]) -> E:
+    output: E | None = None
 
     for extension in Krita.extensions():
         if isinstance(extension, type):

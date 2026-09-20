@@ -1,7 +1,8 @@
-from krita import DockWidget
+from krita import DockWidget, Canvas
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QProgressBar,
     QListWidget,
     QListWidgetItem,
     QToolButton,
@@ -9,7 +10,8 @@ from PyQt6.QtWidgets import (
 )
 from shared import MIN_SEED, MAX_SEED
 from ..extension import ComfyUIExtension
-from ..server import GraphState
+from ..server import ComfyUIClient, GraphInfo, GraphState
+from ..settings import SettingsFile
 from ..util.krita import get_extension
 from ..util.qt import Menu, LayoutManager
 from ..workflow.widget import WorkflowWidget
@@ -18,13 +20,13 @@ from ..workflow.graph import WorkflowGraph
 
 
 class JobWidget(QWidget):
-    def __init__(self, client, info):
+    def __init__(self, client: ComfyUIClient, info: GraphInfo) -> None:
         super().__init__()
 
         self.client = client
-        self.layout = LayoutManager(self)
+        self.layout_manager = LayoutManager(self)
 
-        with self.layout.row() as row:
+        with self.layout_manager.row() as row:
             row.spacer(4)
 
             with row.label() as label:
@@ -41,12 +43,12 @@ class JobWidget(QWidget):
         self.update_info(info)
 
 
-    def update_progress_bar(self, progress_bar):
+    def update_progress_bar(self, progress_bar: QProgressBar) -> None:
         # @TODO don't hardcode the maximum
         progress_bar.setValue(int(self.info.progress * 1000000.0))
 
 
-    def update_info(self, info):
+    def update_info(self, info: GraphInfo) -> None:
         self.info = info
 
         self.icon.setToolTip(self.info.state.status_text())
@@ -55,13 +57,13 @@ class JobWidget(QWidget):
         self.update_progress_bar(self.progress)
 
 
-    def cancel_job(self):
+    def cancel_job(self) -> None:
         self.client.stop_execute_graph(self.info.graph_id)
 
 
 
 class QueueList(QListWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
@@ -69,10 +71,10 @@ class QueueList(QListWidget):
 
         self.setStyleSheet("QListWidget { background-color: transparent; }")
 
-        self.jobs = []
+        self.jobs: list[JobWidget] = []
 
 
-    def add_job(self, client, info):
+    def add_job(self, client: ComfyUIClient, info: GraphInfo) -> None:
         job = JobWidget(client, info)
         self.jobs.append(job)
 
@@ -83,7 +85,7 @@ class QueueList(QListWidget):
         self.setItemWidget(item, job)
 
 
-    def update_job(self, info):
+    def update_job(self, info: GraphInfo) -> bool:
         for job in self.jobs:
             if job.info.graph_id == info.graph_id:
                 job.update_info(info)
@@ -92,13 +94,13 @@ class QueueList(QListWidget):
         return False
 
 
-    def find_job(self, graph_id):
+    def find_job(self, graph_id: str) -> int | None:
         for index, job in enumerate(self.jobs):
             if job.info.graph_id == graph_id:
                 return index
 
 
-    def remove_job(self, info):
+    def remove_job(self, info: GraphInfo) -> None:
         index = self.find_job(info.graph_id)
 
         # If index is None then the graph had immediately errored.
@@ -111,7 +113,7 @@ class QueueList(QListWidget):
             job.deleteLater()
 
 
-    def process_graph_info(self, client, info):
+    def process_graph_info(self, client: ComfyUIClient, info: GraphInfo) -> None:
         if info.state.is_ended():
             self.remove_job(info)
         else:
@@ -120,14 +122,14 @@ class QueueList(QListWidget):
 
 
 class QueueWidget(QWidget):
-    def __init__(self, settings):
+    def __init__(self, settings: SettingsFile) -> None:
         super().__init__()
 
         self.settings = settings
 
-        self.layout = LayoutManager(self)
+        self.layout_manager = LayoutManager(self)
 
-        with self.layout.column() as column:
+        with self.layout_manager.column() as column:
             widget = UiBoolean(
                 value=self.settings.root.value("run_worfklow_continuously", bool),
                 is_default=False,
@@ -143,17 +145,17 @@ class QueueWidget(QWidget):
             with column.row(align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop) as row:
                 row.label(text="Job Queue")
 
-                #with self.layout.tool_button() as button:
+                #with self.layout_manager.tool_button() as button:
                     #button.setIcon(Krita.icon("animation_pause"))
                     #button.clicked.connect(self.pause_jobs)
                     #row.addWidget(button)
 
-                #with self.layout.tool_button() as button:
+                #with self.layout_manager.tool_button() as button:
                     #button.setIcon(Krita.icon("dialog-cancel"))
                     #button.clicked.connect(self.cancel_jobs)
                     #row.addWidget(button)
 
-            #with self.layout.button() as button:
+            #with self.layout_manager.button() as button:
                 #button.setText("Hi")
                 #column.addWidget(button)
 
@@ -161,7 +163,7 @@ class QueueWidget(QWidget):
             column.widget(self.queue_list)
 
 
-    def on_menu_show(self):
+    def on_menu_show(self) -> None:
         pass
 
 
@@ -172,19 +174,19 @@ class QueueWidget(QWidget):
         #pass
 
 
-    def jobs_len(self):
+    def jobs_len(self) -> int:
         return len(self.queue_list.jobs)
 
-    def get_first_job(self):
+    def get_first_job(self) -> JobWidget | None:
         if len(self.queue_list.jobs) > 0:
             return self.queue_list.jobs[0]
 
-    def process_graph_info(self, client, info):
+    def process_graph_info(self, client: ComfyUIClient, info: GraphInfo) -> None:
         self.queue_list.process_graph_info(client, info)
 
 
 class InputsWidget(QWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.extension = get_extension(ComfyUIExtension)
@@ -193,9 +195,9 @@ class InputsWidget(QWidget):
 
         self.is_connected = self.extension.client.is_connected()
 
-        self.layout = LayoutManager(self)
+        self.layout_manager = LayoutManager(self)
 
-        with self.layout.column() as column:
+        with self.layout_manager.column() as column:
             self.workflow = WorkflowWidget(self.extension)
             self.workflow.can_run_changed.connect(self.update_run_button)
             self.workflow.live_mode_changed.connect(self.update_run_button)
@@ -227,13 +229,15 @@ class InputsWidget(QWidget):
         self.update_run_button()
 
 
-    def on_connection_changed(self, connected):
+    def on_connection_changed(self, connected: bool) -> None:
         self.is_connected = connected
         self.update_run_button()
 
 
-    def on_graph_changed(self, info):
+    def on_graph_changed(self, info: GraphInfo) -> None:
         if info.state.is_error():
+            assert info.error is not None
+
             self.workflow.stop_live_mode()
 
             self.workflow.show_error(
@@ -249,7 +253,7 @@ class InputsWidget(QWidget):
         self.update_run_button()
 
 
-    def update_run_button_live(self, tooltip):
+    def update_run_button_live(self, tooltip: str | None) -> None:
         is_running = self.workflow.is_live_mode_running()
 
 
@@ -270,7 +274,7 @@ class InputsWidget(QWidget):
             self.run_button.setIcon(GraphState.Idle.button_icon())
 
 
-    def update_run_button_normal(self, tooltip, current_job):
+    def update_run_button_normal(self, tooltip: str | None, current_job: JobWidget | None) -> None:
         if tooltip is None:
             self.run_button.setToolTip("Run workflow in ComfyUI")
         else:
@@ -291,7 +295,7 @@ class InputsWidget(QWidget):
             self.run_button.setIcon(current_job.info.state.button_icon())
 
 
-    def update_run_button(self):
+    def update_run_button(self) -> None:
         current_job = self.queue.get_first_job()
 
         if current_job is None:
@@ -316,7 +320,7 @@ class InputsWidget(QWidget):
             self.update_run_button_normal(tooltip, current_job)
 
 
-    def on_click(self):
+    def on_click(self) -> None:
         if self.workflow.is_live_mode_enabled():
             self.workflow.toggle_live_mode_running()
         else:
@@ -324,12 +328,12 @@ class InputsWidget(QWidget):
 
 
 class ComfyUIInputWidget(DockWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("ComfyUI Inputs")
 
         self._inputs = InputsWidget()
         self.setWidget(self._inputs)
 
-    def canvasChanged(self, _canvas):
+    def canvasChanged(self, _canvas: Canvas) -> None:
         self._inputs.workflow.document.check_changes()

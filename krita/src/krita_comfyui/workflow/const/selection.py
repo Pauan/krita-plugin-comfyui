@@ -1,4 +1,5 @@
 # This module contains constant-evaluation versions of the Krita Selection nodes.
+from typing import Any
 from ...util.krita import Selection, Bounds
 from . import ConstantNode, InputValue, function
 
@@ -9,7 +10,7 @@ from . import ConstantNode, InputValue, function
     outputs=2,
 )
 class KritaSelection(ConstantNode):
-    def run(self):
+    def run(self) -> tuple[Selection, bool]:
         if self.workflow.cached_selection is None:
             bounds = self.workflow.bounds()
 
@@ -36,7 +37,7 @@ class KritaSelection(ConstantNode):
     inputs_constant=True,
 )
 class KritaSelectionSolid(ConstantNode):
-    def run(self, x, y, width, height, value):
+    def run(self, x: int, y: int, width: int, height: int, value: int) -> Selection:
         assert value >= 0 and value <= 255
         return Selection.solid(Bounds(x, y, width, height), value)
 
@@ -46,7 +47,7 @@ class KritaSelectionSolid(ConstantNode):
     inputs_constant=True,
 )
 class KritaSelectionBorder(ConstantNode):
-    def run(self, selection, x, y, mode):
+    def run(self, selection: Selection, x: int, y: int, mode: str) -> Selection:
         if x == 0 and y == 0:
             return selection
 
@@ -75,7 +76,7 @@ class KritaSelectionBorder(ConstantNode):
     outputs=4,
 )
 class KritaSelectionBounds(ConstantNode):
-    def run(self, selection, round_up):
+    def run(self, selection: Selection, round_up: int) -> tuple[int, int, int, int]:
         document_bounds = self.workflow.bounds()
 
         bounds = selection.bounds()
@@ -102,7 +103,7 @@ class KritaSelectionBounds(ConstantNode):
     inputs_constant=True,
 )
 class KritaSelectionFeather(ConstantNode):
-    def run(self, selection, amount, mode):
+    def run(self, selection: Selection, amount: int, mode: str) -> Selection:
         if amount == 0:
             return selection
 
@@ -135,7 +136,7 @@ class KritaSelectionFeather(ConstantNode):
     inputs_constant=True,
 )
 class KritaSelectionGrow(ConstantNode):
-    def run(self, selection, x, y):
+    def run(self, selection: Selection, x: int, y: int) -> Selection:
         if x != 0 or y != 0:
             selection = selection.copy()
             selection.grow(x, y)
@@ -148,7 +149,7 @@ class KritaSelectionGrow(ConstantNode):
     inputs_constant=True,
 )
 class KritaSelectionInvert(ConstantNode):
-    def run(self, selection):
+    def run(self, selection: Selection) -> Selection:
         selection = selection.copy()
         selection.invert()
         return selection
@@ -162,13 +163,13 @@ class KritaSelectionInvert(ConstantNode):
     },
 )
 class KritaSelectionMask(ConstantNode):
-    def run(self, selection, crop):
+    def run(self, selection: Selection, crop: Any) -> Any:
         if crop is None:
-            crop = self.workflow.bounds()
+            bounds = self.workflow.bounds()
         else:
-            crop = Bounds.from_json(crop)
+            bounds = Bounds.from_json(crop)
 
-        mask = selection.mask(crop)
+        mask = selection.mask(bounds)
         return mask.view()
 
 
@@ -177,7 +178,7 @@ class KritaSelectionMask(ConstantNode):
     inputs_constant=True,
 )
 class KritaSelectionShrink(ConstantNode):
-    def run(self, selection, x, y):
+    def run(self, selection: Selection, x: int, y: int) -> Selection:
         if x != 0 or y != 0:
             selection = selection.copy()
             selection.shrink(x, y)
@@ -190,7 +191,7 @@ class KritaSelectionShrink(ConstantNode):
     inputs_constant=True,
 )
 class KritaSelectionSmooth(ConstantNode):
-    def run(self, selection):
+    def run(self, selection: Selection) -> Selection:
         selection = selection.copy()
         selection.smooth()
         return selection

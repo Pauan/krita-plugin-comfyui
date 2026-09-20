@@ -1,43 +1,49 @@
+from __future__ import annotations
+
 import json
+from typing import Any, cast
+from collections.abc import Generator, Iterable
+from shared import JSON
+from ..util.krita import Document
 from ..util.storage import Storage
 from ..settings import LogLevel
 from .graph import WorkflowGraph, WorkflowError
 
 
 # Loops recursively over all the children
-def all_children(children):
+def all_children(children: Iterable[dict[str, Any]]) -> Generator[dict[str, Any]]:
     for child in children:
         yield child
 
-        children = child.get("children", None)
-        if children is not None:
-            yield from all_children(children)
+        sub_children = child.get("children", None)
+        if sub_children is not None:
+            yield from all_children(sub_children)
 
 
 class Workflow(Storage):
-    def __init__(self, extension):
+    def __init__(self, extension: ComfyUIExtension) -> None:
         super().__init__({})
 
         self.extension = extension
         self.settings = extension.settings
 
         self.id = ""
-        self.document = None
-        self.graph = None
-        self.global_widgets = []
-        self.document_widgets = []
+        self.document: Document | None = None
+        self.graph: dict[str, Any] | None = None
+        self.global_widgets: list[dict[str, Any]] = []
+        self.document_widgets: list[dict[str, Any]] = []
 
-        self.widget_ids = set()
-        self.metadata = None
+        self.widget_ids: set[str] = set()
+        self.metadata: dict[str, dict[str, Any]] | None = None
 
 
-    def _save(self):
+    def _save(self) -> None:
         if self.id != "" and self.document is not None:
             self.document.set_key_json(f"krita_comfyui/ui_inputs/{self.id}", "krita_comfyui: Stored UI Inputs", self._serialized)
 
 
     @staticmethod
-    def _get_metadata_default(info):
+    def _get_metadata_default(info: dict[str, Any]) -> Any:
         match info["type"]:
             case "layer_id" | "combo" | "string" | "prompt": return ""
             case "int": return 0
@@ -49,7 +55,7 @@ class Workflow(Storage):
 
 
     @staticmethod
-    def _get_metadata_type(info):
+    def _get_metadata_type(info: dict[str, Any]) -> str:
         match info["type"]:
             case "layer_id": return "layer_id"
             case "combo": return "combo"
@@ -64,7 +70,7 @@ class Workflow(Storage):
 
 
     @staticmethod
-    def _get_metadata_cls(info):
+    def _get_metadata_cls(info: dict[str, Any]) -> type:
         match info["type"]:
             case "layer_id" | "combo" | "string" | "prompt": return str
             case "boolean" | "group": return bool
@@ -74,7 +80,7 @@ class Workflow(Storage):
             case _: raise RuntimeError(f"Unknown widget type {info["type"]}")
 
 
-    def _get_metadata(self, info):
+    def _get_metadata(self, info: dict[str, Any]) -> dict[str, Any]:
         default = info.get("default", None)
 
         # Explicit default always has priority.
@@ -101,7 +107,9 @@ class Workflow(Storage):
         }
 
 
-    def _find_metadata(self, widgets):
+    def _find_metadata(self, widgets: Iterable[dict[str, Any]]) -> None:
+        assert self.metadata is not None
+
         # We look for every widget in the widgets and set the metadata.
         for widget in all_children(widgets):
             id = widget.get("id", None)
@@ -125,7 +133,7 @@ class Workflow(Storage):
                 self.widget_ids.add(new_metadata["id"])
 
 
-    def _update_metadata(self):
+    def _update_metadata(self) -> None:
         self.widget_ids = set()
 
         if self.settings.node_metadata.is_loaded():
@@ -138,18 +146,18 @@ class Workflow(Storage):
             self._find_metadata(self.document_widgets)
 
 
-    def _update_serialized(self):
+    def _update_serialized(self) -> None:
         assert self.id is not None
 
         if self.id == "" or self.document is None:
-            serialized = {}
+            serialized: dict[str, JSON] = {}
         else:
-            serialized = self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {})
+            serialized = cast(dict[str, JSON], self.document.get_key_json(f"krita_comfyui/ui_inputs/{self.id}", {}))
 
         self.replace_serialized(serialized, save=False, notify_listeners=False)
 
 
-    def _update_workflow(self, id):
+    def _update_workflow(self, id: str) -> bool:
         assert id is not None
         assert isinstance(id, str)
 
@@ -181,7 +189,7 @@ class Workflow(Storage):
         return False
 
 
-    def reload_workflow(self):
+    def reload_workflow(self) -> bool:
         if self.id != "":
             try:
                 workflow = self.settings.workflows.get(self.id)
@@ -209,12 +217,12 @@ class Workflow(Storage):
         return False
 
 
-    def change_metadata(self):
+    def change_metadata(self) -> bool:
         self._update_metadata()
         return True
 
 
-    def change_workflow(self, id):
+    def change_workflow(self, id: str) -> bool:
         if self._update_workflow(id):
             self._update_serialized()
             return True
@@ -222,7 +230,7 @@ class Workflow(Storage):
             return False
 
 
-    def change_document(self, document):
+    def change_document(self, document: Document | None) -> bool:
         if self.document != document:
             self.document = document
             self._update_serialized()
@@ -231,7 +239,7 @@ class Workflow(Storage):
         return False
 
 
-    def initialize(self, document, id):
+    def initialize(self, document: Document | None, id: str) -> None:
         self.document = document
 
         if not self.change_workflow(id):
@@ -241,15 +249,15 @@ class Workflow(Storage):
             self._update_metadata()
 
 
-    def is_loaded(self):
+    def is_loaded(self) -> bool:
         return self.metadata is not None
 
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return self.document is not None and self.id != "" and self.graph is not None and self.metadata is not None
 
 
-    def run_graph(self, *, ui_values, is_live_mode, should_notify):
+    def run_graph(self, *, ui_values: dict[str, Any], is_live_mode: bool, should_notify: bool) -> None:
         if self.document is None:
             raise WorkflowError("Krita does not have an opened image")
 

@@ -90,14 +90,13 @@ def output_requirements(*, package, output_file, exclude_local, only_local):
 
     subprocess.run([
         "uv", "export",
-        "--format", "requirements.txt",
+        "--format", "requirements-txt",
         "--package", package,
         "--no-dev",
         "--no-editable",
         "--no-emit-project",
         "--no-hashes",
         "--no-header",
-        "--no-annotate",
         "--no-sources",
         *args,
         "--output-file", root / "dist" / output_file,

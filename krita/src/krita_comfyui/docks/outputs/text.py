@@ -1,22 +1,25 @@
+from typing import Any
 from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QMenu,
     QSizePolicy,
     QWidget,
 )
+from ...util.krita import Document, DocumentManager
 from ...util.qt import MessageBox, LayoutManager
 
 
 class TextWidget(QWidget):
-    def __init__(self, document):
+    def __init__(self, document: DocumentManager) -> None:
         super().__init__()
 
         self.document = document
         self.document.document_changed.connect(self.load_texts)
 
-        self.texts = []
+        self.texts: list[dict[str, Any]] = []
 
-        self.text_menus = []
+        self.text_menus: list[QAction] = []
 
         self.menu = QMenu(self)
         self.text_menus.append(self.menu.addAction(Krita.icon("deletelayer"), "Delete all texts", self.clear_text))
@@ -26,7 +29,7 @@ class TextWidget(QWidget):
 
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
 
-        self.layout = LayoutManager(self)
+        self.layout_manager = LayoutManager(self)
 
         self.setStyleSheet("""
             QGroupBox {
@@ -42,7 +45,7 @@ class TextWidget(QWidget):
             }
         """)
 
-        with self.layout.column() as column:
+        with self.layout_manager.column() as column:
             with column.scroll(max_height=200) as scroll:
                 widget = QWidget()
                 layout = LayoutManager(widget)
@@ -55,7 +58,7 @@ class TextWidget(QWidget):
         self.load_texts()
 
 
-    def show_context_menu(self, pos: QPoint):
+    def show_context_menu(self, pos: QPoint) -> None:
         has_text = len(self.texts) > 0
 
         for menu in self.text_menus:
@@ -64,7 +67,7 @@ class TextWidget(QWidget):
         self.menu.exec(self.mapToGlobal(pos))
 
 
-    def load_texts(self):
+    def load_texts(self) -> None:
         document = self.document.current()
 
         if document is not None:
@@ -75,7 +78,7 @@ class TextWidget(QWidget):
         self.display_text(texts)
 
 
-    def display_text(self, texts):
+    def display_text(self, texts: list[dict[str, Any]]) -> None:
         self.texts = texts
 
         self.column.clear()
@@ -97,12 +100,12 @@ class TextWidget(QWidget):
             self.setVisible(True)
 
 
-    def clear_text(self):
+    def clear_text(self) -> None:
         if MessageBox.question(self, "Are you sure you want to delete all output texts?"):
             self.set_text(self.document.current(), [])
 
 
-    def set_text(self, document, texts):
+    def set_text(self, document: Document | None, texts: list[dict[str, Any]]) -> None:
         if document is not None:
             if len(texts) == 0:
                 document.remove_key("krita_comfyui/output_texts")

@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import time
 import contextlib
+from typing import Any, TypeAlias
+from collections.abc import Callable, Generator, Iterable
 from krita import DockWidget
 from PyQt6.QtCore import Qt, QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -11,22 +15,27 @@ from PyQt6.QtWidgets import (
 )
 from shared import Perf
 from ..util import number_of_decimals
-from ..util.krita import ROOT_LAYER_ID, DocumentManager
-from ..util.qt import LayoutManager, MessageBox, ComboBox, Menu, ScrollArea, BlockSignals
+from ..util.krita import ROOT_LAYER_ID, Document, DocumentManager
+from ..util.storage import PathDict
+from ..settings import Settings, Workflow as SettingsWorkflow
+from ..util.qt import Layout, LayoutManager, MessageBox, ComboBox, Menu, ScrollArea, BlockSignals
 
 from . import Workflow
-from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiPrompt, UiGroup, UiRow, UiList, UiLabel, UiSeed
+from .ui import InputEqual, UiCombo, UiLayerId, UiInt, UiFloat, UiBoolean, UiString, UiStringMultiline, UiPrompt, UiGroup, UiRow, UiList, UiLabel, UiSeed
 from .prompt import PromptParser
 from .graph import WorkflowGraph
 
 
+UiWidget: TypeAlias = UiCombo | UiLayerId | UiInt | UiFloat | UiBoolean | UiString | UiStringMultiline | UiPrompt | UiGroup | UiRow | UiList | UiLabel | UiSeed
+
+
 class WorkflowSelector(ComboBox):
-    def __init__(self, tooltip):
+    def __init__(self, tooltip: str) -> None:
         super().__init__()
         self.setToolTip(tooltip)
 
 
-    def set_values(self, values):
+    def set_values(self, values: Iterable[SettingsWorkflow]) -> None:
         with BlockSignals(self):
             self.clear()
 
@@ -39,7 +48,7 @@ class WorkflowSelector(ComboBox):
             self.resize_dropdown()
 
 
-    def set_selected(self, id):
+    def set_selected(self, id: str) -> None:
         with BlockSignals(self):
             if id == "":
                 index = 0
@@ -51,7 +60,7 @@ class WorkflowSelector(ComboBox):
 
 
 class WorkflowSettings(QWidget):
-    def __init__(self, extension, settings):
+    def __init__(self, extension: ComfyUIExtension, settings: Settings) -> None:
         super().__init__()
 
         self.extension = extension
@@ -86,7 +95,7 @@ class WorkflowSettings(QWidget):
 
 
             with root.widget(ScrollArea()) as scroll:
-                self.scroll = scroll
+                self.scroll_area = scroll
 
                 scroll.setFrameShape(QFrame.Shape.Panel)
                 scroll.setFrameShadow(QFrame.Shadow.Sunken)
@@ -113,15 +122,15 @@ class WorkflowSettings(QWidget):
         self.hide_inputs()
 
 
-    def on_menu_show(self):
+    def on_menu_show(self) -> None:
         # Needed so the menu can resize properly
-        self.scroll.updateGeometry()
+        self.scroll_area.updateGeometry()
 
-    def show_inputs(self):
-        self.scroll.setVisible(True)
+    def show_inputs(self) -> None:
+        self.scroll_area.setVisible(True)
 
-    def hide_inputs(self):
-        self.scroll.setVisible(False)
+    def hide_inputs(self) -> None:
+        self.scroll_area.setVisible(False)
 
 
 
@@ -134,20 +143,20 @@ class LiveModeState(QObject):
     DEBOUNCE_DELAY = 150 * 1000000
 
 
-    def __init__(self, parent, extension):
+    def __init__(self, parent: QObject | None, extension: ComfyUIExtension) -> None:
         super().__init__(parent)
 
         self.extension = extension
 
         self.is_running = False
-        self.debounce_time = None
+        self.debounce_time: int | None = None
 
         self.timer = QTimer(self)
         self.timer.setSingleShot(False)
         self.timer.setInterval(self.POLL_DELAY)
 
 
-    def stop(self):
+    def stop(self) -> bool:
         if self.is_running:
             self.is_running = False
             self.debounce_time = None
@@ -157,7 +166,7 @@ class LiveModeState(QObject):
         return False
 
 
-    def start(self):
+    def start(self) -> bool:
         if not self.is_running:
             assert not self.timer.isActive()
             assert self.debounce_time is None
@@ -167,7 +176,7 @@ class LiveModeState(QObject):
         return False
 
 
-    def set_debounce_time(self, document, now):
+    def set_debounce_time(self, document: Document, now: int) -> None:
         document.modified = False
 
         self.debounce_time = now + self.DEBOUNCE_DELAY
@@ -176,7 +185,7 @@ class LiveModeState(QObject):
         self.timer.stop()
 
 
-    def is_changed(self, document, now, force_modified):
+    def is_changed(self, document: Document, now: int, force_modified: bool) -> bool:
         # It's the first run, so we run immediately.
         if self.debounce_time is None:
             return True
@@ -192,7 +201,7 @@ class LiveModeState(QObject):
         return False
 
 
-    def check_changed(self, document, *, force_modified=False):
+    def check_changed(self, document: Document | None, *, force_modified: bool = False) -> bool:
         if not self.is_running:
             return False
 
@@ -216,7 +225,7 @@ class WorkflowWidget(QWidget):
     can_run_changed = pyqtSignal()
     live_mode_changed = pyqtSignal()
 
-    def __init__(self, extension):
+    def __init__(self, extension: ComfyUIExtension) -> None:
         super().__init__()
 
         self.extension = extension
@@ -238,15 +247,15 @@ class WorkflowWidget(QWidget):
 
         self.prompt_parser = PromptParser(self.extension.settings.bundles.root.get())
 
-        self.layout = LayoutManager(self)
+        self.layout_manager = LayoutManager(self)
 
         self.workflow = Workflow(self.extension)
 
         self.layer_combo_options = self.get_layer_combo_options()
-        self.ui_widgets = []
-        self.ui_layer_inputs = []
+        self.ui_widgets: list[UiWidget] = []
+        self.ui_layer_inputs: list[UiLayerId] = []
 
-        with self.layout.column() as column:
+        with self.layout_manager.column() as column:
             with column.row() as row:
                 row.set_padding(left=1, right=1, bottom=2)
 
@@ -296,24 +305,24 @@ class WorkflowWidget(QWidget):
             self.update_widgets()
 
 
-    def open_settings(self):
+    def open_settings(self) -> None:
         self.extension.show_settings()
 
 
-    def set_workflow(self):
+    def set_workflow(self) -> None:
         self.selected_workflow.set(self.workflow_selector.currentData())
 
 
     # If the widget has a link_to, we need to fetch the
     # node metadata and merge it into the widget info.
-    def get_node_metadata(self, info):
+    def get_node_metadata(self, info: dict[str, Any]) -> dict[str, Any]:
         link_to = info.get("link_to", None)
 
         if link_to is None:
             return info
 
         else:
-            new_info = {}
+            new_info: dict[str, Any] = {}
 
             metadata = self.extension.settings.node_metadata.get(link_to["node_id"]).input(link_to["input"])
 
@@ -345,7 +354,7 @@ class WorkflowWidget(QWidget):
             return new_info
 
 
-    def add_widget(self, storage, parent, info, default_stretch, on_group_changed, defaults):
+    def add_widget(self, storage: PathDict, parent: Layout, info: dict[str, Any], default_stretch: int, on_group_changed: Callable[[], None] | None, defaults: dict[str, list[Any]]) -> None:
         info = self.get_node_metadata(info)
 
         match info["type"]:
@@ -458,12 +467,12 @@ class WorkflowWidget(QWidget):
                 raise RuntimeError(f"Unknown widget type {info["type"]}")
 
 
-    def update_workflow_selector(self):
+    def update_workflow_selector(self) -> None:
         self.workflow_selector.set_values(self.extension.settings.workflows.get_all())
         self.workflow_selector.set_selected(self.workflow.id)
 
 
-    def update_widgets(self):
+    def update_widgets(self) -> None:
         # Cleanup the old widgets.
         for widget in self.ui_widgets:
             widget.inputs.stop()
@@ -484,7 +493,7 @@ class WorkflowWidget(QWidget):
 
                 container = self.workflow_settings.container
 
-                def on_group_changed():
+                def on_group_changed() -> None:
                     self.workflow_menu.refresh_size()
                     self.workflow_menu_timer.start()
 
@@ -519,8 +528,8 @@ class WorkflowWidget(QWidget):
                     row.label(text="Not connected to ComfyUI")
 
 
-    def get_layer_combo_options(self):
-        options = []
+    def get_layer_combo_options(self) -> list[dict[str, Any]]:
+        options: list[dict[str, Any]] = []
 
         document = self.document.current()
 
@@ -552,14 +561,14 @@ class WorkflowWidget(QWidget):
         return options
 
 
-    def update_layer_inputs(self):
+    def update_layer_inputs(self) -> None:
         self.layer_combo_options = self.get_layer_combo_options()
 
         for input in self.ui_layer_inputs:
             input.set_options(self.layer_combo_options)
 
 
-    def on_workflows_changed(self):
+    def on_workflows_changed(self) -> None:
         with self.catch_errors():
             if self.workflow.reload_workflow():
                 self.update_widgets()
@@ -567,7 +576,7 @@ class WorkflowWidget(QWidget):
             self.update_workflow_selector()
 
 
-    def on_metadata_changed(self):
+    def on_metadata_changed(self) -> None:
         with self.catch_errors():
             if self.workflow.change_metadata():
                 # Various `link_to` stuff might have changed, so we have to remake all of the widgets.
@@ -575,14 +584,14 @@ class WorkflowWidget(QWidget):
                 self.can_run_changed.emit()
 
 
-    def on_workflow_changed(self):
+    def on_workflow_changed(self) -> None:
         with self.catch_errors():
             if self.workflow.change_workflow(self.selected_workflow.get()):
                 self.update_widgets()
                 self.can_run_changed.emit()
 
 
-    def on_document_changed(self):
+    def on_document_changed(self) -> None:
         with self.catch_errors():
             self.stop_live_mode()
 
@@ -594,17 +603,17 @@ class WorkflowWidget(QWidget):
                 self.update_layer_inputs()
 
 
-    def can_run(self):
+    def can_run(self) -> bool:
         return self.workflow.is_valid()
 
 
-    def show_error(self, message, backtrace=None):
+    def show_error(self, message: str, backtrace: str | None = None) -> None:
         self.stop_live_mode()
         MessageBox.error(self, text=message, details=backtrace)
 
 
     @contextlib.contextmanager
-    def catch_errors(self):
+    def catch_errors(self) -> Generator[None]:
         try:
             yield
         except Exception as e:
@@ -612,8 +621,8 @@ class WorkflowWidget(QWidget):
             MessageBox.from_exception(self, e)
 
 
-    def get_workflow_defaults(self):
-        defaults = {
+    def get_workflow_defaults(self) -> dict[str, list[Any]]:
+        defaults: dict[str, list[Any]] = {
             "seed/fixed": [],
             "seed/seed": [],
         }
@@ -643,8 +652,8 @@ class WorkflowWidget(QWidget):
         return defaults
 
 
-    def get_ui_values(self):
-        ui_values = {
+    def get_ui_values(self) -> dict[str, list[Any]]:
+        ui_values: dict[str, list[Any]] = {
             "seed/fixed": [],
             "seed/seed": [],
         }
@@ -672,7 +681,7 @@ class WorkflowWidget(QWidget):
                         input = inputs.value
 
                         if input is not None:
-                            info = {
+                            info: dict[str, Any] = {
                                 "value": input.get(),
                                 "is_default": input.get() == input.default(),
                             }
@@ -718,7 +727,7 @@ class WorkflowWidget(QWidget):
         return ui_values
 
 
-    def run_workflow(self):
+    def run_workflow(self) -> None:
         self.extension.job_started.emit()
 
         with self.catch_errors():
@@ -730,7 +739,7 @@ class WorkflowWidget(QWidget):
                 )
 
 
-    def run_live_workflow(self):
+    def run_live_workflow(self) -> None:
         with self.catch_errors():
             with Perf("run_live_workflow"):
                 self.workflow.run_graph(
@@ -742,21 +751,21 @@ class WorkflowWidget(QWidget):
                 #assert not self.workflow.document.modified
 
 
-    def is_live_mode_enabled(self):
+    def is_live_mode_enabled(self) -> bool:
         return self.live_mode_enabled.get()
 
-    def is_live_mode_running(self):
+    def is_live_mode_running(self) -> bool:
         return self.live_mode_state.is_running
 
 
-    def on_live_mode_changed(self):
+    def on_live_mode_changed(self) -> None:
         if not self.is_live_mode_enabled():
             self.stop_live_mode(emit=False)
 
         self.live_mode_changed.emit()
 
 
-    def stop_live_mode(self, *, emit=True):
+    def stop_live_mode(self, *, emit: bool = True) -> None:
         if self.live_mode_state.stop():
             self.extension.client.clear_queue_live_mode()
 
@@ -768,7 +777,7 @@ class WorkflowWidget(QWidget):
                 self.live_mode_changed.emit()
 
 
-    def maybe_run_live_mode(self, *, force_modified=False, notify_job_started=True):
+    def maybe_run_live_mode(self, *, force_modified: bool = False, notify_job_started: bool = True) -> None:
         is_changed = self.live_mode_state.check_changed(self.workflow.document, force_modified=force_modified)
 
         if is_changed:
@@ -778,7 +787,7 @@ class WorkflowWidget(QWidget):
             self.run_live_workflow()
 
 
-    def toggle_live_mode_running(self):
+    def toggle_live_mode_running(self) -> None:
         if self.is_live_mode_running():
             self.stop_live_mode()
         else:

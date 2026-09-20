@@ -1,22 +1,25 @@
 # This module contains constant-evaluation versions of the Krita nodes.
+from typing import Any
+from collections.abc import Sequence
+from shared.graph import NodeLink
 from shared import MIN_SEED, MAX_SEED, serialize_any, zip_lists, detail_size
 from . import WorkflowError, Link, ConstantNode, ConstantOutputs, InputValue, InputDynamicCombo, is_link, function, constant
-from ...util.krita import ROOT_LAYER_ID, Bounds
+from ...util.krita import ROOT_LAYER_ID, Bounds, Layer
 
 
 class UiLink(Link):
-    def __init__(self, values, ids):
+    def __init__(self, values: list[Any], ids: list[str]) -> None:
         super().__init__(values)
         self.ids = ids
 
 
-def krita_ui(type, outputs):
-    def get_id(id):
+def krita_ui(type: str, outputs: Sequence[str]) -> type[ConstantNode]:
+    def get_id(id: str) -> str:
         return f"{type}/{id}"
 
     class KritaUi(ConstantNode):
-        def run(self):
-            ids = []
+        def run(self) -> ConstantOutputs:
+            ids: list[str] = []
             links = [UiLink([], ids) for _ in outputs]
 
             for id in self.evaluate_input("id").values:
@@ -34,7 +37,7 @@ def krita_ui(type, outputs):
 
 
 class KritaUiPrompt(krita_ui("prompt", ["positive", "negative", "loras", "is_default"])):
-    def run(self):
+    def run(self) -> ConstantOutputs:
         outputs = super().run()
 
         # Flattens the loras into a single flat list
@@ -52,13 +55,13 @@ class KritaUiPrompt(krita_ui("prompt", ["positive", "negative", "loras", "is_def
     outputs=2,
 )
 class KritaCanvasImage(ConstantNode):
-    def run(self, crop):
+    def run(self, crop: Any) -> Any:
         if crop is None:
-            crop = self.workflow.bounds()
+            bounds = self.workflow.bounds()
         else:
-            crop = Bounds.from_json(crop)
+            bounds = Bounds.from_json(crop)
 
-        return self.workflow.get_cached_canvas(crop)
+        return self.workflow.get_cached_canvas(bounds)
 
 
 @function(
@@ -67,7 +70,7 @@ class KritaCanvasImage(ConstantNode):
     outputs=2,
 )
 class KritaCanvasSize(ConstantNode):
-    def run(self):
+    def run(self) -> tuple[int, int]:
         bounds = self.workflow.bounds()
         return (
             bounds.width,
@@ -80,19 +83,19 @@ class KritaCanvasSize(ConstantNode):
     inputs_constant=True,
 )
 class KritaLiveMode(ConstantNode):
-    def run(self):
+    def run(self) -> bool:
         return self.workflow.is_live_mode
 
 
 class KritaDebug(ConstantNode):
-    def serialize_any(self, x):
+    def serialize_any(self, x: Any) -> Any:
         if is_link(x):
             return x
         else:
             return serialize_any(x)
 
 
-    def run(self):
+    def run(self) -> ConstantOutputs:
         enabled = self.evaluate_input("enabled")
 
         (all_true, all_false) = enabled.check_booleans()
@@ -102,7 +105,7 @@ class KritaDebug(ConstantNode):
             return ConstantOutputs([])
 
         else:
-            outputs = {}
+            outputs: dict[str, Any] = {}
 
             text = self.evaluate_input("text", optional=True)
 
@@ -137,7 +140,7 @@ class KritaDebug(ConstantNode):
     outputs=3,
 )
 class KritaLayers(ConstantNode):
-    def get_layer_image(self, layer, crop):
+    def get_layer_image(self, layer: Layer, crop: Bounds) -> tuple[Any, Any]:
         image = self.workflow.cached_layer_images.get((layer.id, crop), None)
 
         if image is None:
@@ -151,13 +154,13 @@ class KritaLayers(ConstantNode):
         return image
 
 
-    def get_layers(self, layer_id, crop, mode):
+    def get_layers(self, layer_id: str, crop: Bounds, mode: str) -> tuple[list[Any], list[Any], list[str]]:
         layers = self.workflow.cached_layers.get((layer_id, crop, mode), None)
 
         if layers is None:
-            images = []
-            masks = []
-            names = []
+            images: list[Any] = []
+            masks: list[Any] = []
+            names: list[str] = []
 
             root_layer = self.workflow.document.root_layer()
 
@@ -169,7 +172,7 @@ class KritaLayers(ConstantNode):
             if layer is None:
                 self.error(f"Could not find layer {layer_id}")
 
-            def add_image(layer):
+            def add_image(layer: Layer) -> None:
                 if layer.id == root_layer.id:
                     (image, mask) = self.workflow.get_cached_canvas(crop)
                 else:
@@ -199,27 +202,27 @@ class KritaLayers(ConstantNode):
         return layers
 
 
-    def run(self, layer_id, crop, mode):
+    def run(self, layer_id: Link, crop: list[Any], mode: list[str]) -> tuple[list[Any], list[Any], list[str]]:
         layer_id_link = layer_id
 
-        images = []
-        masks = []
-        names = []
+        images: list[Any] = []
+        masks: list[Any] = []
+        names: list[str] = []
 
-        for layer_id, crop, mode in zip_lists([layer_id.values, crop, mode]):
-            if crop is None:
-                crop = self.workflow.bounds()
+        for id, crop_json, layer_mode in zip_lists([layer_id.values, crop, mode]):
+            if crop_json is None:
+                bounds = self.workflow.bounds()
             else:
-                crop = Bounds.from_json(crop)
+                bounds = Bounds.from_json(crop_json)
 
             # If the layer name is empty, throw an error
-            if layer_id == "":
+            if id == "":
                 if isinstance(layer_id_link, UiLink):
                     raise WorkflowError(f"Layer selector [{", ".join(layer_id_link.ids)}] is empty")
                 else:
                     self.error("layer_id is empty")
             else:
-                image, mask, name = self.get_layers(layer_id, crop, mode)
+                image, mask, name = self.get_layers(id, bounds, layer_mode)
                 images.extend(image)
                 masks.extend(mask)
                 names.extend(name)
@@ -229,13 +232,13 @@ class KritaLayers(ConstantNode):
 
 @function()
 class KritaAnimationFrames(ConstantNode):
-    def run(self):
+    def run(self) -> int:
         return self.workflow.document.get_animation_length()
 
 
 class KritaSeed(ConstantNode):
     @staticmethod
-    def normalize(seed):
+    def normalize(seed: int) -> int:
         assert seed >= MIN_SEED and seed <= MAX_SEED
 
         # https://github.com/Comfy-Org/ComfyUI/blob/ed201fff08fbbd3dbcc500b252a9f41e8051c256/nodes.py#L1570
@@ -243,9 +246,9 @@ class KritaSeed(ConstantNode):
         # We have to normalize the integer into the range of [0, sys.maxsize]
         return seed - MIN_SEED
 
-    def run(self):
-        seeds = []
-        is_fixed = []
+    def run(self) -> ConstantOutputs:
+        seeds: list[int] = []
+        is_fixed: list[bool] = []
 
         fixed = self.workflow.get_ui_values("seed/fixed")
         seed = self.workflow.get_ui_values("seed/seed")
@@ -280,8 +283,8 @@ class KritaSeed(ConstantNode):
     is_output_list=True,
 )
 class ApplyLoras(ConstantNode):
-    def run(self, model, clip, loras):
-        seen_loras = set()
+    def run(self, model: list[Any], clip: list[Any], loras: list[dict[str, Any] | None]) -> tuple[list[Any], list[Any]]:
+        seen_loras: set[str] = set()
 
         for lora in loras:
             if lora is not None:
@@ -292,8 +295,8 @@ class ApplyLoras(ConstantNode):
 
                 seen_loras.add(path)
 
-        models = []
-        clips = []
+        models: list[Any] = []
+        clips: list[Any] = []
 
         for model, clip in zip_lists([model, clip]):
             for lora in loras:
@@ -330,7 +333,7 @@ class ApplyLoras(ConstantNode):
     outputs=3,
 )
 class DetailSize(ConstantNode):
-    def run(self, width, height, resize_type, round_up, integer_multiple):
+    def run(self, width: int, height: int, resize_type: Any, round_up: int, integer_multiple: bool) -> tuple[int, int, bool]:
         new_width, new_height = detail_size(width, height, resize_type, round_up, integer_multiple)
 
         is_changed = (new_width != width) or (new_height != height)
@@ -351,7 +354,7 @@ class DetailSize(ConstantNode):
     },
 )
 class MakeControlNet(ConstantNode):
-    def run(self, image, mask, model, type, strength, start_percent, end_percent):
+    def run(self, image: Any, mask: Any, model: Any, type: str, strength: float, start_percent: float, end_percent: float) -> dict[str, Any]:
         return {
             "image": image,
             "mask": mask,
@@ -377,7 +380,7 @@ class MakeControlNet(ConstantNode):
     is_output_list=True,
 )
 class ApplyControlNets(ConstantNode):
-    def anima(self, model, control_net, image):
+    def anima(self, model: NodeLink, control_net: dict[str, Any], image: NodeLink) -> NodeLink:
         return self.graph.node("AnimaLLLiteApply",
             model=model,
             lllite_name=control_net["model"],
@@ -389,7 +392,7 @@ class ApplyControlNets(ConstantNode):
         ).out(0)
 
 
-    def union(self, positive, negative, vae, control_net, image):
+    def union(self, positive: NodeLink, negative: NodeLink, vae: NodeLink, control_net: dict[str, Any], image: NodeLink) -> tuple[NodeLink, NodeLink]:
         model = self.graph.node("ControlNetLoader", control_net_name=control_net["model"]).out(0)
         model = self.graph.node("SetUnionControlNetType", control_net=model, type=control_net["type"]).out(0)
 
@@ -409,7 +412,7 @@ class ApplyControlNets(ConstantNode):
         return (positive, negative)
 
 
-    def z_image(self, model, vae, control_net, image):
+    def z_image(self, model: NodeLink, vae: NodeLink, control_net: dict[str, Any], image: NodeLink) -> NodeLink:
         model_patch = self.graph.node("ModelPatchLoader",
             name=control_net["model"],
         ).out(0)
@@ -424,11 +427,11 @@ class ApplyControlNets(ConstantNode):
         ).out(0)
 
 
-    def run(self, model, positive, negative, vae, control_nets):
-        models = []
-        positives = []
-        negatives = []
-        images = []
+    def run(self, model: list[Any], positive: list[Any], negative: list[Any], vae: list[Any], control_nets: list[dict[str, Any] | None]) -> tuple[list[Any], list[Any], list[Any], list[Any]]:
+        models: list[Any] = []
+        positives: list[Any] = []
+        negatives: list[Any] = []
+        images: list[Any] = []
 
         for model, positive, negative, vae in zip_lists([model, positive, negative, vae]):
             for control_net in control_nets:
@@ -469,21 +472,21 @@ class ApplyControlNets(ConstantNode):
     is_output_list=True,
 )
 class RegionMask(ConstantNode):
-    def run(self, mask, name, prompt, strength, isolated, add_to_global):
-        outputs = []
+    def run(self, mask: list[Any], name: list[Any], prompt: list[Any], strength: list[Any], isolated: list[Any], add_to_global: list[Any]) -> list[Any]:
+        outputs: list[Any] = []
 
-        for mask, name, prompt, strength, isolated, add_to_global in zip_lists([mask, name, prompt, strength, isolated, add_to_global]):
-            if strength > 0.0 and mask is not None:
-                prompt = prompt.strip()
+        for mask_, name_, prompt_, strength_, isolated_, add_to_global_ in zip_lists([mask, name, prompt, strength, isolated, add_to_global]):
+            if strength_ > 0.0 and mask_ is not None:
+                prompt_ = prompt_.strip()
 
-                if prompt != "" and (not mask.is_solid(0x00)):
+                if prompt_ != "" and (not mask_.is_solid(0x00)):
                     outputs.append(self.graph.node("krita_comfyui: RegionMask",
-                        mask=mask,
-                        name=name,
-                        prompt=prompt,
-                        strength=strength,
-                        isolated=isolated,
-                        add_to_global=add_to_global,
+                        mask=mask_,
+                        name=name_,
+                        prompt=prompt_,
+                        strength=strength_,
+                        isolated=isolated_,
+                        add_to_global=add_to_global_,
                     ).out(0))
 
         return outputs

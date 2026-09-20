@@ -1,138 +1,139 @@
 # This module contains constant-evaluation versions of the nodes from
 # https://github.com/StableLlama/ComfyUI-basic_data_handling
 import math
+from typing import Any, Literal
 from . import ConstantNode, function, constant
 
 
 @function()
 class BooleanAnd(ConstantNode):
-    def run(self, input1, input2):
+    def run(self, input1: bool, input2: bool) -> bool:
         return input1 and input2
 
 @function()
 class BooleanNand(ConstantNode):
-    def run(self, input1, input2):
+    def run(self, input1: bool, input2: bool) -> bool:
         return not (input1 and input2)
 
 @function()
 class BooleanNor(ConstantNode):
-    def run(self, input1, input2):
+    def run(self, input1: bool, input2: bool) -> bool:
         return not (input1 or input2)
 
 @function()
 class BooleanNot(ConstantNode):
-    def run(self, input):
+    def run(self, input: bool) -> bool:
         return not input
 
 @function()
 class BooleanOr(ConstantNode):
-    def run(self, input1, input2):
+    def run(self, input1: bool, input2: bool) -> bool:
         return input1 or input2
 
 @function()
 class BooleanXor(ConstantNode):
-    def run(self, input1, input2):
+    def run(self, input1: bool, input2: bool) -> bool:
         return input1 != input2
 
 
 @function()
 class IntCreate(ConstantNode):
-    def run(self, value):
+    def run(self, value: str) -> int:
         return int(value, 0)
 
 @function()
 class IntCreateWithBase(ConstantNode):
-    def run(self, value, base):
+    def run(self, value: str, base: int) -> int:
         return int(value, base)
 
 @function()
 class IntAdd(ConstantNode):
-    def run(self, int1, int2):
+    def run(self, int1: int, int2: int) -> int:
         return int1 + int2
 
 @function()
 class IntSubtract(ConstantNode):
-    def run(self, int1, int2):
+    def run(self, int1: int, int2: int) -> int:
         return int1 - int2
 
 @function()
 class IntMultiply(ConstantNode):
-    def run(self, int1, int2):
+    def run(self, int1: int, int2: int) -> int:
         return int1 * int2
 
 @function()
 class IntDivide(ConstantNode):
-    def run(self, int1, int2):
+    def run(self, int1: int, int2: int) -> int:
         return int1 // int2
 
 @function()
 class IntDivideSafe(ConstantNode):
-    def run(self, int1, int2, infinity):
+    def run(self, int1: int, int2: int, infinity: int) -> int:
         if int2 == 0:
             return infinity if int1 > 0 else -infinity
         return int1 // int2
 
 @function()
 class IntBitCount(ConstantNode):
-    def run(self, int_value):
+    def run(self, int_value: int) -> int:
         return int_value.bit_count()
 
 @function()
 class IntBitLength(ConstantNode):
-    def run(self, int_value):
+    def run(self, int_value: int) -> int:
         return int_value.bit_length()
 
 @function()
 class IntFromBytes(ConstantNode):
-    def run(self, bytes_value, byteorder, signed):
+    def run(self, bytes_value: bytes, byteorder: Literal["little", "big"], signed: str) -> int:
         signed_bool = (signed == "True")
         return int.from_bytes(bytes_value, byteorder=byteorder, signed=signed_bool)
 
 @function()
 class IntModulus(ConstantNode):
-    def run(self, int1, int2):
+    def run(self, int1: int, int2: int) -> int:
         return int1 % int2
 
 @function()
 class IntPower(ConstantNode):
-    def run(self, base, exponent):
+    def run(self, base: int, exponent: int) -> int:
         return base ** exponent
 
 @function()
 class IntToBytes(ConstantNode):
-    def run(self, int_value, length, byteorder, signed):
+    def run(self, int_value: int, length: int, byteorder: Literal["little", "big"], signed: str) -> bytes:
         signed_bool = (signed == "True")
         return int_value.to_bytes(length, byteorder=byteorder, signed=signed_bool)
 
 
 @function()
 class FloatCreate(ConstantNode):
-    def run(self, value):
+    def run(self, value: float) -> float:
         return float(value)
 
 @function()
 class FloatAdd(ConstantNode):
-    def run(self, float1, float2):
+    def run(self, float1: float, float2: float) -> float:
         return float1 + float2
 
 @function()
 class FloatSubtract(ConstantNode):
-    def run(self, float1, float2):
+    def run(self, float1: float, float2: float) -> float:
         return float1 - float2
 
 @function()
 class FloatMultiply(ConstantNode):
-    def run(self, float1, float2):
+    def run(self, float1: float, float2: float) -> float:
         return float1 * float2
 
 @function()
 class FloatDivide(ConstantNode):
-    def run(self, float1, float2):
+    def run(self, float1: float, float2: float) -> float:
         return float1 / float2
 
 @function()
 class FloatDivideSafe(ConstantNode):
-    def run(self, float1, float2):
+    def run(self, float1: float, float2: float) -> float:
         if float2 == 0.0:
             if float1 == 0.0:
                 return float('nan')
@@ -141,45 +142,45 @@ class FloatDivideSafe(ConstantNode):
 
 @function(outputs=2)
 class FloatAsIntegerRatio(ConstantNode):
-    def run(self, float_value):
+    def run(self, float_value: float) -> tuple[int, int]:
         # Decompose the float into numerator and denominator
         numerator, denominator = float_value.as_integer_ratio()
         return (numerator, denominator)
 
 @function()
 class FloatFromHex(ConstantNode):
-    def run(self, hex_value):
+    def run(self, hex_value: str) -> float:
         return float.fromhex(hex_value)
 
 @function()
 class FloatHex(ConstantNode):
-    def run(self, float_value):
+    def run(self, float_value: float) -> str:
         return float_value.hex()
 
 @function()
 class FloatIsInteger(ConstantNode):
-    def run(self, float_value):
+    def run(self, float_value: float) -> bool:
         return float_value.is_integer()
 
 @function()
 class FloatPower(ConstantNode):
-    def run(self, base, exponent):
+    def run(self, base: float, exponent: float) -> float:
         return base ** exponent
 
 @function()
 class FloatRound(ConstantNode):
-    def run(self, float_value, decimal_places):
+    def run(self, float_value: float, decimal_places: int) -> float:
         return round(float_value, decimal_places)
 
 
 @function()
 class MathAbs(ConstantNode):
-    def run(self, value):
+    def run(self, value: float) -> float:
         return abs(float(value))
 
 @function()
 class MathAcos(ConstantNode):
-    def run(self, value, unit):
+    def run(self, value: float, unit: str) -> float:
         result = math.acos(float(value))
         if unit == "degrees":
             result = math.degrees(result)
@@ -187,7 +188,7 @@ class MathAcos(ConstantNode):
 
 @function()
 class MathAsin(ConstantNode):
-    def run(self, value, unit):
+    def run(self, value: float, unit: str) -> float:
         result = math.asin(float(value))
         if unit == "degrees":
             result = math.degrees(result)
@@ -195,7 +196,7 @@ class MathAsin(ConstantNode):
 
 @function()
 class MathAtan(ConstantNode):
-    def run(self, value, unit):
+    def run(self, value: float, unit: str) -> float:
         result = math.atan(float(value))
         if unit == "degrees":
             result = math.degrees(result)
@@ -203,7 +204,7 @@ class MathAtan(ConstantNode):
 
 @function()
 class MathAtan2(ConstantNode):
-    def run(self, y, x, unit):
+    def run(self, y: float, x: float, unit: str) -> float:
         result = math.atan2(float(y), float(x))
         if unit == "degrees":
             result = math.degrees(result)
@@ -211,12 +212,12 @@ class MathAtan2(ConstantNode):
 
 @function()
 class MathCeil(ConstantNode):
-    def run(self, value):
+    def run(self, value: float) -> int:
         return math.ceil(float(value))
 
 @function()
 class MathCos(ConstantNode):
-    def run(self, angle, unit):
+    def run(self, angle: float, unit: str) -> float:
         if unit == "degrees":
             # Convert degrees to radians
             angle = math.radians(float(angle))
@@ -224,47 +225,47 @@ class MathCos(ConstantNode):
 
 @function()
 class MathDegrees(ConstantNode):
-    def run(self, radians):
+    def run(self, radians: float) -> float:
         return math.degrees(float(radians))
 
 @function()
 class MathExp(ConstantNode):
-    def run(self, value):
+    def run(self, value: float) -> float:
         return math.exp(float(value))
 
 @function()
 class MathFloor(ConstantNode):
-    def run(self, value):
+    def run(self, value: float) -> int:
         return math.floor(float(value))
 
 @function()
 class MathLog(ConstantNode):
-    def run(self, value, base):
+    def run(self, value: float, base: float) -> float:
         return math.log(float(value), float(base))
 
 @function()
 class MathLog10(ConstantNode):
-    def run(self, value):
+    def run(self, value: float) -> float:
         return math.log10(float(value))
 
 @function()
 class MathMax(ConstantNode):
-    def run(self, value1, value2):
+    def run(self, value1: float, value2: float) -> float:
         return max(float(value1), float(value2))
 
 @function()
 class MathMin(ConstantNode):
-    def run(self, value1, value2):
+    def run(self, value1: float, value2: float) -> float:
         return min(float(value1), float(value2))
 
 @function()
 class MathRadians(ConstantNode):
-    def run(self, degrees):
+    def run(self, degrees: float) -> float:
         return math.radians(float(degrees))
 
 @function()
 class MathSin(ConstantNode):
-    def run(self, angle, unit):
+    def run(self, angle: float, unit: str) -> float:
         if unit == "degrees":
             # Convert degrees to radians
             angle = math.radians(float(angle))
@@ -272,12 +273,12 @@ class MathSin(ConstantNode):
 
 @function()
 class MathSqrt(ConstantNode):
-    def run(self, value):
+    def run(self, value: float) -> float:
         return math.sqrt(float(value))
 
 @function()
 class MathTan(ConstantNode):
-    def run(self, angle, unit):
+    def run(self, angle: float, unit: str) -> float:
         if unit == "degrees":
             # Convert degrees to radians
             angle = math.radians(float(angle))
@@ -291,41 +292,41 @@ class MathTan(ConstantNode):
 
 @function()
 class CastToBoolean(ConstantNode):
-    def run(self, input):
+    def run(self, input: Any) -> bool:
         return bool(input)
 
 @function()
 class CastToDict(ConstantNode):
-    def run(self, input):
+    def run(self, input: Any) -> dict[Any, Any]:
         return dict(input)
 
 @function()
 class CastToFloat(ConstantNode):
-    def run(self, input):
+    def run(self, input: Any) -> float:
         return float(input)
 
 @function()
 class CastToInt(ConstantNode):
-    def run(self, input):
+    def run(self, input: Any) -> int:
         return int(input)
 
 @function()
 class CastToList(ConstantNode):
-    def run(self, input):
+    def run(self, input: Any) -> list[Any]:
         if isinstance(input, list):
             return input
         return [input]
 
 @function()
 class CastToSet(ConstantNode):
-    def run(self, input):
+    def run(self, input: Any) -> set[Any]:
         if isinstance(input, set):
             return input
         return {input,} if not isinstance(input, list) else set(input)
 
 @function()
 class CastToString(ConstantNode):
-    def run(self, input):
+    def run(self, input: Any) -> str:
         return str(input)
 
 

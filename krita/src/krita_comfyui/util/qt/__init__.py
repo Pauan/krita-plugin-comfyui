@@ -6,7 +6,7 @@ import traceback
 import builtins
 from collections.abc import Generator, Sequence
 from types import TracebackType
-from typing import Protocol, cast
+from typing import Literal, Protocol, cast
 from PyQt6.QtCore import QObject, QThread, QSortFilterProxyModel, QRegularExpression, QSize, QEvent, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QGuiApplication, QIcon, QKeyEvent, QWheelEvent, QShowEvent, QMouseEvent
 from PyQt6.QtWidgets import (
@@ -408,7 +408,7 @@ class BlockSignals:
     def __enter__(self) -> None:
         self.obj.blockSignals(True)
 
-    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None) -> bool:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None) -> Literal[False]:
         self.obj.blockSignals(False)
         return False
 
@@ -420,7 +420,7 @@ class Scope[T]:
     def __enter__(self) -> T:
         return self.value
 
-    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None) -> bool:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None) -> Literal[False]:
         return False
 
 

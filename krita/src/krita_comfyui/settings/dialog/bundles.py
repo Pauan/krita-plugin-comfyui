@@ -1,30 +1,39 @@
+from __future__ import annotations
+
 import re
 import functools
 from dataclasses import dataclass
+from typing import Any, cast
+from collections.abc import Iterable
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QMenu, QToolButton, QWidget, QLineEdit, QTreeWidget, QTreeWidgetItem, QAbstractItemView, QHeaderView, QInputDialog
 from ...util.qt import MessageBox, LayoutManager
 from ...util.krita import Image
 from ...workflow.ui import UiPrompt
+from ...util.storage import Storage, Dict
+from ...server import CivitaiInfo
 from shared import Perf
 
 
 @functools.total_ordering
 class TreeItem(QTreeWidgetItem):
-    def __init__(self, parent, is_folder, name):
+    def __init__(self, parent: QTreeWidget | QTreeWidgetItem | None, is_folder: bool, name: str) -> None:
         super().__init__(parent)
         self.setText(0, name)
         self.is_folder = is_folder
         self.cmp = (0 if is_folder else 1, name.casefold())
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, TreeItem):
+            return NotImplemented
         return self.cmp == other.cmp
 
-    def __lt__(self, other):
+    def __lt__(self, other: QTreeWidgetItem) -> bool:
+        assert isinstance(other, TreeItem)
         return self.cmp < other.cmp
 
 
-    def filter(self, regex):
+    def filter(self, regex: re.Pattern[str]) -> bool:
         visible = False
 
         length = self.childCount()
@@ -32,7 +41,7 @@ class TreeItem(QTreeWidgetItem):
         assert length > 0
 
         for index in range(length):
-            if self.child(index).filter(regex):
+            if cast(TreeItem, self.child(index)).filter(regex):
                 visible = True
 
         if visible:
@@ -42,58 +51,62 @@ class TreeItem(QTreeWidgetItem):
         return visible
 
 
-    def show_all(self):
+    def show_all(self) -> None:
         length = self.childCount()
 
         assert length > 0
 
         for index in range(length):
-            self.child(index).show_all()
+            cast(TreeItem, self.child(index)).show_all()
 
         self.setExpanded(False)
         self.setHidden(False)
 
 
 class TreeLeaf(TreeItem):
-    def __init__(self, parent, name, info):
+    def __init__(self, parent: QTreeWidget | QTreeWidgetItem | None, name: str, info: BundleInfo) -> None:
         super().__init__(parent, False, name)
         self.info = info
 
-    def filter(self, regex):
+    def filter(self, regex: re.Pattern[str]) -> bool:
         visible = regex.search(self.info.key) is not None
         self.setHidden(not visible)
         return visible
 
-    def show_all(self):
+    def show_all(self) -> None:
         self.setHidden(False)
 
 
 class Tree:
-    def __init__(self, tree):
+    def __init__(self, tree: QTreeWidget | QTreeWidgetItem) -> None:
         self.tree = tree
-        self.children = {}
+        self.children: dict[str, Folder] = {}
 
 
-    def clear(self):
+    def clear(self) -> None:
         self.children = {}
         self.tree.clear()
 
 
-    def sort(self):
+    def sort(self) -> None:
         self.tree.sortItems(0, Qt.SortOrder.AscendingOrder)
 
 
-    def filter(self, regex):
-        for index in range(self.tree.topLevelItemCount()):
-            self.tree.topLevelItem(index).filter(regex)
+    def filter(self, regex: re.Pattern[str]) -> None:
+        tree = cast(QTreeWidget, self.tree)
+
+        for index in range(tree.topLevelItemCount()):
+            cast(TreeItem, tree.topLevelItem(index)).filter(regex)
 
 
-    def show_all(self):
-        for index in range(self.tree.topLevelItemCount()):
-            self.tree.topLevelItem(index).show_all()
+    def show_all(self) -> None:
+        tree = cast(QTreeWidget, self.tree)
+
+        for index in range(tree.topLevelItemCount()):
+            cast(TreeItem, tree.topLevelItem(index)).show_all()
 
 
-    def make_path(self, path):
+    def make_path(self, path: Iterable[str]) -> QTreeWidget | QTreeWidgetItem:
         parent = self
 
         for name in path:
@@ -102,7 +115,7 @@ class Tree:
         return parent.tree
 
 
-    def subfolder(self, name):
+    def subfolder(self, name: str) -> Folder:
         try:
             return self.children[name]
 
@@ -113,13 +126,13 @@ class Tree:
 
 
 class Folder(Tree):
-    def __init__(self, parent, name):
+    def __init__(self, parent: Tree, name: str) -> None:
         item = TreeItem(parent.tree, True, name)
         super().__init__(item)
 
 
 class LoadingDialog(QDialog):
-    def __init__(self, parent, extension):
+    def __init__(self, parent: QWidget | None, extension: ComfyUIExtension) -> None:
         super().__init__(parent)
 
         self.extension = extension
@@ -139,7 +152,7 @@ class LoadingDialog(QDialog):
                 buttons.rejected.connect(self.on_cancel)
 
 
-    def on_cancel(self):
+    def on_cancel(self) -> None:
         self.extension.client.cancel_download_civitai()
         self.reject()
 
@@ -147,11 +160,11 @@ class LoadingDialog(QDialog):
 @dataclass
 class BundleInfo:
     key: str
-    info: dict
+    info: Dict
 
 
 class BundleName(QWidget):
-    def __init__(self, root, text):
+    def __init__(self, root: SettingsBundles, text: str) -> None:
         super().__init__()
 
         self.root = root
@@ -174,7 +187,7 @@ class BundleName(QWidget):
                 button.clicked.connect(self.delete_bundle)
 
 
-    def update_name(self):
+    def update_name(self) -> None:
         old_name = self.text
 
         new_name = self.root.bundle_name_dialog(old_name)
@@ -183,13 +196,13 @@ class BundleName(QWidget):
             self.root.rename_bundle(old_name, new_name)
 
 
-    def delete_bundle(self):
+    def delete_bundle(self) -> None:
         if MessageBox.question(self, f"Are you sure you want to delete the \"{self.text}\" bundle?"):
             self.root.delete_bundle(self.text)
 
 
 class SettingsBundles(QWidget):
-    def __init__(self, extension, bundles):
+    def __init__(self, extension: ComfyUIExtension, bundles: Storage) -> None:
         super().__init__()
 
         self.extension = extension
@@ -197,8 +210,8 @@ class SettingsBundles(QWidget):
 
         self.bundles = bundles
 
-        self.widgets = []
-        self.selected_bundle = None
+        self.widgets: list[UiPrompt] = []
+        self.selected_bundle: BundleInfo | None = None
 
         self.loading_dialog = LoadingDialog(self, self.extension)
 
@@ -253,11 +266,11 @@ class SettingsBundles(QWidget):
 
 
     @staticmethod
-    def process_bundle_name(name):
+    def process_bundle_name(name: str) -> str:
         return re.sub(r"/{2,}", "/", re.sub(r"\s*/\s*", "/", name))
 
 
-    def make_parents(self, path):
+    def make_parents(self, path: list[str]) -> Folder:
         parent = Folder(self.tree, path[0])
 
         for name in path[1:]:
@@ -266,7 +279,7 @@ class SettingsBundles(QWidget):
         return parent
 
 
-    def update_bundle(self):
+    def update_bundle(self) -> None:
         # Cleanup the old widgets.
         for widget in self.widgets:
             widget.inputs.stop()
@@ -298,12 +311,15 @@ class SettingsBundles(QWidget):
                 self.widgets.append(widget)
 
 
-    def on_item_clicked(self, item, column):
+    def on_item_clicked(self, item: QTreeWidgetItem | None, column: int) -> None:
         if item is not None:
+            assert isinstance(item, TreeItem)
+
             if item.is_folder:
                 item.setExpanded(not item.isExpanded())
                 self.selected_bundle = None
             else:
+                assert isinstance(item, TreeLeaf)
                 self.selected_bundle = item.info
         else:
             self.selected_bundle = None
@@ -311,7 +327,7 @@ class SettingsBundles(QWidget):
         self.update_bundle()
 
 
-    def bundle_name_dialog(self, initial):
+    def bundle_name_dialog(self, initial: str) -> str | None:
         text, ok = QInputDialog.getText(self,
             "Krita Plugin ComfyUI",
             "Bundle name.\n\nUse / to put the bundle into a subfolder.\n",
@@ -334,7 +350,7 @@ class SettingsBundles(QWidget):
                 return self.process_bundle_name(text)
 
 
-    def rename_bundle(self, old_name, new_name):
+    def rename_bundle(self, old_name: str, new_name: str) -> None:
         bundle = self.bundles.root.value(old_name, dict, default={})
 
         self.bundles.root.value(new_name, dict, default={}).set(bundle.get())
@@ -348,7 +364,7 @@ class SettingsBundles(QWidget):
         self.update_tree()
 
 
-    def delete_bundle(self, name):
+    def delete_bundle(self, name: str) -> None:
         self.bundles.root.value(name, dict, default={}).remove()
 
         if self.selected_bundle is not None and self.selected_bundle.key == name:
@@ -358,7 +374,7 @@ class SettingsBundles(QWidget):
         self.update_tree()
 
 
-    def make_bundle(self, name, prompt):
+    def make_bundle(self, name: str, prompt: str) -> None:
         if name in self.bundles.root.get():
             MessageBox.error(self, text=f"Bundle \"{name}\" already exists.")
 
@@ -372,14 +388,14 @@ class SettingsBundles(QWidget):
             self.update_tree()
 
 
-    def new_bundle(self):
+    def new_bundle(self) -> None:
         name = self.bundle_name_dialog("")
 
         if name is not None:
             self.make_bundle(name, "")
 
 
-    def new_civitai_lora(self):
+    def new_civitai_lora(self) -> None:
         folder = self.extension.settings.settings.root.value("comfyui_lora_folder", str).get()
 
         if folder == "":
@@ -431,7 +447,7 @@ class SettingsBundles(QWidget):
         self.loading_dialog.show()
 
 
-    def on_civitai_finished(self, info):
+    def on_civitai_finished(self, info: CivitaiInfo) -> None:
         if info.error is None:
             self.make_bundle(info.bundle_name(), info.to_prompt())
             self.loading_dialog.close()
@@ -443,7 +459,7 @@ class SettingsBundles(QWidget):
 
 
     # TODO make this more efficient by using QSortFilterProxyModel
-    def search_bundles(self):
+    def search_bundles(self) -> None:
         text = self.search_box.text().strip()
 
         if text == "":
@@ -457,12 +473,12 @@ class SettingsBundles(QWidget):
             self.tree.filter(compiled)
 
 
-    def update_tree(self):
+    def update_tree(self) -> None:
         self.tree.clear()
 
         root = self.bundles.root
 
-        selected_item = None
+        selected_item: TreeLeaf | None = None
 
         for key in root.get().keys():
             path = key.split("/")
@@ -489,9 +505,9 @@ class SettingsBundles(QWidget):
             self.tree.tree.scrollToItem(selected_item, QAbstractItemView.ScrollHint.EnsureVisible)
 
 
-    def on_changed(self):
+    def on_changed(self) -> None:
         self.update_tree()
 
 
-    def on_show(self):
+    def on_show(self) -> None:
         self.search_box.setFocus()

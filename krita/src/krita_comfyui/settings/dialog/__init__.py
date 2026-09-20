@@ -1,3 +1,4 @@
+from typing import Any, cast
 from PyQt6.QtCore import QUrl, QSize
 from PyQt6.QtGui import QDesktopServices, QGuiApplication, QCursor
 from PyQt6.QtWidgets import (
@@ -7,42 +8,46 @@ from PyQt6.QtWidgets import (
 )
 
 from ...util.qt import MessageBox, LayoutManager
+from ...util.storage import Storage
+from .. import Settings, Workflows
 from .bundles import SettingsBundles
 
 
 class SettingsPresets(QWidget):
-    def __init__(self, presets):
+    def __init__(self, presets: Storage) -> None:
         super().__init__()
 
         self.presets = presets
 
-    def on_changed(self):
+    def on_changed(self) -> None:
         pass
 
-    def on_show(self):
+    def on_show(self) -> None:
         pass
 
 
 class SettingsWorkflows(QWidget):
-    def __init__(self, workflows):
+    def __init__(self, workflows: Workflows) -> None:
         super().__init__()
 
         self.workflows = workflows
 
-    def on_changed(self):
+    def on_changed(self) -> None:
         pass
 
-    def on_show(self):
+    def on_show(self) -> None:
         pass
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, extension, settings):
+    tab_widgets: list[SettingsBundles | SettingsPresets | SettingsWorkflows]
+
+    def __init__(self, extension: "ComfyUIExtension", settings: Settings) -> None:
         super().__init__()
 
         self.extension = extension
         self.settings = settings
-        self.snapshot = None
+        self.snapshot: tuple[Any, ...] | None = None
 
         self.setWindowTitle("Configure Krita ComfyUI")
 
@@ -87,13 +92,13 @@ class SettingsDialog(QDialog):
         self.tab_list.setCurrentRow(0)
 
 
-    def add_menu_tab(self, name):
+    def add_menu_tab(self, name: str) -> None:
         item = QListWidgetItem(name)
         item.setSizeHint(QSize(112, 24))
         self.tab_list.addItem(item)
 
 
-    def show(self):
+    def show(self) -> None:
         self.snapshot = self.settings.snapshot()
 
         size = QSize(1280, 720)
@@ -113,7 +118,7 @@ class SettingsDialog(QDialog):
 
         self.setMinimumSize(size)
 
-        current = self.stack.current_widget()
+        current = cast(SettingsBundles | SettingsPresets | SettingsWorkflows | None, self.stack.current_widget())
 
         if current is not None:
             current.on_show()
@@ -121,7 +126,7 @@ class SettingsDialog(QDialog):
         super().show()
 
 
-    def cancel(self):
+    def cancel(self) -> None:
         assert self.snapshot is not None
 
         if MessageBox.question(self, "Cancel all changes?"):
@@ -136,7 +141,7 @@ class SettingsDialog(QDialog):
             self.close()
 
 
-    def restore_defaults(self):
+    def restore_defaults(self) -> None:
         if MessageBox.question(self, "Are you sure you want to restore all defaults?\n\nThis will delete all your bundles, presets, and workflows!\n\nThis cannot be undone!"):
             self.settings.restore_defaults()
 
@@ -144,10 +149,11 @@ class SettingsDialog(QDialog):
                 widget.on_changed()
 
 
-    def change_menu(self, index):
+    def change_menu(self, index: int) -> None:
         self.stack.set_current_index(index)
-        self.stack.current_widget().on_show()
+        current = cast(SettingsBundles | SettingsPresets | SettingsWorkflows, self.stack.current_widget())
+        current.on_show()
 
 
-    def open_settings_folder(self):
+    def open_settings_folder(self) -> None:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.settings.dir)))

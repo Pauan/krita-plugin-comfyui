@@ -6,14 +6,16 @@ import traceback
 import textwrap
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import ClassVar
+from typing import Any, ClassVar
+from collections.abc import Callable, Generator
 from pathlib import PurePath
 from shared import Perf
 from . import util
-from .settings import LogLevel
+from .settings import LogLevel, Settings
 from .util.krita import Document, Image
 from .workflow.graph import WorkflowGraph
 
+from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QObject, QTimer, QUrl, QUrlQuery, QByteArray, pyqtSignal, pyqtSlot
 from PyQt6.QtWebSockets import QWebSocket
 from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply, QAbstractSocket
@@ -61,7 +63,7 @@ class CivitaiInfo:
     error: Exception | None = None
 
 
-    def update(self, json):
+    def update(self, json: dict[str, Any]) -> None:
         if self.version_id is None:
             self.version_id = json["modelVersions"][0]["id"]
 
@@ -91,7 +93,8 @@ class CivitaiInfo:
                 break
 
 
-    def folder(self) -> str:
+    def folder(self) -> PurePath:
+        assert self.model is not None
         model = self.model.lower()
         category = self.category.lower()
         # TODO test this on Windows
@@ -99,6 +102,8 @@ class CivitaiInfo:
 
 
     def bundle_name(self) -> str:
+        assert self.model is not None
+        assert self.filename is not None
         model = self.model.lower()
         category = self.category.lower()
         filename = PurePath(self.filename).stem
@@ -126,6 +131,7 @@ class CivitaiInfo:
     def to_prompt(self) -> str:
         prompt = [self.to_comment()]
 
+        assert self.model is not None
         model = self.model.lower()
         category = self.category.lower()
         filename = f"{model}/{category}/{self.filename}"
@@ -141,9 +147,9 @@ class CivitaiInfo:
 
 
 class ComfyError:
-    def __init__(self, info):
-        self.main_error = None
-        self.node_errors = []
+    def __init__(self, info: dict[str, Any]) -> None:
+        self.main_error: str | None = None
+        self.node_errors: list[str] = []
 
         main_error = info.get("error", None)
 
@@ -172,12 +178,12 @@ class ComfyError:
                         self.node_errors.append(f"[{class_type}] {message} ({details})")
 
 
-    def has_errors(self):
+    def has_errors(self) -> bool:
         return self.main_error is not None or len(self.node_errors) > 0
 
 
-    def to_string(self):
-        output = []
+    def to_string(self) -> str:
+        output: list[str] = []
 
         if self.main_error is not None:
             output.append(self.main_error)
@@ -195,16 +201,16 @@ class ComfyError:
 
 
 class GraphError:
-    def __init__(self):
+    def __init__(self) -> None:
         super()
         self.message = ""
-        self.node_id = None
-        self.node_name = None
-        self.backtrace = None
+        self.node_id: str | None = None
+        self.node_name: str | None = None
+        self.backtrace: str | None = None
 
 
-    def format(self):
-        message = []
+    def format(self) -> str:
+        message: list[str] = []
 
         if self.node_name is not None:
             message.append("[")
@@ -220,7 +226,7 @@ class GraphError:
 
 
     @staticmethod
-    def from_execution_error(info):
+    def from_execution_error(info: dict[str, Any]) -> "GraphError":
         error = GraphError()
 
         node_name = info["node_type"]
@@ -235,14 +241,14 @@ class GraphError:
 
 
     @staticmethod
-    def from_comfyui_error(comfy_error):
+    def from_comfyui_error(comfy_error: ComfyError) -> "GraphError":
         error = GraphError()
         error.message = comfy_error.to_string()
         return error
 
 
     @staticmethod
-    def from_exception(exception):
+    def from_exception(exception: BaseException) -> "GraphError":
         error = GraphError()
         error.message = str(exception)
         error.backtrace = "".join(traceback.format_exception(exception))
@@ -250,7 +256,7 @@ class GraphError:
 
 
     @staticmethod
-    def from_string(string):
+    def from_string(string: str) -> "GraphError":
         error = GraphError()
         error.message = string
         return error
@@ -264,22 +270,22 @@ class GraphState(Enum):
     Error = auto()
     Cancelled = auto()
 
-    def is_idle(self):
+    def is_idle(self) -> bool:
         return self == GraphState.Idle
 
-    def is_running(self):
+    def is_running(self) -> bool:
         return self == GraphState.Sent or self == GraphState.Executing
 
-    def is_ended(self):
+    def is_ended(self) -> bool:
         return self == GraphState.Done or self == GraphState.Error or self == GraphState.Cancelled
 
-    def is_success(self):
+    def is_success(self) -> bool:
         return self == GraphState.Done
 
-    def is_error(self):
+    def is_error(self) -> bool:
         return self == GraphState.Error
 
-    def status_text(self):
+    def status_text(self) -> str:
         match self:
             case GraphState.Idle: return "Pending"
             case GraphState.Sent | GraphState.Executing: return "Running"
@@ -287,7 +293,7 @@ class GraphState(Enum):
             case GraphState.Error: return "Errored"
             case GraphState.Done: return "Finished"
 
-    def button_icon(self):
+    def button_icon(self) -> QIcon:
         match self:
             case GraphState.Idle:
                 return Krita.icon("media-playback-start")
@@ -300,7 +306,7 @@ class GraphState(Enum):
             case GraphState.Done:
                 return Krita.icon("dialog-ok")
 
-    def status_icon(self):
+    def status_icon(self) -> QIcon:
         match self:
             case GraphState.Idle:
                 return Krita.icon("animation_pause")
@@ -320,10 +326,10 @@ class GraphInfo:
     graph_id: str
     progress: float
     duration: int
-    timestamp: int
+    timestamp: float
     state: GraphState
     error: GraphError | None
-    outputs: list[dict]
+    outputs: list[dict[str, Any]]
     is_live_mode: bool
     should_notify: bool
 
@@ -338,13 +344,13 @@ class ProgressPercent:
     SAMPLE_WEIGHT = 1.0
     NORMAL_WEIGHT = 0.0
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.value = 0.0
         self.max = 1.0
         self.is_sample = False
 
 
-    def update(self, value, max):
+    def update(self, value: float, max: float) -> bool:
         # TODO figure out why some nodes like KritaOutput have an integer value of 1
         is_sample = isinstance(max, int) and max > 1
 
@@ -355,14 +361,14 @@ class ProgressPercent:
         return changed
 
 
-    def percent(self):
+    def percent(self) -> float:
         if self.value == self.max:
             return 1.0
         else:
             return float(self.value) / float(self.max)
 
 
-    def weight(self):
+    def weight(self) -> float:
         if self.is_sample:
             return ProgressPercent.SAMPLE_WEIGHT
         else:
@@ -370,14 +376,14 @@ class ProgressPercent:
 
 
 class PromptProgress:
-    def __init__(self, nodes):
-        self.nodes = {}
+    def __init__(self, nodes: dict[str, Any]) -> None:
+        self.nodes: dict[str, ProgressPercent] = {}
 
         for id in nodes.keys():
             self.nodes[id] = ProgressPercent()
 
 
-    def update(self, id, value, max):
+    def update(self, id: str, value: float, max: float) -> bool:
         node = self.nodes.get(id, None)
 
         if node is None:
@@ -387,12 +393,12 @@ class PromptProgress:
         return node.update(value, max)
 
 
-    def update_done(self, id):
+    def update_done(self, id: str) -> bool:
         node = self.nodes[id]
         return node.update(node.max, node.max)
 
 
-    def percent(self):
+    def percent(self) -> float:
         percent = 0.0
         total_percent = 0.0
 
@@ -412,13 +418,13 @@ class Duration:
     evaluate_duration: int = 0
     execute_start: int | None = None
 
-    def copy(self):
+    def copy(self) -> "Duration":
         return Duration(evaluate_duration=self.evaluate_duration)
 
-    def start(self):
+    def start(self) -> None:
         self.execute_start = time.monotonic_ns()
 
-    def total(self):
+    def total(self) -> int:
         if self.execute_start is None:
             return self.evaluate_duration
         else:
@@ -436,17 +442,17 @@ class Prompt:
     progress: PromptProgress | None
     error: GraphError | None
     duration: Duration
-    outputs: list[dict]
+    outputs: list[dict[str, Any]]
 
     is_live_mode: bool
     should_notify: bool
 
-    graph: dict | None
-    body: str | None
+    graph: dict[str, Any] | None
+    body: bytes | None
 
 
     @staticmethod
-    def from_graph(*, document_id, client_id, graph_id, is_live_mode, should_notify, duration, graph):
+    def from_graph(*, document_id: str, client_id: str, graph_id: str, is_live_mode: bool, should_notify: bool, duration: Duration, graph: dict[str, Any]) -> "Prompt":
         prompt_id = str(uuid.uuid4())
 
         return Prompt(
@@ -471,7 +477,7 @@ class Prompt:
 
 
     @staticmethod
-    def from_error(*, document_id, client_id, graph_id, is_live_mode, should_notify, duration, error):
+    def from_error(*, document_id: str, client_id: str, graph_id: str, is_live_mode: bool, should_notify: bool, duration: Duration, error: GraphError) -> "Prompt":
         return Prompt(
             document_id=document_id,
             client_id=client_id,
@@ -489,33 +495,35 @@ class Prompt:
         )
 
 
-    def add_duration(self, start):
+    def add_duration(self, start: int) -> None:
         diff = time.monotonic_ns() - start
         assert diff >= 0
         self.duration.evaluate_duration += diff
 
 
-    def start(self):
+    def start(self) -> None:
         self.duration.start()
         self.state = GraphState.Sent
 
 
-    def cancel(self):
+    def cancel(self) -> None:
         self.state = GraphState.Cancelled
         self.outputs = []
 
 
-    def set_error(self, error):
+    def set_error(self, error: GraphError) -> None:
         self.state = GraphState.Error
         self.error = error
         self.outputs = []
 
 
-    def graph_info(self):
+    def graph_info(self) -> GraphInfo:
         # Number of milliseconds since the Unix epoch
         timestamp = time.time_ns() / 1000000.0
 
-        if self.state.is_ended():
+        if self.progress is None:
+            progress = 0.0
+        elif self.state.is_ended():
             progress = 1.0
         else:
             progress = self.progress.percent()
@@ -540,7 +548,8 @@ class Prompt:
 
     # Returns a fresh Prompt with the same graph.
     # This is needed for retrying the Prompt in the case of a disconnection.
-    def copy(self):
+    def copy(self) -> "Prompt":
+        assert self.graph is not None
         return Prompt.from_graph(
             document_id=self.document_id,
             client_id=self.client_id,
@@ -562,7 +571,7 @@ class WebsocketClient(QObject):
     error = pyqtSignal(str)
     state_changed = pyqtSignal(ConnectState)
 
-    def __init__(self, parent, url, reconnect_delay):
+    def __init__(self, parent: QObject, url: str, reconnect_delay: int) -> None:
         super().__init__(parent)
 
         self.state = ConnectState.Disconnected
@@ -582,27 +591,27 @@ class WebsocketClient(QObject):
         self.client.connected.connect(self.on_connected)
         self.client.disconnected.connect(self.on_disconnected)
 
-    def _change_state(self, state):
+    def _change_state(self, state: ConnectState) -> None:
         if self.state != state:
             self.state = state
             self.state_changed.emit(self.state)
 
     # WebSocket is connected and active
-    def is_ready(self):
+    def is_ready(self) -> bool:
         return self.should_connect and self.state == ConnectState.Connected
 
     @pyqtSlot()
-    def _open_connection(self):
+    def _open_connection(self) -> None:
         if self.should_connect and self.state == ConnectState.Disconnected:
             self.client.open(QUrl(self.url))
             self._change_state(ConnectState.Connecting)
 
-    def connect(self):
+    def connect(self) -> None:
         if not self.should_connect:
             self.should_connect = True
             self._open_connection()
 
-    def disconnect(self):
+    def disconnect(self) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.should_connect:
             self.should_connect = False
             self.timer.stop()
@@ -610,7 +619,7 @@ class WebsocketClient(QObject):
             self._change_state(ConnectState.Disconnected)
 
     @pyqtSlot()
-    def on_connected(self):
+    def on_connected(self) -> None:
         if self.should_connect:
             assert self.state != ConnectState.Connected
             self._change_state(ConnectState.Connected)
@@ -618,17 +627,17 @@ class WebsocketClient(QObject):
             assert self.state == ConnectState.Disconnected
 
     @pyqtSlot()
-    def on_disconnected(self):
+    def on_disconnected(self) -> None:
         if self.should_connect:
             self.timer.start(self.reconnect_delay)
         self._change_state(ConnectState.Disconnected)
 
     @pyqtSlot(QAbstractSocket.SocketError)
-    def on_error(self, error):
+    def on_error(self, error: QAbstractSocket.SocketError) -> None:
         self.error.emit(self.client.errorString())
 
     @pyqtSlot(str)
-    def on_text_message(self, message):
+    def on_text_message(self, message: str) -> None:
         if self.is_ready():
             self.messages.emit(json.loads(message))
 
@@ -644,7 +653,7 @@ class ComfyUIClient(QObject):
     # thread as ComfyUIClient.
     run_command = pyqtSignal(object)
 
-    def __init__(self, settings, url, reconnect_delay):
+    def __init__(self, settings: Settings, url: str, reconnect_delay: int) -> None:
         super().__init__()
 
         self.client_id = str(uuid.uuid4())
@@ -652,13 +661,13 @@ class ComfyUIClient(QObject):
 
         self.settings = settings
         self.url = url
-        self.queue = []
+        self.queue: list[Prompt] = []
         self.is_websocket_connected = False
 
-        self.pending_danbooru_tags = None
-        self.last_danbooru_id = None
+        self.pending_danbooru_tags: dict[str, dict[str, Any]] | None = None
+        self.last_danbooru_id: int | None = None
 
-        self.pending_civitai = None
+        self.pending_civitai: CivitaiInfo | None = None
 
         self.http = QNetworkAccessManager(self)
         self.http.setAutoDeleteReplies(True)
@@ -673,18 +682,27 @@ class ComfyUIClient(QObject):
 
 
     @pyqtSlot(object)
-    def on_run_command(self, command):
+    def on_run_command(self, command: Callable[[], None]) -> None:
         command()
 
 
-    def request(self, *, url, metadata, username=None, password=None, headers=[], query={}):
-        url = QUrl(url)
+    def request(
+        self,
+        *,
+        url: str | None,
+        metadata: dict[str, Any],
+        username: str | None = None,
+        password: str | None = None,
+        headers: list[tuple[str | QNetworkRequest.KnownHeaders, str]] = [],
+        query: dict[str, str | None] = {},
+    ) -> QNetworkRequest:
+        qurl = QUrl(url)
 
         if username is not None:
-            url.setUserName(username)
+            qurl.setUserName(username)
 
         if password is not None:
-            url.setPassword(password)
+            qurl.setPassword(password)
 
         if len(query) > 0:
             queries = QUrlQuery()
@@ -693,9 +711,9 @@ class ComfyUIClient(QObject):
                 if value is not None:
                     queries.addQueryItem(key, value)
 
-            url.setQuery(queries)
+            qurl.setQuery(queries)
 
-        request = QNetworkRequest(url)
+        request = QNetworkRequest(qurl)
 
         for key, value in headers:
             if isinstance(key, str):
@@ -705,18 +723,18 @@ class ComfyUIClient(QObject):
 
         request.setAttribute(QNetworkRequest.Attribute.User, metadata)
 
-        self.settings.log_str(url.toString(), level=LogLevel.TRACE)
+        self.settings.log_str(qurl.toString(), level=LogLevel.TRACE)
 
         return request
 
 
-    def find_prompt(self, prompt_id):
+    def find_prompt(self, prompt_id: str) -> Prompt | None:
         for prompt in self.queue:
             if prompt.prompt_id == prompt_id:
                 return prompt
 
 
-    def post_prompt(self, prompt):
+    def post_prompt(self, prompt: Prompt) -> None:
         if self.websocket.is_ready():
             request = self.request(
                 url=f"http://{self.url}/prompt",
@@ -731,7 +749,7 @@ class ComfyUIClient(QObject):
             self.http.post(request, QByteArray(prompt.body))
 
 
-    def interrupt_prompt(self, prompt):
+    def interrupt_prompt(self, prompt: Prompt) -> None:
         if self.websocket.is_ready():
             message = {
                 "prompt_id": prompt.prompt_id,
@@ -750,7 +768,7 @@ class ComfyUIClient(QObject):
             self.http.post(request, QByteArray(json.dumps(message).encode("utf-8")))
 
 
-    def execute_queue(self):
+    def execute_queue(self) -> None:
         # We only send HTTP requests when the WebSocket server is connected.
         #
         # If it's not connected, it will automatically call execute_queue
@@ -766,12 +784,12 @@ class ComfyUIClient(QObject):
 
 
     @pyqtSlot(str)
-    def on_websocket_error(self, message):
+    def on_websocket_error(self, message: str) -> None:
         self.settings.log_str(f"WebSocket Error: {message}", level=LogLevel.ERROR)
 
 
     @pyqtSlot(ConnectState)
-    def on_websocket_state_changed(self, state):
+    def on_websocket_state_changed(self, state: ConnectState) -> None:
         if state == ConnectState.Disconnected:
             # When the WebSocket disconnects, we assume that the entire ComfyUI server
             # has died, so we assume that in-progress prompts will never finish,
@@ -779,7 +797,7 @@ class ComfyUIClient(QObject):
             #
             # When the WebSocket reconnects, it will automatically re-run the prompts
             # in the queue.
-            new_queue = []
+            new_queue: list[Prompt] = []
 
             for prompt in self.queue:
                 prompt.cancel()
@@ -797,7 +815,7 @@ class ComfyUIClient(QObject):
         self.update_is_websocket_connected()
 
 
-    def on_prompt_executing(self, prompt_id):
+    def on_prompt_executing(self, prompt_id: str) -> None:
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
@@ -806,7 +824,7 @@ class ComfyUIClient(QObject):
             self.graph_changed.emit(prompt.graph_info())
 
 
-    def on_execution_cached(self, prompt_id, nodes):
+    def on_execution_cached(self, prompt_id: str, nodes: list[str]) -> None:
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
@@ -823,7 +841,7 @@ class ComfyUIClient(QObject):
                 self.graph_changed.emit(prompt.graph_info())
 
 
-    def on_prompt_progress(self, prompt_id, nodes):
+    def on_prompt_progress(self, prompt_id: str, nodes: dict[str, dict[str, Any]]) -> None:
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
@@ -849,7 +867,7 @@ class ComfyUIClient(QObject):
                 self.graph_changed.emit(prompt.graph_info())
 
 
-    def on_prompt_executed(self, prompt_id, output):
+    def on_prompt_executed(self, prompt_id: str, output: dict[str, Any]) -> None:
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
@@ -865,7 +883,7 @@ class ComfyUIClient(QObject):
             self.graph_changed.emit(prompt.graph_info())
 
 
-    def on_prompt_finished(self, prompt_id):
+    def on_prompt_finished(self, prompt_id: str) -> None:
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
@@ -876,7 +894,7 @@ class ComfyUIClient(QObject):
             self.execute_queue()
 
 
-    def on_prompt_error(self, prompt_id, info):
+    def on_prompt_error(self, prompt_id: str, info: dict[str, Any]) -> None:
         prompt = self.find_prompt(prompt_id)
 
         # If the prompt hasn't been reset...
@@ -888,7 +906,7 @@ class ComfyUIClient(QObject):
 
 
     @pyqtSlot(dict)
-    def on_websocket_message(self, message):
+    def on_websocket_message(self, message: dict[str, Any]) -> None:
         self.settings.log_json(message, label="Websocket Message", level=LogLevel.TRACE)
 
         if message["type"] == "execution_start":
@@ -918,8 +936,8 @@ class ComfyUIClient(QObject):
 
 
     @pyqtSlot(QNetworkReply)
-    def on_http_finished(self, reply):
-        error = None
+    def on_http_finished(self, reply: QNetworkReply) -> None:
+        error: str | GraphError | Exception | None = None
         status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
 
         # Standard HTTP error
@@ -1051,7 +1069,7 @@ class ComfyUIClient(QObject):
         reply.deleteLater()
 
 
-    def update_is_websocket_connected(self):
+    def update_is_websocket_connected(self) -> None:
         is_ready = self.websocket.is_ready()
 
         if self.is_websocket_connected != is_ready:
@@ -1060,20 +1078,20 @@ class ComfyUIClient(QObject):
 
 
     @pyqtSlot(result=bool)
-    def is_connected(self):
+    def is_connected(self) -> bool:
         return self.is_websocket_connected
 
 
     @pyqtSlot()
-    def connect(self):
+    def connect(self) -> None:
         self.websocket.connect()
         self.execute_queue()
         self.update_is_websocket_connected()
         #self.update_danbooru_tags()
 
 
-    def disconnect(self):
-        def run():
+    def disconnect(self) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+        def run() -> None:
             self.websocket.disconnect()
             self.update_is_websocket_connected()
 
@@ -1081,11 +1099,11 @@ class ComfyUIClient(QObject):
 
 
     @pyqtSlot(result=list)
-    def current_queue(self):
+    def current_queue(self) -> list[GraphInfo]:
         return [prompt.graph_info() for prompt in self.queue]
 
 
-    def update_node_metadata(self):
+    def update_node_metadata(self) -> None:
         if self.websocket.is_ready():
             self.http.get(self.request(
                 url=f"http://{self.url}/object_info",
@@ -1095,7 +1113,9 @@ class ComfyUIClient(QObject):
             ))
 
 
-    def all_danbooru_aliases(self, tag):
+    def all_danbooru_aliases(self, tag: dict[str, Any]) -> Generator[str]:
+        assert self.pending_danbooru_tags is not None
+
         for alias in tag.get("consequent_aliases", []):
             alias_name = alias["antecedent_name"]
 
@@ -1107,9 +1127,10 @@ class ComfyUIClient(QObject):
                 yield from self.all_danbooru_aliases(sub_tag)
 
 
-    def save_danbooru_tags(self):
+    def save_danbooru_tags(self) -> None:
         try:
-            danbooru_tags = {}
+            assert self.pending_danbooru_tags is not None
+            danbooru_tags: dict[str, dict[str, Any]] = {}
 
             for name, tag in self.pending_danbooru_tags.items():
                 if not name in danbooru_tags:
@@ -1130,7 +1151,7 @@ class ComfyUIClient(QObject):
             self.pending_danbooru_tags = None
 
 
-    def process_danbooru_tags_chunk(self, tags):
+    def process_danbooru_tags_chunk(self, tags: list[dict[str, Any]]) -> None:
         if len(tags) == 0:
             self.save_danbooru_tags()
 
@@ -1139,13 +1160,14 @@ class ComfyUIClient(QObject):
                 self.last_danbooru_id = tag["id"]
 
                 name = tag["name"]
+                assert self.pending_danbooru_tags is not None
                 assert not name in self.pending_danbooru_tags
                 self.pending_danbooru_tags[name] = tag
 
             self.update_danbooru_tags()
 
 
-    def update_danbooru_tags(self):
+    def update_danbooru_tags(self) -> None:
         if self.last_danbooru_id is None:
             assert self.pending_danbooru_tags is None
             self.pending_danbooru_tags = {}
@@ -1175,8 +1197,8 @@ class ComfyUIClient(QObject):
         ))
 
 
-    def download_civitai_lora(self, api_key, folder, host, id, slug, version_id):
-        def run():
+    def download_civitai_lora(self, api_key: str, folder: str, host: str, id: int, slug: str, version_id: int | None) -> None:
+        def run() -> None:
             assert self.pending_civitai is None
 
             self.pending_civitai = CivitaiInfo(
@@ -1198,13 +1220,13 @@ class ComfyUIClient(QObject):
         self.run_command.emit(run)
 
 
-    def cancel_download_civitai(self):
+    def cancel_download_civitai(self) -> None:
         self.pending_civitai = None
 
 
     # Stop executing a specific graph
-    def stop_execute_graph(self, graph_id):
-        def run():
+    def stop_execute_graph(self, graph_id: str) -> None:
+        def run() -> None:
             remove = [prompt for prompt in self.queue if prompt.graph_id == graph_id]
 
             for prompt in remove:
@@ -1223,8 +1245,8 @@ class ComfyUIClient(QObject):
 
 
     # Removes pending prompts which haven't been sent yet
-    def clear_queue_pending(self):
-        def run():
+    def clear_queue_pending(self) -> None:
+        def run() -> None:
             remove = [prompt for prompt in self.queue if prompt.state.is_idle()]
 
             for prompt in remove:
@@ -1238,8 +1260,8 @@ class ComfyUIClient(QObject):
 
 
     # Removes all live mode prompts
-    def clear_queue_live_mode(self):
-        def run():
+    def clear_queue_live_mode(self) -> None:
+        def run() -> None:
             remove = [prompt for prompt in self.queue if prompt.is_live_mode]
 
             for prompt in remove:
@@ -1259,8 +1281,8 @@ class ComfyUIClient(QObject):
 
 
     # Removes all prompts, including prompts that are in progress
-    def clear_queue(self):
-        def run():
+    def clear_queue(self) -> None:
+        def run() -> None:
             if len(self.queue) > 0:
                 old = self.queue
 
@@ -1278,10 +1300,10 @@ class ComfyUIClient(QObject):
         self.run_command.emit(run)
 
 
-    def execute_graph(self, *, graph, ui_values, document, is_live_mode, should_notify):
+    def execute_graph(self, *, graph: dict[str, Any], ui_values: dict[str, Any], document: Document, is_live_mode: bool, should_notify: bool) -> None:
         document_id = document.root_layer().id
 
-        def evaluate_prompt():
+        def evaluate_prompt() -> tuple[bool, Prompt]:
             self.settings.log_json(ui_values, label="UI Values", level=LogLevel.DEBUG)
 
             start_time = time.monotonic_ns()
@@ -1330,7 +1352,7 @@ class ComfyUIClient(QObject):
         #
         # So we do evaluation and execution in a separate thread.
         if is_live_mode:
-            def run():
+            def run() -> None:
                 succeeded, prompt = evaluate_prompt()
 
                 if succeeded:
@@ -1344,7 +1366,7 @@ class ComfyUIClient(QObject):
         else:
             succeeded, prompt = evaluate_prompt()
 
-            def run():
+            def run() -> None:
                 if succeeded:
                     self.queue.append(prompt)
 

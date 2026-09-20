@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import math
+from typing import Any, Protocol, TypeAlias, cast
+from collections.abc import Callable, Generator, Sequence
 from krita import SliderSpinBox, DoubleSliderSpinBox
-from PyQt6.QtCore import QSize, Qt, QTimer, QSortFilterProxyModel, QRegularExpression
-from PyQt6.QtGui import QAction, QTextCursor, QTextOption, QFontMetricsF
+from PyQt6.QtCore import QAbstractItemModel, QSize, Qt, QTimer, QSortFilterProxyModel, QRegularExpression
+from PyQt6.QtGui import QAction, QTextCursor, QTextOption, QFontMetricsF, QKeyEvent, QWheelEvent
 from PyQt6.QtWidgets import (
     QWidget,
     QFrame,
@@ -13,10 +17,21 @@ from PyQt6.QtWidgets import (
 from shared import MIN_INTEGER, MAX_INTEGER, MIN_SEED, MAX_SEED
 from ..util.qt import MessageBox, BlockSignals, LayoutManager, ComboBox, BooleanSwitch, BlockMouseWheel, BlockKeyUpDown
 from ..util import number_of_lines, lerp, normalize, clamp
+from ..util.storage import Listener, PathDict, PathValue, List, Index
+from ..util.qt import Layout
+from ..settings import Settings
 from .graph import WorkflowGraph
 
 
-def get_default(defaults, id, default):
+JsonDict: TypeAlias = dict[str, Any]
+Defaults: TypeAlias = dict[str, list[Any]]
+
+
+class SyncWidget(Protocol):
+    def sync(self) -> None: ...
+
+
+def get_default(defaults: Defaults, id: str, default: Any) -> Any:
     try:
         info = defaults[id]
 
@@ -32,7 +47,9 @@ def get_default(defaults, id, default):
         return default
 
 
-def get_value(workflow, storage, defaults, id):
+def get_value(workflow: Workflow, storage: PathDict, defaults: Defaults, id: str) -> PathValue[Any]:
+    assert workflow.metadata is not None
+
     metadata = workflow.metadata[id]
 
     id = metadata["id"]
@@ -41,13 +58,13 @@ def get_value(workflow, storage, defaults, id):
 
 
 class InputEqual:
-    def __init__(self, input, value):
+    def __init__(self, input: PathValue[Any], value: Any) -> None:
         self.input = input
         self.value = value
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json, name):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict, name: str) -> list[InputEqual]:
         info = json.get(name, None)
 
         if info is not None:
@@ -59,29 +76,29 @@ class InputEqual:
         return []
 
 
-    def is_equal(self):
+    def is_equal(self) -> bool:
         return self.input.get() == self.value
 
 
-    def when_equal(self, f):
+    def when_equal(self, f: Callable[[bool], None]) -> Listener:
         return self.input.with_value(lambda value: f(value == self.value))
 
 
 class Inputs:
-    def __init__(self, value, *, enabled_if, visible_if):
+    def __init__(self, value: PathValue[Any] | None, *, enabled_if: list[InputEqual], visible_if: list[InputEqual]) -> None:
         super().__init__()
-        self.value = value
+        self.value = cast(PathValue[Any], value)
         self.enabled_if = enabled_if
         self.visible_if = visible_if
-        self.listeners = []
+        self.listeners: list[Listener] = []
 
 
-    def stop(self):
+    def stop(self) -> None:
         for listener in self.listeners:
             listener.stop()
 
 
-    def format_tooltip(self, tooltip):
+    def format_tooltip(self, tooltip: str | None) -> str:
         if tooltip is None:
             return ""
         elif tooltip == "":
@@ -90,43 +107,43 @@ class Inputs:
             return f"[{self.value.key()}]\n{tooltip}"
 
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return (
             all([enabled_if.is_equal() for enabled_if in self.enabled_if]) and
             all([visible_if.is_equal() for visible_if in self.visible_if])
         )
 
 
-    def apply_to_widget(self, widget, tooltip):
+    def apply_to_widget(self, widget: QWidget, tooltip: str | None) -> None:
         for visible_if in self.visible_if:
             self.listeners.append(visible_if.when_equal(Visibility(widget).set_visible))
 
         for enabled_if in self.enabled_if:
             self.listeners.append(enabled_if.when_equal(widget.setEnabled))
 
-        if self.value is not None:
+        if self.value is not None:  # pyright: ignore[reportUnnecessaryComparison]
             if tooltip is not None:
                 widget.setToolTip(self.format_tooltip(tooltip))
 
-            self.listeners.append(self.value.add_listener(widget.sync))
+            self.listeners.append(self.value.add_listener(cast(SyncWidget, widget).sync))
 
 
 # If we call `widget.setVisible(True)` it will cause
 # really bad flickering, so we use this class to avoid
 # calling `widget.setVisible(True)` unless needed.
 class Visibility:
-    def __init__(self, widget):
+    def __init__(self, widget: QWidget) -> None:
         self.widget = widget
         self.is_visible = True
 
-    def set_visible(self, visible):
+    def set_visible(self, visible: bool) -> None:
         if self.is_visible != visible:
             self.is_visible = visible
             self.widget.setVisible(visible)
 
 
 class UiCombo(ComboBox):
-    def __init__(self, *, value, is_default, visible_if, enabled_if, tooltip, options):
+    def __init__(self, *, value: PathValue[str], is_default: bool, visible_if: list[InputEqual], enabled_if: list[InputEqual], tooltip: str | None, options: list[JsonDict]) -> None:
         super().__init__()
 
         self.is_default = is_default
@@ -140,7 +157,7 @@ class UiCombo(ComboBox):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiCombo:
         return UiCombo(
             value=get_value(workflow, storage, defaults, json["id"]),
             is_default=json.get("is_default", False),
@@ -151,14 +168,14 @@ class UiCombo(ComboBox):
         )
 
 
-    def current_value(self):
+    def current_value(self) -> str:
         selected = self.currentData()
         assert selected is not None
         assert isinstance(selected, str)
         return selected
 
 
-    def current_option(self):
+    def current_option(self) -> JsonDict | None:
         value = self.current_value()
 
         for option in self.options:
@@ -171,11 +188,11 @@ class UiCombo(ComboBox):
         return None
 
 
-    def on_changed(self):
+    def on_changed(self) -> None:
         self.inputs.value.set(self.current_value())
 
 
-    def sync(self):
+    def sync(self) -> None:
         selected_value = self.inputs.value.get()
 
         if selected_value == "":
@@ -191,7 +208,7 @@ class UiCombo(ComboBox):
                 self.setCurrentIndex(index)
 
 
-    def set_options(self, options):
+    def set_options(self, options: list[JsonDict]) -> None:
         self.options = options
 
         with BlockSignals(self):
@@ -216,7 +233,7 @@ class UiCombo(ComboBox):
 
 class UiLayerId(UiCombo):
     @staticmethod
-    def from_json(workflow, storage, defaults, json, options):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict, options: list[JsonDict]) -> UiLayerId:  # pyright: ignore[reportIncompatibleMethodOverride]
         return UiLayerId(
             value=get_value(workflow, storage, defaults, json["id"]),
             is_default=json.get("is_default", False),
@@ -228,7 +245,7 @@ class UiLayerId(UiCombo):
 
 
 class UiBoolean(QWidget):
-    def __init__(self, *, value, is_default, reset_to_default, visible_if, enabled_if, tooltip, label, style):
+    def __init__(self, *, value: PathValue[bool], is_default: bool, reset_to_default: bool, visible_if: list[InputEqual], enabled_if: list[InputEqual], tooltip: str | None, label: str | None, style: str | None) -> None:
         super().__init__()
 
         if style is None:
@@ -259,7 +276,7 @@ class UiBoolean(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiBoolean:
         return UiBoolean(
             value=get_value(workflow, storage, defaults, json["id"]),
             is_default=json.get("is_default", False),
@@ -272,11 +289,11 @@ class UiBoolean(QWidget):
         )
 
 
-    def sync(self):
+    def sync(self) -> None:
         self.checkbox.setChecked(self.inputs.value.get())
 
 
-    def on_changed(self):
+    def on_changed(self) -> None:
         is_checked = self.checkbox.isChecked()
 
         if self.reset_to_default and self.inputs.value.default() == is_checked:
@@ -286,7 +303,7 @@ class UiBoolean(QWidget):
 
 
 class UiSeed(QWidget):
-    def __init__(self, *, enabled, value, is_default, visible_if, enabled_if):
+    def __init__(self, *, enabled: PathValue[bool], value: PathValue[int], is_default: bool, visible_if: list[InputEqual], enabled_if: list[InputEqual]) -> None:
         super().__init__()
 
         self.is_default = is_default
@@ -339,12 +356,12 @@ class UiSeed(QWidget):
                 self.inputs.listeners.append(enabled_input.when_equal(button.setEnabled))
 
 
-    def generate_random_seed(self):
+    def generate_random_seed(self) -> None:
         self.value.set(WorkflowGraph.random_seed())
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiSeed:
         return UiSeed(
             enabled=storage.value("seed/fixed", bool, default=get_default(defaults, "seed/fixed", False)),
             value=storage.value("seed/seed", int, default=get_default(defaults, "seed/seed", 0)),
@@ -356,7 +373,7 @@ class UiSeed(QWidget):
 
 
 class UiString(QLineEdit):
-    def __init__(self, *, value, is_default, visible_if, enabled_if, placeholder, tooltip):
+    def __init__(self, *, value: PathValue[str], is_default: bool, visible_if: list[InputEqual], enabled_if: list[InputEqual], placeholder: str | None, tooltip: str | None) -> None:
         super().__init__()
 
         self.is_default = is_default
@@ -373,7 +390,7 @@ class UiString(QLineEdit):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiString | UiStringMultiline:
         multiline = json.get("multiline", False)
 
         if multiline:
@@ -401,7 +418,7 @@ class UiString(QLineEdit):
             )
 
 
-    def sync(self):
+    def sync(self) -> None:
         text = self.inputs.value.get()
 
         if text != self.text():
@@ -409,12 +426,12 @@ class UiString(QLineEdit):
                 self.setText(text)
 
 
-    def on_changed(self):
+    def on_changed(self) -> None:
         self.inputs.value.set(self.text())
 
 
 class UiStringMultiline(QPlainTextEdit):
-    def __init__(self, *, value, is_default, visible_if, enabled_if, background_color, placeholder, tooltip, min_lines, max_lines, auto_resize):
+    def __init__(self, *, value: PathValue[str], is_default: bool, visible_if: list[InputEqual], enabled_if: list[InputEqual], background_color: str | None, placeholder: str | None, tooltip: str | None, min_lines: int | None, max_lines: int | None, auto_resize: bool) -> None:
         super().__init__()
 
         if min_lines is None:
@@ -460,7 +477,7 @@ class UiStringMultiline(QPlainTextEdit):
         self.sync()
 
 
-    def sync(self):
+    def sync(self) -> None:
         text = self.inputs.value.get()
 
         self.resize(text)
@@ -470,44 +487,45 @@ class UiStringMultiline(QPlainTextEdit):
                 self.setPlainText(text)
 
 
-    def get_pixel_height(self, lines):
+    def get_pixel_height(self, lines: int) -> int:
         metrics = QFontMetricsF(self.document().defaultFont())
         return math.ceil(metrics.lineSpacing() * (lines + 1))
 
 
-    def resize(self, text):
+    def resize(self, text: str) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         if self.auto_resize:
             lines = max(self.min_lines, min(number_of_lines(text) + 1, self.max_lines))
             self.setFixedHeight(self.get_pixel_height(lines))
 
 
-    def keyPressEvent(self, event):
-        match event.key():
-            # This prevents it from tabbing to the next widget.
-            case Qt.Key.Key_Tab:
-                event.accept()
-                return
+    def keyPressEvent(self, e: QKeyEvent | None) -> None:
+        if e is not None:
+            match e.key():
+                # This prevents it from tabbing to the next widget.
+                case Qt.Key.Key_Tab:
+                    e.accept()
+                    return
 
-        super().keyPressEvent(event)
+        super().keyPressEvent(e)
 
 
-    def on_changed(self):
+    def on_changed(self) -> None:
         self.inputs.value.set(self.toPlainText())
 
 
-    def wheelEvent(self, event):
-        super().wheelEvent(event)
+    def wheelEvent(self, e: QWheelEvent | None) -> None:
+        super().wheelEvent(e)
 
         scrollbar = self.verticalScrollBar()
 
         # If we have a vertical scrollbar, then this prevents the mouse wheel
         # from scrolling the parent, now it will only scroll the text box.
-        if scrollbar is not None and scrollbar.isVisible():
-            event.accept()
+        if e is not None and scrollbar is not None and scrollbar.isVisible():
+            e.accept()
 
 
 class DanbooruCompleter(QCompleter):
-    def __init__(self, parent, model):
+    def __init__(self, parent: QWidget, model: QAbstractItemModel) -> None:
         super().__init__(parent)
 
         self.filter = BlockKeyUpDown(self, parent)
@@ -528,13 +546,15 @@ class DanbooruCompleter(QCompleter):
         self.setWrapAround(False)
         self.setWidget(parent)
 
-    def splitPath(self, path):
-        self.model().setFilterRegularExpression(rf"^[^➜]*{QRegularExpression.escape(path)}")
+    def splitPath(self, path: str | None) -> list[str]:
+        model = cast(QSortFilterProxyModel, self.model())
+        path = path or ""
+        model.setFilterRegularExpression(rf"^[^➜]*{QRegularExpression.escape(path)}")
         return []
 
 
 class BundlesCompleter(QCompleter):
-    def __init__(self, parent, model):
+    def __init__(self, parent: QWidget, model: QAbstractItemModel) -> None:
         super().__init__(parent)
 
         self.filter = BlockKeyUpDown(self, parent)
@@ -555,8 +575,10 @@ class BundlesCompleter(QCompleter):
         self.setWrapAround(False)
         self.setWidget(parent)
 
-    def splitPath(self, path):
-        self.model().setFilterRegularExpression(r".*/.*".join([
+    def splitPath(self, path: str | None) -> list[str]:
+        model = cast(QSortFilterProxyModel, self.model())
+        path = path or ""
+        model.setFilterRegularExpression(r".*/.*".join([
             QRegularExpression.escape(x.strip())
             for x
             in path.split("/")
@@ -567,20 +589,20 @@ class BundlesCompleter(QCompleter):
 class UiPrompt(UiStringMultiline):
     def __init__(
         self, *,
-        value,
-        is_default,
-        visible_if,
-        enabled_if,
-        background_color,
-        placeholder,
-        tooltip,
-        min_lines,
-        max_lines,
-        auto_resize,
+        value: PathValue[str],
+        is_default: bool,
+        visible_if: list[InputEqual],
+        enabled_if: list[InputEqual],
+        background_color: str | None,
+        placeholder: str | None,
+        tooltip: str | None,
+        min_lines: int | None,
+        max_lines: int | None,
+        auto_resize: bool,
         # New arguments
-        settings,
-        autocomplete,
-    ):
+        settings: Settings,
+        autocomplete: bool | None,
+    ) -> None:
         if placeholder is None:
             placeholder = "Prompt..."
 
@@ -618,7 +640,7 @@ class UiPrompt(UiStringMultiline):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json, settings):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict, settings: Settings) -> UiPrompt:  # pyright: ignore[reportIncompatibleMethodOverride]
         return UiPrompt(
             value=get_value(workflow, storage, defaults, json["id"]),
             is_default=json.get("is_default", False),
@@ -638,12 +660,12 @@ class UiPrompt(UiStringMultiline):
     # These characters are valid in danbooru tags
     # https://danbooru.donmai.us/wiki_pages/help:tags
     @staticmethod
-    def is_danbooru_character(char):
+    def is_danbooru_character(char: str) -> bool:
         return char in r"""!"#$%&'()+-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~"""
 
 
     @classmethod
-    def find_tag_start(cls, text, cursor_index):
+    def find_tag_start(cls, text: str, cursor_index: int) -> int:
         for index in reversed(range(0, cursor_index)):
             if not cls.is_danbooru_character(text[index]):
                 return index + 1
@@ -651,7 +673,7 @@ class UiPrompt(UiStringMultiline):
 
 
     @classmethod
-    def find_tag_end(cls, text, cursor_index):
+    def find_tag_end(cls, text: str, cursor_index: int) -> int:
         length = len(text)
 
         for index in range(cursor_index, length):
@@ -661,7 +683,7 @@ class UiPrompt(UiStringMultiline):
         return length
 
 
-    def find_tag_boundary(self, text, cursor):
+    def find_tag_boundary(self, text: str, cursor: QTextCursor) -> tuple[int, int]:
         cursor_index = cursor.position()
 
         return (
@@ -670,7 +692,7 @@ class UiPrompt(UiStringMultiline):
         )
 
 
-    def hide_completer(self):
+    def hide_completer(self) -> None:
         if self.completer.popup().isVisible():
             self.completer.popup().hide()
 
@@ -678,7 +700,7 @@ class UiPrompt(UiStringMultiline):
             self.completer.setCompletionPrefix("")
 
 
-    def show_completer(self, start):
+    def show_completer(self, start: int) -> None:
         popup_width = self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width()
 
         cursor = self.textCursor()
@@ -690,7 +712,7 @@ class UiPrompt(UiStringMultiline):
         self.completer.complete(rect)
 
 
-    def on_autocomplete(self, tag_name):
+    def on_autocomplete(self, tag_name: str) -> None:
         if self.completer is not None:
             tag_name = tag_name.split("  ➜  ")[-1]
 
@@ -712,7 +734,7 @@ class UiPrompt(UiStringMultiline):
                 self.hide_completer()
 
 
-    def should_hide_completer(self, prefix):
+    def should_hide_completer(self, prefix: str) -> bool:
         if len(prefix) < self.minimum_characters:
             return True
         else:
@@ -723,7 +745,7 @@ class UiPrompt(UiStringMultiline):
         return False
 
 
-    def on_timer(self):
+    def on_timer(self) -> None:
         if self.completer is not None:
             text = self.toPlainText()
 
@@ -741,7 +763,7 @@ class UiPrompt(UiStringMultiline):
                 self.show_completer(start)
 
 
-    def maybe_show_completer(self):
+    def maybe_show_completer(self) -> None:
         if self.completer is not None:
             text = self.inputs.value.get()
 
@@ -755,39 +777,40 @@ class UiPrompt(UiStringMultiline):
                 self.timer.start()
 
 
-    def on_changed(self):
+    def on_changed(self) -> None:
         super().on_changed()
         self.maybe_show_completer()
 
 
-    def keyPressEvent(self, event):
-        match event.key():
-            case Qt.Key.Key_Up | Qt.Key.Key_Down | Qt.Key.Key_Left | Qt.Key.Key_Right:
-                if self.completer is not None:
-                    self.hide_completer()
+    def keyPressEvent(self, e: QKeyEvent | None) -> None:
+        if e is not None:
+            match e.key():
+                case Qt.Key.Key_Up | Qt.Key.Key_Down | Qt.Key.Key_Left | Qt.Key.Key_Right:
+                    if self.completer is not None:
+                        self.hide_completer()
 
-            # This allows the completer to handle these keys.
-            case Qt.Key.Key_Escape:
-                event.ignore()
-                return
-
-            case Qt.Key.Key_Tab:
-                # If the completer is visible, let it handle Tab.
-                if self.completer.popup().isVisible():
-                    event.ignore()
+                # This allows the completer to handle these keys.
+                case Qt.Key.Key_Escape:
+                    e.ignore()
                     return
 
-                # If the completer is invisible, show the completer.
-                else:
-                    self.maybe_show_completer()
-                    event.accept()
-                    return
+                case Qt.Key.Key_Tab:
+                    # If the completer is visible, let it handle Tab.
+                    if self.completer is not None and self.completer.popup().isVisible():
+                        e.ignore()
+                        return
 
-        super().keyPressEvent(event)
+                    # If the completer is invisible, show the completer.
+                    else:
+                        self.maybe_show_completer()
+                        e.accept()
+                        return
+
+        super().keyPressEvent(e)
 
 
 class UiGroup(QWidget):
-    def __init__(self, *, value, is_default, visible_if, enabled_if, label, indent):
+    def __init__(self, *, value: PathValue[bool], is_default: bool, visible_if: list[InputEqual], enabled_if: list[InputEqual], label: str | None, indent: bool | None) -> None:
         super().__init__()
 
         if label is None:
@@ -838,7 +861,7 @@ class UiGroup(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiGroup:
         return UiGroup(
             value=get_value(workflow, storage, defaults, json["id"]),
             is_default=json.get("is_default", False),
@@ -849,7 +872,7 @@ class UiGroup(QWidget):
         )
 
 
-    def sync(self):
+    def sync(self) -> None:
         checked = self.inputs.value.get()
 
         with BlockSignals(self.toggle_button):
@@ -868,7 +891,7 @@ class UiGroup(QWidget):
             self.container.setVisible(False)
 
 
-    def on_toggled(self, checked):
+    def on_toggled(self, checked: bool) -> None:
         if self.inputs.value.default() == checked:
             self.inputs.value.remove()
         else:
@@ -876,7 +899,7 @@ class UiGroup(QWidget):
 
 
 class UiLabel(QLabel):
-    def __init__(self, *, visible_if, label, tooltip):
+    def __init__(self, *, visible_if: list[InputEqual], label: str | None, tooltip: str | None) -> None:
         super().__init__()
 
         if label is not None:
@@ -891,7 +914,7 @@ class UiLabel(QLabel):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiLabel:
         return UiLabel(
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
             label=json.get("label", None),
@@ -900,7 +923,7 @@ class UiLabel(QLabel):
 
 
 class UiRow(QWidget):
-    def __init__(self, *, visible_if):
+    def __init__(self, *, visible_if: list[InputEqual]) -> None:
         super().__init__()
 
         self.is_default = False
@@ -915,14 +938,14 @@ class UiRow(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiRow:
         return UiRow(
             visible_if=InputEqual.from_json(workflow, storage, defaults, json, "visible_if"),
         )
 
 
 class UiFloat(QWidget):
-    def __init__(self, *, value, is_default, visible_if, enabled_if, slider, tooltip, min, max, step, decimals, multiplier, prefix, suffix):
+    def __init__(self, *, value: PathValue[float], is_default: bool, visible_if: list[InputEqual], enabled_if: list[InputEqual], slider: bool | None, tooltip: str | None, min: float | None, max: float | None, step: float | None, decimals: int | None, multiplier: float | None, prefix: str | None, suffix: str | None) -> None:
         super().__init__()
 
         if min is None:
@@ -1002,7 +1025,7 @@ class UiFloat(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiFloat:
         return UiFloat(
             value=get_value(workflow, storage, defaults, json["id"]),
             is_default=json.get("is_default", False),
@@ -1021,7 +1044,7 @@ class UiFloat(QWidget):
 
 
     @staticmethod
-    def from_json_percentage(workflow, storage, defaults, json):
+    def from_json_percentage(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiFloat:
         return UiFloat(
             value=get_value(workflow, storage, defaults, json["id"]),
             is_default=json.get("is_default", False),
@@ -1039,18 +1062,18 @@ class UiFloat(QWidget):
         )
 
 
-    def sync(self):
+    def sync(self) -> None:
         with BlockSignals(self.value_widget):
             display_value = round(clamp(self.inputs.value.get(), self.min, self.max) * self.multiplier, self.decimals)
             self.value_widget.setValue(display_value)
 
 
-    def get_real_value(self):
+    def get_real_value(self) -> float:
         value = round(self.value_widget.value(), self.decimals) / self.multiplier
         return clamp(value, self.min, self.max)
 
 
-    def clamp_to_step(self):
+    def clamp_to_step(self) -> float:
         value = self.get_real_value()
 
         # Rounds to the nearest step
@@ -1071,11 +1094,11 @@ class UiFloat(QWidget):
     # Normally the valueChanged event handles clamping, but in the rare
     # (impossible?) situation where the draggingFinished event triggers
     # before the valueChanged event, we do some extra clamping in here.
-    def on_drag_end(self):
+    def on_drag_end(self) -> None:
         self.clamp_to_step()
 
 
-    def on_value_changed(self, _):
+    def on_value_changed(self, _: float) -> None:
         # We want to clamp the value while dragging, but the draggingFinished event
         # only triggers when the dragging is ended, so we have to clamp in here.
         if self.slider is not None and self.slider.isDragging():
@@ -1088,7 +1111,7 @@ class UiFloat(QWidget):
 
 
 class UiInt(QWidget):
-    def __init__(self, *, value, is_default, visible_if, enabled_if, slider, tooltip, min, max, step, prefix, suffix):
+    def __init__(self, *, value: PathValue[int], is_default: bool, visible_if: list[InputEqual], enabled_if: list[InputEqual], slider: bool | None, tooltip: str | None, min: int | None, max: int | None, step: int | None, prefix: str | None, suffix: str | None) -> None:
         super().__init__()
 
         if min is None:
@@ -1165,7 +1188,7 @@ class UiInt(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict) -> UiInt:
         return UiInt(
             value=get_value(workflow, storage, defaults, json["id"]),
             is_default=json.get("is_default", False),
@@ -1181,16 +1204,16 @@ class UiInt(QWidget):
         )
 
 
-    def sync(self):
+    def sync(self) -> None:
         with BlockSignals(self.value_widget):
             self.value_widget.setValue(float(clamp(self.inputs.value.get(), self.min, self.max)))
 
 
-    def get_real_value(self):
+    def get_real_value(self) -> int:
         return clamp(int(self.value_widget.value()), self.min, self.max)
 
 
-    def clamp_to_step(self):
+    def clamp_to_step(self) -> int:
         value = self.get_real_value()
 
         # Rounds to the nearest step
@@ -1207,11 +1230,11 @@ class UiInt(QWidget):
     # Normally the valueChanged event handles clamping, but in the rare
     # (impossible?) situation where the draggingFinished event triggers
     # before the valueChanged event, we do some extra clamping in here.
-    def on_drag_end(self):
+    def on_drag_end(self) -> None:
         self.clamp_to_step()
 
 
-    def on_value_changed(self, _):
+    def on_value_changed(self, _: float) -> None:
         # We want to clamp the value while dragging, but the draggingFinished event
         # only triggers when the dragging is ended, so we have to clamp in here.
         if self.slider is not None and self.slider.isDragging():
@@ -1225,7 +1248,7 @@ class UiInt(QWidget):
 
 
 class UiListChild(QFrame):
-    def __init__(self, list, index):
+    def __init__(self, list: UiList, index: int) -> None:
         super().__init__()
 
         self.list = list
@@ -1260,26 +1283,26 @@ class UiListChild(QFrame):
                 self.layout = column
 
 
-    def update_buttons(self):
+    def update_buttons(self) -> None:
         self.move_up_button.setEnabled(self.index > 0)
         self.move_down_button.setEnabled(self.index < (len(self.list.children) - 1))
 
 
-    def move_up(self):
+    def move_up(self) -> None:
         self.list.move_child_up(self.index)
 
-    def move_down(self):
+    def move_down(self) -> None:
         self.list.move_child_down(self.index)
 
 
-    def remove(self):
+    def remove(self) -> None:
         if MessageBox.question(self, "Are you sure you want to delete?"):
             self.list.remove_child(self.index)
 
 
 # TODO it should sync when the values changes
 class UiList(QWidget):
-    def __init__(self, *, values, visible_if, enabled_if, label, trigger_refresh):
+    def __init__(self, *, values: List, visible_if: list[InputEqual], enabled_if: list[InputEqual], label: str | None, trigger_refresh: Callable[[], None]) -> None:
         super().__init__()
 
         self.is_default = False
@@ -1291,7 +1314,7 @@ class UiList(QWidget):
         self.label = label
         self.trigger_refresh = trigger_refresh
 
-        self.children = []
+        self.children: list[UiListChild] = []  # pyright: ignore[reportIncompatibleMethodOverride]
 
         self.layout_manager = LayoutManager(self)
 
@@ -1300,7 +1323,7 @@ class UiList(QWidget):
 
 
     @staticmethod
-    def from_json(workflow, storage, defaults, json, trigger_refresh):
+    def from_json(workflow: Workflow, storage: PathDict, defaults: Defaults, json: JsonDict, trigger_refresh: Callable[[], None]) -> UiList:
         return UiList(
             values=storage.list(json["id"]),
             label=json.get("label", None),
@@ -1312,24 +1335,24 @@ class UiList(QWidget):
         )
 
 
-    def move_child_up(self, index):
+    def move_child_up(self, index: int) -> None:
         self.values.move(index, index - 1)
         self.trigger_refresh()
 
-    def move_child_down(self, index):
+    def move_child_down(self, index: int) -> None:
         self.values.move(index, index + 1)
         self.trigger_refresh()
 
-    def remove_child(self, index):
+    def remove_child(self, index: int) -> None:
         self.values.remove(index)
         self.trigger_refresh()
 
-    def add_child(self):
+    def add_child(self) -> None:
         self.values.append({})
         self.trigger_refresh()
 
 
-    def make_children(self):
+    def make_children(self) -> Generator[tuple[Index, Layout]]:
         for index in range(len(self.values.get())):
             if index == 0:
                 self.layout.spacer(2)
