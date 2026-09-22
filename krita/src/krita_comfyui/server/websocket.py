@@ -25,12 +25,13 @@ class WebsocketWorker(QObject):
     @pyqtSlot()
     def connect(self):
         try:
-            ws = connect(self.url)
+            ws = connect(self.url, max_size=None)
 
             self.connected.emit()
 
             for message in ws:
-                self.on_message.emit(message)
+                if isinstance(message, str):
+                    self.on_message.emit(message)
 
         except Exception as e:
             self.on_error.emit(str(e))
