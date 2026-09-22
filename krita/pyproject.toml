@@ -12,6 +12,7 @@ dependencies = [
     "pillow>=12.3.0",
     "qimage2ndarray>=1.10.0",
     "simpleeval>=1.0.7",
+    "websockets>=17.1",
 ]
 
 [dependency-groups]
